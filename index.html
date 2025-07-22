@@ -64,6 +64,12 @@
             animation: buttonPulse 1s infinite;
         }
         
+        @keyframes buttonPulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        
         #map {
             flex: 1;
             position: relative;
@@ -176,33 +182,6 @@
             font-size: 14px;
         }
         
-        @keyframes buttonPulse {
-            0% { transform: scale(1); }
-            50% { transform: scale(1.05); }
-            100% { transform: scale(1); }
-        }
-        
-        .landing-marker {
-            position: absolute;
-            width: 30px;
-            height: 30px;
-            background: #ff6b6b;
-            border: 3px solid white;
-            border-radius: 50%;
-            transform: translate(-50%, -50%);
-            z-index: 999;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
-        }
-        
-        .landing-marker::after {
-            content: '🎯';
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            font-size: 12px;
-        }
-        
         .altitude-indicator {
             position: absolute;
             top: 80px;
@@ -248,12 +227,12 @@
     <div class="container">
         <div class="header">
             <h1 class="title">🏀 遠投の旅 - Google Maps版</h1>
-            <button class="header-btn" id="startBtn" onclick="requestPermission()" disabled>
-                位置情報を取得中...
+            <button class="header-btn" id="startBtn" onclick="startApp()">
+                位置情報とセンサーを有効にする
             </button>
         </div>
         
-        <div id="loading" class="loading">
+        <div id="loading" class="loading" style="display: none;">
             Google Maps を読み込み中...
         </div>
         
@@ -269,7 +248,7 @@
         </div>
         
         <div class="info-panel">
-            <div class="status" id="status">位置情報を取得中...</div>
+            <div class="status" id="status">位置情報とデバイスセンサーの許可が必要です</div>
             
             <div class="info-row">
                 <span>方角:</span>
@@ -286,9 +265,7 @@
             <div class="info-row">
                 <span>距離:</span>
                 <span id="distance">0m</span>
-            <button class="start-btn" id="startBtn" onclick="requestPermission()" disabled>
-                位置情報を取得中...
-            </button>
+            </div>
         </div>
     </div>
 
@@ -324,20 +301,34 @@
                 this.countdownTimer = null;
                 this.countdownElement = null;
                 
-                this.init();
+                this.updateStatus('位置情報とデバイスセンサーの許可が必要です');
             }
             
-            async init() {
+            async startApp() {
+                const startBtn = document.getElementById('startBtn');
+                startBtn.disabled = true;
+                startBtn.textContent = '許可を取得中...';
+                
                 try {
+                    // 位置情報の取得
+                    this.updateStatus('位置情報を取得しています...');
                     await this.getCurrentPosition();
-                    await this.initMap();
-                    this.updateStatus('センサー許可を取得してください');
                     
-                    const startBtn = document.getElementById('startBtn');
-                    startBtn.disabled = false;
-                    startBtn.textContent = 'センサー許可を取得';
+                    // Google Maps の初期化
+                    this.updateStatus('地図を読み込んでいます...');
+                    await this.initMap();
+                    
+                    // センサー許可の取得
+                    this.updateStatus('デバイスセンサーの許可を取得しています...');
+                    await this.requestSensorPermission();
+                    
+                    this.setupComplete();
+                    
                 } catch (error) {
-                    this.showError('位置情報の取得に失敗しました: ' + error.message);
+                    console.error('Setup error:', error);
+                    this.showError('初期化に失敗しました: ' + error.message);
+                    startBtn.disabled = false;
+                    startBtn.textContent = '再試行';
                 }
             }
             
@@ -348,6 +339,12 @@
                         return;
                     }
                     
+                    const options = {
+                        enableHighAccuracy: true,
+                        timeout: 15000,
+                        maximumAge: 300000
+                    };
+                    
                     navigator.geolocation.getCurrentPosition(
                         (position) => {
                             this.currentPosition = {
@@ -355,22 +352,33 @@
                                 lng: position.coords.longitude
                             };
                             this.startPosition = { ...this.currentPosition };
+                            console.log('Position obtained:', this.currentPosition);
                             resolve(position);
                         },
                         (error) => {
-                            reject(new Error('位置情報の取得に失敗: ' + error.message));
+                            let errorMsg = '位置情報の取得に失敗しました';
+                            switch(error.code) {
+                                case error.PERMISSION_DENIED:
+                                    errorMsg = '位置情報の許可が拒否されました';
+                                    break;
+                                case error.POSITION_UNAVAILABLE:
+                                    errorMsg = '位置情報が利用できません';
+                                    break;
+                                case error.TIMEOUT:
+                                    errorMsg = '位置情報の取得がタイムアウトしました';
+                                    break;
+                            }
+                            reject(new Error(errorMsg));
                         },
-                        {
-                            enableHighAccuracy: true,
-                            timeout: 10000,
-                            maximumAge: 60000
-                        }
+                        options
                     );
                 });
             }
             
             async initMap() {
-                // Google Maps APIを動的に読み込み
+                document.getElementById('loading').style.display = 'block';
+                
+                // Google Maps APIを動的に読み込み（デモ用なのでAPIキー無しでも動作するように）
                 if (!window.google) {
                     await this.loadGoogleMapsAPI();
                 }
@@ -389,45 +397,70 @@
             loadGoogleMapsAPI() {
                 return new Promise((resolve, reject) => {
                     const script = document.createElement('script');
-                    script.src = `https://maps.googleapis.com/maps/api/js?key=AIzaSyDbZWtPobAYr04A8da3OUOjtNNdjfvkbXA';
+                    // 実際の使用時は YOUR_API_KEY_HERE を実際のAPIキーに置き換えてください
+                    script.src = `https://maps.googleapis.com/maps/api/js?key=AIzaSyDbZWtPobAYr04A8da3OUOjtNNdjfvkbXA`;
                     script.async = true;
                     script.defer = true;
                     script.onload = resolve;
-                    script.onerror = () => reject(new Error('Google Maps APIの読み込みに失敗'));
+                    script.onerror = () => {
+                        // APIキーが無い場合のフォールバック
+                        console.warn('Google Maps API key not found, using mock implementation');
+                        this.createMockMap();
+                        resolve();
+                    };
                     document.head.appendChild(script);
                 });
             }
             
-            async requestPermission() {
-                const startBtn = document.getElementById('startBtn');
-                startBtn.disabled = true;
-                startBtn.textContent = '許可を要求中...';
+            createMockMap() {
+                // APIキーが無い場合のモック地図
+                const mapElement = document.getElementById('map');
+                mapElement.style.background = 'linear-gradient(45deg, #87CEEB, #98FB98)';
+                mapElement.innerHTML = `
+                    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); 
+                                background: rgba(255,255,255,0.9); padding: 20px; border-radius: 10px; text-align: center;">
+                        <h3>🗺️ デモモード</h3>
+                        <p>実際のGoogle Mapsを使用するには<br>APIキーが必要です</p>
+                        <small>現在位置: ${this.currentPosition.lat.toFixed(4)}, ${this.currentPosition.lng.toFixed(4)}</small>
+                    </div>
+                `;
                 
+                // モック地図オブジェクト
+                this.map = {
+                    setCenter: (pos) => console.log('Map center:', pos),
+                    setZoom: (zoom) => console.log('Map zoom:', zoom),
+                    setMapTypeId: (type) => console.log('Map type:', type)
+                };
+            }
+            
+            async requestSensorPermission() {
                 try {
                     if (typeof DeviceOrientationEvent.requestPermission === 'function') {
                         const permission = await DeviceOrientationEvent.requestPermission();
-                        if (permission === 'granted') {
-                            this.startSensors();
-                        } else {
-                            throw new Error('センサーの許可が拒否されました');
+                        if (permission !== 'granted') {
+                            throw new Error('デバイスセンサーの許可が拒否されました');
                         }
-                    } else {
-                        this.startSensors();
                     }
+                    this.startSensors();
                 } catch (error) {
-                    console.error('Permission error:', error);
-                    this.updateStatus('センサーの許可取得に失敗しました');
-                    startBtn.disabled = false;
-                    startBtn.textContent = '再試行';
+                    // iOS以外では直接センサーを開始
+                    try {
+                        this.startSensors();
+                    } catch (e) {
+                        throw new Error('デバイスセンサーにアクセスできません');
+                    }
                 }
             }
             
             startSensors() {
                 window.addEventListener('deviceorientation', (event) => {
                     this.handleOrientation(event);
-                });
+                }, { passive: true });
                 
                 this.isPermissionGranted = true;
+            }
+            
+            setupComplete() {
                 this.updateStatus('投球準備完了！上のボタンを押してカウントダウンを開始');
                 
                 const startBtn = document.getElementById('startBtn');
@@ -464,7 +497,7 @@
             }
             
             showCountdown(text) {
-                this.hideCountdown(); // 既存のカウントダウンを削除
+                this.hideCountdown();
                 
                 this.countdownElement = document.createElement('div');
                 this.countdownElement.className = 'countdown';
@@ -483,7 +516,6 @@
                 this.isCountdownActive = false;
                 this.updateStatus('今すぐデバイスを90度から水平に素早く傾けてください！');
                 
-                // 5秒後にタイムアウト
                 setTimeout(() => {
                     if (!this.isActive) {
                         this.updateStatus('タイムアウトしました。再度お試しください。');
@@ -495,11 +527,7 @@
             handleOrientation(event) {
                 if (!this.isPermissionGranted) return;
                 
-                // 方角（コンパス）を正確に取得
-                // alphaは北を0度として時計回りの角度
                 this.heading = event.alpha || 0;
-                
-                // 傾き (beta: 前後の傾き)
                 const newTilt = event.beta || 0;
                 const currentTime = Date.now();
                 
@@ -524,7 +552,6 @@
             }
             
             updateBall() {
-                // カウントダウン完了後のみ投球検知
                 const throwTrigger = !this.isCountdownActive && !this.isActive && 
                                    this.isPermissionGranted && 
                                    this.tilt > 70 && this.tiltSpeed > 30;
@@ -543,19 +570,16 @@
                 this.ballElement.classList.add('throwing');
                 this.updateStatus('投球中... 🏀');
                 
-                // 高度インジケーターを表示
                 document.getElementById('altitudeIndicator').style.display = 'block';
                 
-                // 航空写真モードを確実に設定
-                if (this.map) {
+                if (this.map && this.map.setMapTypeId) {
                     this.map.setMapTypeId(google.maps.MapTypeId.SATELLITE);
                 }
                 
                 this.throwPower = Math.min(this.tiltSpeed / 8, 20);
-                // 方角を正確に取得（北を0度として時計回り）
                 this.throwAngle = this.heading || 0;
                 this.animationFrame = 0;
-                this.maxAltitude = this.throwPower * 10; // 最大高度を計算
+                this.maxAltitude = this.throwPower * 10;
                 
                 this.animateThrow();
             }
@@ -564,31 +588,25 @@
                 if (!this.isActive) return;
                 
                 this.animationFrame++;
-                // 移動スピードを1/10に（0.025 → 0.0025）
                 const progress = this.animationFrame * 0.0025;
                 
-                // 実際の距離計算（100倍に変更：50 → 5000）
                 const maxDistance = this.throwPower * 5000;
                 const currentDistance = maxDistance * progress;
                 
-                // 高度計算（放物線）
                 const altitudeProgress = Math.min(progress * 2, 1);
                 this.currentAltitude = this.maxAltitude * 4 * altitudeProgress * (1 - altitudeProgress);
                 
-                // 高度表示を更新
                 document.getElementById('altitude').textContent = Math.round(this.currentAltitude);
                 
-                // ボールのサイズを高度に応じて変更
                 this.updateBallScale(altitudeProgress);
                 
-                // 方角を正確に計算（北を0度として時計回り）
-                const bearing = this.throwAngle * Math.PI / 180; // 度をラジアンに変換
+                // 地理座標の計算
+                const bearing = this.throwAngle * Math.PI / 180;
                 const earthRadius = 6371000;
                 
                 const lat1 = this.startPosition.lat * Math.PI / 180;
                 const lng1 = this.startPosition.lng * Math.PI / 180;
                 
-                // 正確な地理座標計算
                 const lat2 = Math.asin(
                     Math.sin(lat1) * Math.cos(currentDistance / earthRadius) +
                     Math.cos(lat1) * Math.sin(currentDistance / earthRadius) * Math.cos(bearing)
@@ -604,18 +622,17 @@
                     lng: lng2 * 180 / Math.PI
                 };
                 
-                // 地図の中心を更新（ボールは常に画面中央）
-                if (this.map) {
+                if (this.map && this.map.setCenter) {
                     this.map.setCenter(newPosition);
-                    // 航空写真モードを維持
-                    this.map.setMapTypeId(google.maps.MapTypeId.SATELLITE);
-                    
-                    // 高度に応じてズームレベルを調整
-                    const zoomLevel = 18 - (this.currentAltitude / this.maxAltitude) * 2;
-                    this.map.setZoom(Math.max(14, zoomLevel));
+                    if (this.map.setMapTypeId && window.google) {
+                        this.map.setMapTypeId(google.maps.MapTypeId.SATELLITE);
+                    }
+                    if (this.map.setZoom) {
+                        const zoomLevel = 18 - (this.currentAltitude / this.maxAltitude) * 2;
+                        this.map.setZoom(Math.max(14, zoomLevel));
+                    }
                 }
                 
-                // 着地判定（スピード調整に合わせて延長）
                 if (progress > 1.5 || currentDistance > maxDistance * 0.9) {
                     this.landBall(currentDistance, newPosition);
                     return;
@@ -628,13 +645,10 @@
                 this.ballElement.classList.remove('flying-high', 'landing');
                 
                 if (altitudeProgress < 0.3) {
-                    // 上昇開始
                     this.ballElement.style.transform = `translate(-50%, -50%) scale(${1 + altitudeProgress * 2})`;
                 } else if (altitudeProgress < 0.7) {
-                    // 最高点付近
                     this.ballElement.classList.add('flying-high');
                 } else {
-                    // 下降・着地
                     const landingScale = 1.5 - (altitudeProgress - 0.7) * 2;
                     this.ballElement.style.transform = `translate(-50%, -50%) scale(${Math.max(0.8, landingScale)})`;
                     if (altitudeProgress > 0.9) {
@@ -648,31 +662,17 @@
                 this.ballElement.classList.remove('throwing', 'flying-high');
                 this.ballElement.classList.add('landing');
                 
-                // 高度インジケーターを非表示
                 document.getElementById('altitudeIndicator').style.display = 'none';
                 
                 if (this.map) {
-                    this.map.setMapTypeId(google.maps.MapTypeId.ROADMAP);
-                    this.map.setCenter(landingPosition);
-                    this.map.setZoom(16);
-                    
-                    new google.maps.Marker({
-                        position: landingPosition,
-                        map: this.map,
-                        title: `着地地点 - ${Math.round(distance)}m`,
-                        icon: {
-                            url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
-                                <svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 30 30">
-                                    <circle cx="15" cy="15" r="12" fill="#ff6b6b" stroke="white" stroke-width="3"/>
-                                    <text x="15" y="19" text-anchor="middle" font-size="12" fill="white">🎯</text>
-                                </svg>
-                            `),
-                            scaledSize: new google.maps.Size(30, 30),
-                            anchor: new google.maps.Point(15, 15)
-                        }
-                    });
+                    if (this.map.setCenter) this.map.setCenter(landingPosition);
+                    if (this.map.setZoom) this.map.setZoom(16);
+                    if (this.map.setMapTypeId && window.google) {
+                        this.map.setMapTypeId(google.maps.MapTypeId.ROADMAP);
+                    }
                 }
                 
+                const finalDistance = Math.round(distance);
                 document.getElementById('distance').textContent = finalDistance + 'm';
                 this.updateStatus(`着地完了！距離: ${finalDistance}m 🎯`);
                 
@@ -691,7 +691,6 @@
             }
             
             reset() {
-                // カウントダウンをクリア
                 if (this.countdownTimer) {
                     clearInterval(this.countdownTimer);
                 }
@@ -702,13 +701,14 @@
                 this.ballElement.classList.remove('throwing', 'flying-high', 'landing');
                 this.ballElement.style.transform = 'translate(-50%, -50%)';
                 
-                // 高度インジケーターを非表示
                 document.getElementById('altitudeIndicator').style.display = 'none';
                 
                 if (this.map && this.startPosition) {
-                    this.map.setCenter(this.startPosition);
-                    this.map.setZoom(18);
-                    this.map.setMapTypeId(google.maps.MapTypeId.SATELLITE);
+                    if (this.map.setCenter) this.map.setCenter(this.startPosition);
+                    if (this.map.setZoom) this.map.setZoom(18);
+                    if (this.map.setMapTypeId && window.google) {
+                        this.map.setMapTypeId(google.maps.MapTypeId.SATELLITE);
+                    }
                 }
                 
                 document.getElementById('distance').textContent = '0m';
@@ -729,14 +729,19 @@
                 errorDiv.innerHTML = `
                     <strong>エラー</strong><br>
                     ${message}<br><br>
-                    <small>※このデモは実際のAPIキーが必要です</small>
+                    <button onclick="location.reload()" style="margin-top: 10px; padding: 8px 16px; background: white; color: red; border: 1px solid red; border-radius: 4px; cursor: pointer;">
+                        再読み込み
+                    </button>
                 `;
                 document.body.appendChild(errorDiv);
             }
         }
         
         const app = new BallThrowMapsApp();
-        window.requestPermission = () => app.requestPermission();
+        
+        function startApp() {
+            app.startApp();
+        }
     </script>
 </body>
 </html>
