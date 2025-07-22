@@ -378,6 +378,11 @@
                 this.tiltSpeed = 0;
                 this.lastTime = Date.now();
                 
+                // 振り検出用のデータ
+                this.accelerationData = [];
+                this.maxAcceleration = 0;
+                this.isDetectingShake = false;
+                
                 // アニメーション
                 this.animationFrame = 0;
                 this.throwPower = 0;
@@ -657,9 +662,17 @@
             }
             
             startSensors() {
+                // デバイス方向センサー
                 if (typeof DeviceOrientationEvent !== 'undefined') {
                     window.addEventListener('deviceorientation', (event) => {
                         this.handleOrientation(event);
+                    }, { passive: true });
+                }
+                
+                // 加速度センサー（振り検出用）
+                if (typeof DeviceMotionEvent !== 'undefined') {
+                    window.addEventListener('devicemotion', (event) => {
+                        this.handleMotion(event);
                     }, { passive: true });
                 }
                 
@@ -725,14 +738,59 @@
             
             enableThrowDetection() {
                 this.isCountdownActive = false;
-                this.updateStatus('今すぐデバイスを90度から水平に素早く傾けてください！');
+                this.isDetectingShake = true;
+                this.accelerationData = [];
+                this.maxAcceleration = 0;
+                this.updateStatus('今すぐスマホを振ってボールを投げてください！');
                 
                 setTimeout(() => {
                     if (!this.isActive) {
+                        this.isDetectingShake = false;
                         this.updateStatus('タイムアウトしました。再度お試しください。');
                         this.reset();
                     }
-                }, 5000);
+                }, 8000); // 振り検出の時間を8秒に延長
+            }
+            
+            handleMotion(event) {
+                if (!this.isDetectingShake) return;
+                
+                const acceleration = event.acceleration;
+                if (!acceleration) return;
+                
+                // 3軸の加速度を合成
+                const totalAcceleration = Math.sqrt(
+                    (acceleration.x || 0) ** 2 + 
+                    (acceleration.y || 0) ** 2 + 
+                    (acceleration.z || 0) ** 2
+                );
+                
+                // 過去1秒間の加速度データを保存
+                const currentTime = Date.now();
+                this.accelerationData.push({
+                    value: totalAcceleration,
+                    timestamp: currentTime
+                });
+                
+                // 1秒より古いデータを削除
+                this.accelerationData = this.accelerationData.filter(
+                    data => currentTime - data.timestamp <= 1000
+                );
+                
+                // 最大加速度を更新
+                if (totalAcceleration > this.maxAcceleration) {
+                    this.maxAcceleration = totalAcceleration;
+                }
+                
+                // 振りの強さの表示を更新
+                document.getElementById('speed').textContent = `${Math.round(totalAcceleration * 10)/10} m/s²`;
+                
+                // 振り検出の閾値（調整可能）
+                const shakeThreshold = 15; // m/s²
+                
+                if (totalAcceleration > shakeThreshold && this.maxAcceleration > shakeThreshold) {
+                    this.startThrowWithShake();
+                }
             }
             
             handleOrientation(event) {
@@ -802,25 +860,27 @@
             }
             
             updateBall() {
-                const throwTrigger = !this.isCountdownActive && !this.isActive && 
-                                   this.isPermissionGranted && 
-                                   this.tilt > 70 && this.tiltSpeed > 30;
-                
-                if (throwTrigger) {
-                    this.startThrow();
-                }
-                
+                // 新しい振り検出ロジックを使用するため、従来の傾き検出は削除
                 // ボールが移動を開始してからアニメーションを実行
                 if (this.isActive && this.isMapReady && this.isBallMoving) {
                     this.animateThrow();
                 }
             }
             
-            startThrow() {
+            startThrowWithShake() {
+                if (this.isActive || !this.isDetectingShake) return;
+                
+                this.isDetectingShake = false;
                 this.isActive = true;
-                this.isBallMoving = false; // まだボールは移動していない
+                this.isBallMoving = false;
                 this.ballElement.classList.add('throwing');
                 this.playSound('throw');
+                
+                // 振りの強さに基づいて投球パワーを計算
+                const shakeIntensity = Math.min(this.maxAcceleration / 5, 10); // 正規化
+                this.throwPower = shakeIntensity;
+                
+                console.log(`Shake detected! Max acceleration: ${this.maxAcceleration}, Power: ${this.throwPower}`);
                 
                 // トレイル軌跡をクリア
                 this.ballTrailPoints = [];
@@ -844,15 +904,14 @@
                 this.updateSatelliteView('aerial');
                 
                 // 投球パラメータの設定
-                this.throwPower = Math.min(this.tiltSpeed / 8, 20);
                 this.throwAngle = this.heading || 0; // 現在の向きを投球方向に
                 this.animationFrame = 0;
-                this.maxAltitude = this.throwPower * 10;
+                this.maxAltitude = this.throwPower * 15; // 高度を振りの強さに応じて調整
                 
                 // 開始位置をリセット
                 this.ballPosition = { ...this.startPosition };
                 
-                this.updateStatus('航空写真を読み込んでいます... 📡');
+                this.updateStatus(`振りの強さ: ${Math.round(this.maxAcceleration * 10)/10} m/s² | 航空写真を読み込んでいます... 📡`);
                 
                 // 2秒待機してから航空写真の準備完了とボール移動開始
                 setTimeout(() => {
@@ -892,14 +951,15 @@
                 if (!this.isActive || !this.isMapReady) return;
                 
                 this.animationFrame++;
-                // 移動スピードを0.1倍に（10倍遅く）
-                const progress = this.animationFrame * 0.001; // 0.01 → 0.001
+                // 対空時間をさらに10倍長く（移動スピードをさらに1/10に）
+                const progress = this.animationFrame * 0.0001; // 0.001 → 0.0001
                 
-                const maxDistance = this.throwPower * 3000; // 最大距離を調整
+                // 振りの強さに基づいて最大距離を計算
+                const maxDistance = this.throwPower * 500; // 振りの強さ × 500m
                 const currentDistance = maxDistance * Math.min(progress, 1);
                 
-                // 高度計算（放物線）- 対空時間を10倍長く
-                const altitudeProgress = Math.min(progress * 0.2, 1); // progress * 2 → progress * 0.2
+                // 高度計算（放物線）- 対空時間をさらに10倍長く
+                const altitudeProgress = Math.min(progress * 0.02, 1); // 0.2 → 0.02
                 this.currentAltitude = this.maxAltitude * 4 * altitudeProgress * (1 - altitudeProgress);
                 
                 document.getElementById('altitude').textContent = Math.round(this.currentAltitude);
@@ -953,8 +1013,8 @@
                     }
                 }
                 
-                // 軌跡の追加（フレーム毎ではなく適度な間隔で）- より長い間隔に変更
-                if (this.animationFrame % 50 === 0) { // 5 → 50（移動スピードが遅くなったため）
+                // 軌跡の追加（より長い間隔に変更）
+                if (this.animationFrame % 500 === 0) { // 50 → 500（対空時間がさらに長くなったため）
                     const rect = this.ballElement.getBoundingClientRect();
                     this.createTrail(rect.left + rect.width/2, rect.top + rect.height/2);
                 }
@@ -1001,7 +1061,7 @@
                 // 高度表示を非表示
                 document.getElementById('altitudeIndicator').style.display = 'none';
                 
-                // 地図を着地位置に設定
+                // 地図を着地位置に設定（航空写真のまま維持）
                 if (this.map) {
                     try {
                         if (this.map.setCenter) {
@@ -1010,9 +1070,39 @@
                         if (this.map.setZoom) {
                             this.map.setZoom(16);
                         }
-                        // 着地後は通常の地図表示に戻す
+                        // 航空写真モードを維持（roadmapに戻さない）
                         if (this.map.setMapTypeId) {
-                            this.map.setMapTypeId('roadmap'); // Google Maps用
+                            this.map.setMapTypeId('satellite'); // Google Maps用
+                        }
+                        // 地図の向きをリセット（北向き）
+                        if (this.map.setHeading) {
+                            this.map.setHeading(0);
+                        }
+                    } catch (e) {
+                        console.warn('Map reset failed:', e);
+                    }
+                }
+                
+                // フォールバック地図の場合は通常表示に戻す
+                this.updateSatelliteView('normal');
+                
+                // 表示値をリセット
+                document.getElementById('distance').textContent = '0m';
+                document.getElementById('altitude').textContent = '0';
+                document.getElementById('speed').textContent = '---°/s'; // 速度表示を元に戻す
+                
+                // 座標表示を更新
+                this.updateCoordinatesDisplay();
+                
+                this.updateStatus('投球準備完了！上のボタンを押してカウントダウンを開始');
+                
+                // ボタンを再設定
+                const startBtn = document.getElementById('startBtn');
+                startBtn.textContent = '投球開始 (3秒カウントダウン)';
+                startBtn.disabled = false;
+                startBtn.classList.add('countdown-ready');
+                startBtn.onclick = () => this.startCountdown();
+            }TypeId('satellite'); // 航空写真を維持
                         }
                         // 地図の向きをリセット
                         if (this.map.setHeading) {
@@ -1023,8 +1113,8 @@
                     }
                 }
                 
-                // フォールバック地図の場合は通常表示に戻す
-                this.updateSatelliteView('normal');
+                // フォールバック地図の場合は航空写真表示を維持
+                this.updateSatelliteView('aerial');
                 
                 // 最終結果の表示
                 const finalDistance = Math.round(distance);
@@ -1062,6 +1152,11 @@
                 this.isActive = false;
                 this.isCountdownActive = false;
                 this.isBallMoving = false;
+                this.isDetectingShake = false;
+                
+                // 振り検出用データをリセット
+                this.accelerationData = [];
+                this.maxAcceleration = 0;
                 
                 // ボールの表示をリセット
                 this.ballElement.classList.remove('throwing', 'flying-high', 'landing');
@@ -1076,7 +1171,7 @@
                 // ボールの位置を開始位置にリセット
                 this.ballPosition = { ...this.startPosition };
                 
-                // 画面の回転を復活（コンパス方向に合わせる）- 修正：逆回転
+                // 画面の回転を復活（コンパス方向に合わせる）
                 this.mapElement.style.transform = `rotate(${this.heading}deg)`;
                 
                 // 地図を開始位置に戻す
@@ -1091,6 +1186,36 @@
                         // 航空写真モードに戻す
                         if (this.map.setMapTypeId) {
                             this.map.setMapTypeId('satellite'); // Google Maps用
+                        }
+                        // 地図の向きをリセット（北向き）
+                        if (this.map.setHeading) {
+                            this.map.setHeading(0);
+                        }
+                    } catch (e) {
+                        console.warn('Map reset failed:', e);
+                    }
+                }
+                
+                // フォールバック地図の場合は通常表示に戻す
+                this.updateSatelliteView('normal');
+                
+                // 表示値をリセット
+                document.getElementById('distance').textContent = '0m';
+                document.getElementById('altitude').textContent = '0';
+                document.getElementById('speed').textContent = '---°/s'; // 速度表示を元に戻す
+                
+                // 座標表示を更新
+                this.updateCoordinatesDisplay();
+                
+                this.updateStatus('投球準備完了！上のボタンを押してカウントダウンを開始');
+                
+                // ボタンを再設定
+                const startBtn = document.getElementById('startBtn');
+                startBtn.textContent = '投球開始 (3秒カウントダウン)';
+                startBtn.disabled = false;
+                startBtn.classList.add('countdown-ready');
+                startBtn.onclick = () => this.startCountdown();
+            }TypeId('satellite'); // Google Maps用
                         }
                         // 地図の向きをリセット（北向き）
                         if (this.map.setHeading) {
