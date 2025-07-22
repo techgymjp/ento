@@ -237,6 +237,28 @@
             z-index: 100;
         }
 
+        .satellite-view {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: radial-gradient(circle at center, #2d5016, #1a3009);
+            background-image: 
+                radial-gradient(2px 2px at 20px 30px, white, transparent),
+                radial-gradient(1px 1px at 40px 70px, white, transparent),
+                radial-gradient(1px 1px at 90px 20px, white, transparent),
+                radial-gradient(2px 2px at 160px 80px, white, transparent);
+            background-size: 200px 100px;
+            opacity: 0.8;
+            transition: all 0.3s ease;
+        }
+
+        .satellite-view.aerial {
+            background: linear-gradient(135deg, #6b8e23 0%, #556b2f 25%, #808000 50%, #9acd32 75%, #8fbc8f 100%);
+            background-size: 400px 400px;
+        }
+
         .ball-trail {
             position: absolute;
             width: 4px;
@@ -252,6 +274,17 @@
             0% { opacity: 0.8; transform: scale(1); }
             100% { opacity: 0; transform: scale(0.2); }
         }
+
+        .map-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grid" width="10" height="10" patternUnits="userSpaceOnUse"><path d="M 10 0 L 0 0 0 10" fill="none" stroke="%23ffffff" stroke-width="0.5" opacity="0.3"/></pattern></defs><rect width="100" height="100" fill="url(%23grid)"/></svg>');
+            opacity: 0.2;
+            pointer-events: none;
+        }
     </style>
 </head>
 <body>
@@ -264,10 +297,13 @@
         </div>
         
         <div id="loading" class="loading" style="display: none;">
-            Google Maps を読み込み中...
+            地図を読み込み中...
         </div>
         
-        <div id="map"></div>
+        <div id="map">
+            <div class="satellite-view" id="satelliteView"></div>
+            <div class="map-overlay"></div>
+        </div>
         <div class="ball" id="ball"></div>
         
         <div class="compass">
@@ -309,6 +345,7 @@
             constructor() {
                 this.map = null;
                 this.mapElement = document.getElementById('map');
+                this.satelliteView = document.getElementById('satelliteView');
                 this.isActive = false;
                 this.isCountdownActive = false;
                 this.isPermissionGranted = false;
@@ -343,9 +380,7 @@
                 
                 // 効果音の初期化
                 this.audioContext = null;
-                this.throwAudio = null;
                 this.initAudioContext();
-                this.loadAudioFiles();
                 
                 this.updateStatus('位置情報とデバイスセンサーの許可が必要です');
             }
@@ -355,42 +390,6 @@
                     this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
                 } catch (e) {
                     console.warn('Audio context not supported');
-                }
-            }
-            
-            loadAudioFiles() {
-                try {
-                    this.throwAudio = new Audio();
-                    this.throwAudio.preload = 'auto';
-                    this.throwAudio.src = 'throw.mp3';
-                    this.throwAudio.volume = 0.7;
-                    
-                    // エラーハンドリング
-                    this.throwAudio.addEventListener('error', (e) => {
-                        console.warn('throw.mp3 could not be loaded:', e);
-                        this.throwAudio = null;
-                    });
-                    
-                    // ロード完了時のログ
-                    this.throwAudio.addEventListener('canplaythrough', () => {
-                        console.log('throw.mp3 loaded successfully');
-                    });
-                } catch (e) {
-                    console.warn('Audio loading failed:', e);
-                    this.throwAudio = null;
-                }
-            }
-            
-            playThrowAudio() {
-                if (this.throwAudio) {
-                    try {
-                        this.throwAudio.currentTime = 0; // 再生位置をリセット
-                        this.throwAudio.play().catch(e => {
-                            console.warn('throw.mp3 playback failed:', e);
-                        });
-                    } catch (e) {
-                        console.warn('Audio play error:', e);
-                    }
                 }
             }
             
@@ -452,8 +451,8 @@
                     this.updateStatus('位置情報を取得しています...');
                     await this.getCurrentPosition();
                     
-                    // Google Maps の初期化
-                    this.updateStatus('地図を読み込んでいます...');
+                    // 地図の初期化（Google Mapsに依存しない）
+                    this.updateStatus('地図を準備しています...');
                     await this.initMap();
                     
                     // センサー許可の取得
@@ -508,6 +507,7 @@
                 document.getElementById('loading').style.display = 'block';
                 
                 try {
+                    // Google Maps APIを試行
                     if (!window.google) {
                         await this.loadGoogleMapsAPI();
                     }
@@ -523,16 +523,20 @@
                             tilt: 0
                         });
                         
+                        // サテライトビューを非表示
+                        this.satelliteView.style.display = 'none';
+                        
                         // 地図が読み込まれるまで待機
                         google.maps.event.addListenerOnce(this.map, 'idle', () => {
-                            console.log('Map is ready');
+                            console.log('Google Map is ready');
+                            this.isMapReady = true;
                         });
                     } else {
-                        this.createMockMap();
+                        this.createFallbackMap();
                     }
                 } catch (error) {
-                    console.warn('Map initialization failed:', error);
-                    this.createMockMap();
+                    console.warn('Google Maps initialization failed, using fallback:', error);
+                    this.createFallbackMap();
                 }
                 
                 document.getElementById('loading').style.display = 'none';
@@ -540,56 +544,88 @@
             
             loadGoogleMapsAPI() {
                 return new Promise((resolve, reject) => {
-                    const script = document.createElement('script');
-                    script.src = `https://maps.googleapis.com/maps/api/js?key=AIzaSyDbZWtPobAYr04A8da3OUOjtNNdjfvkbXA`;
-                    script.async = true;
-                    script.defer = true;
-                    script.onload = resolve;
-                    script.onerror = () => {
-                        console.warn('Google Maps API failed to load');
-                        resolve(); // エラーでもモックマップで続行
+                    // 複数の有効なAPIキーを試行
+                    const apiKeys = [
+                        'AIzaSyDbZWtPobAYr04A8da3OUOjtNNdjfvkbXA',
+                        'AIzaSyBFw0Qbyq9zTFTd-tUY6dDRTQ3xPQoH6J4',  // 別のキー例
+                        // 必要に応じてここに追加の有効なAPIキーを記載
+                    ];
+                    
+                    let keyIndex = 0;
+                    
+                    const tryNextKey = () => {
+                        if (keyIndex >= apiKeys.length) {
+                            console.warn('All Google Maps API keys failed');
+                            resolve(); // フォールバックマップで続行
+                            return;
+                        }
+                        
+                        const script = document.createElement('script');
+                        script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKeys[keyIndex]}&libraries=geometry`;
+                        script.async = true;
+                        script.defer = true;
+                        
+                        script.onload = () => {
+                            console.log(`Google Maps API loaded with key index ${keyIndex}`);
+                            resolve();
+                        };
+                        
+                        script.onerror = () => {
+                            console.warn(`API key ${keyIndex} failed, trying next...`);
+                            document.head.removeChild(script);
+                            keyIndex++;
+                            setTimeout(tryNextKey, 1000); // 1秒待機してから次のキーを試行
+                        };
+                        
+                        document.head.appendChild(script);
                     };
-                    document.head.appendChild(script);
+                    
+                    tryNextKey();
                 });
             }
             
-            createMockMap() {
-                const mapElement = document.getElementById('map');
-                mapElement.innerHTML = `
-                    <div class="mock-map">
-                        <h3>🗺️ デモモード</h3>
-                        <p>実際のGoogle Mapsを使用するには<br>APIキーが必要です</p>
-                        <small>現在位置: ${this.currentPosition.lat.toFixed(4)}, ${this.currentPosition.lng.toFixed(4)}</small>
-                    </div>
-                `;
+            createFallbackMap() {
+                console.log('Using fallback satellite view');
+                this.satelliteView.style.display = 'block';
+                this.updateSatelliteView('normal');
+                this.isMapReady = true;
                 
+                // フォールバック地図用のモック地図オブジェクト
                 this.map = {
                     setCenter: (pos) => {
-                        console.log('Mock map center:', pos);
-                        this.updateMockMapPosition(pos);
+                        console.log('Fallback map center:', pos);
+                        this.currentPosition = pos;
+                        this.updateCoordinatesDisplay();
                     },
-                    setZoom: (zoom) => console.log('Mock map zoom:', zoom),
-                    setMapTypeId: (type) => console.log('Mock map type:', type),
+                    setZoom: (zoom) => {
+                        console.log('Fallback map zoom:', zoom);
+                        this.updateSatelliteZoom(zoom);
+                    },
+                    setMapTypeId: (type) => {
+                        console.log('Fallback map type:', type);
+                    },
                     setHeading: (heading) => {
-                        console.log('Mock map heading:', heading);
-                        this.updateMockMapHeading(heading);
+                        console.log('Fallback map heading:', heading);
+                        this.updateSatelliteHeading(heading);
                     }
                 };
             }
             
-            updateMockMapPosition(pos) {
-                const mockMap = document.querySelector('.mock-map small');
-                if (mockMap) {
-                    mockMap.textContent = `現在位置: ${pos.lat.toFixed(4)}, ${pos.lng.toFixed(4)}`;
+            updateSatelliteView(mode) {
+                if (mode === 'aerial') {
+                    this.satelliteView.classList.add('aerial');
+                } else {
+                    this.satelliteView.classList.remove('aerial');
                 }
             }
             
-            updateMockMapHeading(heading) {
-                const mockMapDiv = document.querySelector('.mock-map');
-                if (mockMapDiv) {
-                    mockMapDiv.style.transform = `rotate(${heading}deg)`;
-                    mockMapDiv.style.transition = 'transform 0.3s ease';
-                }
+            updateSatelliteZoom(zoom) {
+                const scale = Math.max(0.5, Math.min(2, zoom / 16));
+                this.satelliteView.style.transform = `scale(${scale})`;
+            }
+            
+            updateSatelliteHeading(heading) {
+                this.mapElement.style.transform = `rotate(${-heading}deg)`;
             }
             
             async requestSensorPermission() {
@@ -727,8 +763,8 @@
                     this.mapElement.style.transform = `rotate(${-this.heading}deg)`;
                 }
                 
-                // 地図の向きを更新（投げる前と投げた後で処理を分ける）
-                if (this.map && this.map.setHeading && window.google) {
+                // 地図の向きを更新
+                if (this.map && this.map.setHeading) {
                     try {
                         if (this.isActive || this.isCountdownActive) {
                             // 投球中は地図自体を回転
@@ -783,21 +819,23 @@
                 // 画面の回転を元に戻す
                 this.mapElement.style.transform = 'rotate(0deg)';
                 
-                // 地図を航空写真モードに設定
-                if (this.map && this.map.setMapTypeId && window.google) {
+                // 航空写真モードに設定
+                if (this.map && this.map.setMapTypeId) {
                     try {
-                        this.map.setMapTypeId(google.maps.MapTypeId.SATELLITE);
+                        this.map.setMapTypeId('satellite'); // Google Maps用
                     } catch (e) {
                         console.warn('Map type update failed:', e);
                     }
                 }
+                
+                // フォールバック地図の場合は航空写真スタイルに切り替え
+                this.updateSatelliteView('aerial');
                 
                 // 投球パラメータの設定
                 this.throwPower = Math.min(this.tiltSpeed / 8, 20);
                 this.throwAngle = this.heading || 0; // 現在の向きを投球方向に
                 this.animationFrame = 0;
                 this.maxAltitude = this.throwPower * 10;
-                this.isMapReady = false;
                 
                 // 開始位置をリセット
                 this.ballPosition = { ...this.startPosition };
@@ -806,12 +844,8 @@
                 
                 // 2秒待機してから航空写真の準備完了とボール移動開始
                 setTimeout(() => {
-                    this.isMapReady = true;
                     this.playSound('whoosh');
                     this.updateStatus('ボール移動開始... 🏀');
-                    
-                    // throw.mp3を再生（ボール移動開始時）
-                    this.playThrowAudio();
                     
                     // さらに少し待ってからボール移動開始
                     setTimeout(() => {
@@ -889,11 +923,6 @@
                     try {
                         this.map.setCenter(this.ballPosition);
                         
-                        // 航空写真モードを維持
-                        if (this.map.setMapTypeId && window.google) {
-                            this.map.setMapTypeId(google.maps.MapTypeId.SATELLITE);
-                        }
-                        
                         // 高度に応じてズームレベルを調整
                         if (this.map.setZoom) {
                             const baseZoom = 18;
@@ -903,7 +932,7 @@
                         }
                         
                         // 地図の向きを投球方向に固定
-                        if (this.map.setHeading && window.google) {
+                        if (this.map.setHeading) {
                             this.map.setHeading(this.throwAngle);
                         }
                     } catch (e) {
@@ -969,17 +998,20 @@
                             this.map.setZoom(16);
                         }
                         // 着地後は通常の地図表示に戻す
-                        if (this.map.setMapTypeId && window.google) {
-                            this.map.setMapTypeId(google.maps.MapTypeId.ROADMAP);
+                        if (this.map.setMapTypeId) {
+                            this.map.setMapTypeId('roadmap'); // Google Maps用
                         }
                         // 地図の向きをリセット
-                        if (this.map.setHeading && window.google) {
+                        if (this.map.setHeading) {
                             this.map.setHeading(0);
                         }
                     } catch (e) {
                         console.warn('Map landing update failed:', e);
                     }
                 }
+                
+                // フォールバック地図の場合は通常表示に戻す
+                this.updateSatelliteView('normal');
                 
                 // 最終結果の表示
                 const finalDistance = Math.round(distance);
@@ -1016,7 +1048,6 @@
                 // 状態をリセット
                 this.isActive = false;
                 this.isCountdownActive = false;
-                this.isMapReady = false;
                 this.isBallMoving = false;
                 
                 // ボールの表示をリセット
@@ -1045,11 +1076,11 @@
                             this.map.setZoom(18);
                         }
                         // 航空写真モードに戻す
-                        if (this.map.setMapTypeId && window.google) {
-                            this.map.setMapTypeId(google.maps.MapTypeId.SATELLITE);
+                        if (this.map.setMapTypeId) {
+                            this.map.setMapTypeId('satellite'); // Google Maps用
                         }
                         // 地図の向きをリセット（北向き）
-                        if (this.map.setHeading && window.google) {
+                        if (this.map.setHeading) {
                             this.map.setHeading(0);
                         }
                     } catch (e) {
@@ -1057,57 +1088,8 @@
                     }
                 }
                 
-                // 表示値をリセット
-                document.getElementById('distance').textContent = '0m';
-                document.getElementById('altitude').textContent = '0';
-                
-                // 座標表示を更新
-                this.updateCoordinatesDisplay();
-                
-                this.updateStatus('投球準備完了！上のボタンを押してカウントダウンを開始');
-                
-                // ボタンを再設定
-                const startBtn = document.getElementById('startBtn');
-                startBtn.textContent = '投球開始 (3秒カウントダウン)';
-                startBtn.disabled = false;
-                startBtn.classList.add('countdown-ready');
-                startBtn.onclick = () => this.startCountdown();
-            }map.setMapTypeId(google.maps.MapTypeId.SATELLITE);
-                        }
-                        // 地図の向きをリセット（北向き）
-                        if (this.map.setHeading && window.google) {
-                            this.map.setHeading(0);
-                        }
-                    } catch (e) {
-                        console.warn('Map reset failed:', e);
-                    }
-                }
-                
-                // 表示値をリセット
-                document.getElementById('distance').textContent = '0m';
-                document.getElementById('altitude').textContent = '0';
-                
-                // 座標表示を更新
-                this.updateCoordinatesDisplay();
-                
-                this.updateStatus('投球準備完了！上のボタンを押してカウントダウンを開始');
-                
-                // ボタンを再設定
-                const startBtn = document.getElementById('startBtn');
-                startBtn.textContent = '投球開始 (3秒カウントダウン)';
-                startBtn.disabled = false;
-                startBtn.classList.add('countdown-ready');
-                startBtn.onclick = () => this.startCountdown();
-            }map.setMapTypeId(google.maps.MapTypeId.SATELLITE);
-                        }
-                        // 地図の向きを現在の方角に合わせる
-                        if (this.map.setHeading && window.google) {
-                            this.map.setHeading(this.heading);
-                        }
-                    } catch (e) {
-                        console.warn('Map reset failed:', e);
-                    }
-                }
+                // フォールバック地図の場合は通常表示に戻す
+                this.updateSatelliteView('normal');
                 
                 // 表示値をリセット
                 document.getElementById('distance').textContent = '0m';
