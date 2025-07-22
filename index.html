@@ -31,10 +31,37 @@
         }
         
         .title {
-            font-size: 20px;
+            font-size: 18px;
             font-weight: bold;
             color: #333;
-            margin: 0;
+            margin: 0 0 10px 0;
+        }
+        
+        .header-btn {
+            width: 100%;
+            padding: 10px;
+            font-size: 14px;
+            font-weight: bold;
+            background: linear-gradient(45deg, #4CAF50, #45a049);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            margin-top: 5px;
+        }
+        
+        .header-btn:hover {
+            background: linear-gradient(45deg, #45a049, #4CAF50);
+        }
+        
+        .header-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        
+        .header-btn.countdown-ready {
+            background: linear-gradient(45deg, #ff6b6b, #d63031);
+            animation: buttonPulse 1s infinite;
         }
         
         #map {
@@ -149,33 +176,6 @@
             font-size: 14px;
         }
         
-        .start-btn {
-            width: 100%;
-            padding: 12px;
-            font-size: 16px;
-            font-weight: bold;
-            background: linear-gradient(45deg, #4CAF50, #45a049);
-            color: white;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            margin-top: 8px;
-        }
-        
-        .start-btn:hover {
-            background: linear-gradient(45deg, #45a049, #4CAF50);
-        }
-        
-        .start-btn:disabled {
-            background: #ccc;
-            cursor: not-allowed;
-        }
-        
-        .start-btn.countdown-ready {
-            background: linear-gradient(45deg, #ff6b6b, #d63031);
-            animation: buttonPulse 1s infinite;
-        }
-        
         @keyframes buttonPulse {
             0% { transform: scale(1); }
             50% { transform: scale(1.05); }
@@ -248,6 +248,9 @@
     <div class="container">
         <div class="header">
             <h1 class="title">🏀 遠投の旅 - Google Maps版</h1>
+            <button class="header-btn" id="startBtn" onclick="requestPermission()" disabled>
+                位置情報を取得中...
+            </button>
         </div>
         
         <div id="loading" class="loading">
@@ -283,8 +286,6 @@
             <div class="info-row">
                 <span>距離:</span>
                 <span id="distance">0m</span>
-            </div>
-            
             <button class="start-btn" id="startBtn" onclick="requestPermission()" disabled>
                 位置情報を取得中...
             </button>
@@ -427,7 +428,7 @@
                 });
                 
                 this.isPermissionGranted = true;
-                this.updateStatus('投球準備完了！ボタンを押してカウントダウンを開始');
+                this.updateStatus('投球準備完了！上のボタンを押してカウントダウンを開始');
                 
                 const startBtn = document.getElementById('startBtn');
                 startBtn.textContent = '投球開始 (3秒カウントダウン)';
@@ -662,7 +663,6 @@
                     });
                 }
                 
-                const finalDistance = Math.round(distance);
                 document.getElementById('distance').textContent = finalDistance + 'm';
                 this.updateStatus(`着地完了！距離: ${finalDistance}m 🎯`);
                 
@@ -671,6 +671,7 @@
                     const startBtn = document.getElementById('startBtn');
                     startBtn.textContent = 'リセット';
                     startBtn.disabled = false;
+                    startBtn.classList.add('countdown-ready');
                     startBtn.onclick = () => this.reset();
                 }, 2000);
             }
@@ -703,7 +704,7 @@
                 document.getElementById('distance').textContent = '0m';
                 document.getElementById('altitude').textContent = '0';
                 
-                this.updateStatus('投球準備完了！ボタンを押してカウントダウンを開始');
+                this.updateStatus('投球準備完了！上のボタンを押してカウントダウンを開始');
                 
                 const startBtn = document.getElementById('startBtn');
                 startBtn.textContent = '投球開始 (3秒カウントダウン)';
