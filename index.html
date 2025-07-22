@@ -1,55 +1,4 @@
-initAudioContext() {
-                // Web Audio APIで効果音を生成
-                try {
-                    this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                } catch (e) {
-                    console.warn('Audio context not supported');
-                    this.audioContext = null;
-                }
-            }
-            
-            playSound(type) {
-                if (!this.audioContext) return;
-                
-                try {
-                    const oscillator = this.audioContext.createOscillator();
-                    const gainNode = this.audioContext.createGain();
-                    
-                    oscillator.connect(gainNode);
-                    gainNode.connect(this.audioContext.destination);
-                    
-                    switch(type) {
-                        case 'countdown':
-                            oscillator.frequency.setValueAtTime(800, this.audioContext.currentTime);
-                            gainNode.gain.setValueAtTime(0.3, this.audioContext.currentTime);
-                            gainNode.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.2);
-                            break;
-                        case 'throw':
-                            oscillator.frequency.setValueAtTime(400, this.audioContext.currentTime);
-                            oscillator.frequency.exponentialRampToValueAtTime(100, this.audioContext.currentTime + 0.5);
-                            gainNode.gain.setValueAtTime(0.4, this.audioContext.currentTime);
-                            gainNode.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.5);
-                            break;
-                        case 'whoosh':
-                            oscillator.type = 'sawtooth';
-                            oscillator.frequency.setValueAtTime(200, this.audioContext.currentTime);
-                            oscillator.frequency.exponentialRampToValueAtTime(50, this.audioContext.currentTime + 1);
-                            gainNode.gain.setValueAtTime(0.2, this.audioContext.currentTime);
-                            gainNode.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 1);
-                            break;
-                        case 'land':
-                            oscillator.frequency.setValueAtTime(150, this.audioContext.currentTime);
-                            gainNode.gain.setValueAtTime(0.5, this.audioContext.currentTime);
-                            gainNode.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.3);
-                            break;
-                    }
-                    
-                    oscillator.start(this.audioContext.currentTime);
-                    oscillator.stop(this.audioContext.currentTime + (type === 'whoosh' ? 1 : 0.5));
-                } catch (e) {
-                    console.warn('Sound generation failed:', e);
-                }
-            }<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
@@ -124,6 +73,7 @@ initAudioContext() {
         #map {
             flex: 1;
             position: relative;
+            background: linear-gradient(45deg, #87CEEB, #98FB98);
         }
         
         .ball {
@@ -272,6 +222,18 @@ initAudioContext() {
             text-align: center;
             z-index: 2000;
         }
+
+        .mock-map {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(255,255,255,0.9);
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            z-index: 100;
+        }
     </style>
 </head>
 <body>
@@ -327,12 +289,13 @@ initAudioContext() {
                 this.isActive = false;
                 this.isCountdownActive = false;
                 this.isPermissionGranted = false;
+                this.isMapReady = false;
                 this.ballElement = document.getElementById('ball');
                 this.compassNeedle = document.getElementById('compassNeedle');
                 
                 // 位置情報
-                this.currentPosition = null;
-                this.startPosition = null;
+                this.currentPosition = { lat: 35.4476, lng: 139.6425 }; // 横浜の初期値
+                this.startPosition = { ...this.currentPosition };
                 
                 // センサーデータ
                 this.heading = 0;
@@ -347,16 +310,67 @@ initAudioContext() {
                 this.throwAngle = 0;
                 this.maxAltitude = 0;
                 this.currentAltitude = 0;
-                this.isMapReady = false;
                 
                 // カウントダウン
                 this.countdownTimer = null;
                 this.countdownElement = null;
                 
                 // 効果音の初期化
+                this.audioContext = null;
                 this.initAudioContext();
                 
                 this.updateStatus('位置情報とデバイスセンサーの許可が必要です');
+            }
+            
+            initAudioContext() {
+                try {
+                    this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                } catch (e) {
+                    console.warn('Audio context not supported');
+                }
+            }
+            
+            playSound(type) {
+                if (!this.audioContext) return;
+                
+                try {
+                    const oscillator = this.audioContext.createOscillator();
+                    const gainNode = this.audioContext.createGain();
+                    
+                    oscillator.connect(gainNode);
+                    gainNode.connect(this.audioContext.destination);
+                    
+                    switch(type) {
+                        case 'countdown':
+                            oscillator.frequency.setValueAtTime(800, this.audioContext.currentTime);
+                            gainNode.gain.setValueAtTime(0.3, this.audioContext.currentTime);
+                            gainNode.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.2);
+                            break;
+                        case 'throw':
+                            oscillator.frequency.setValueAtTime(400, this.audioContext.currentTime);
+                            oscillator.frequency.exponentialRampToValueAtTime(100, this.audioContext.currentTime + 0.5);
+                            gainNode.gain.setValueAtTime(0.4, this.audioContext.currentTime);
+                            gainNode.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.5);
+                            break;
+                        case 'whoosh':
+                            oscillator.type = 'sawtooth';
+                            oscillator.frequency.setValueAtTime(200, this.audioContext.currentTime);
+                            oscillator.frequency.exponentialRampToValueAtTime(50, this.audioContext.currentTime + 1);
+                            gainNode.gain.setValueAtTime(0.2, this.audioContext.currentTime);
+                            gainNode.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 1);
+                            break;
+                        case 'land':
+                            oscillator.frequency.setValueAtTime(150, this.audioContext.currentTime);
+                            gainNode.gain.setValueAtTime(0.5, this.audioContext.currentTime);
+                            gainNode.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.3);
+                            break;
+                    }
+                    
+                    oscillator.start(this.audioContext.currentTime);
+                    oscillator.stop(this.audioContext.currentTime + (type === 'whoosh' ? 1 : 0.5));
+                } catch (e) {
+                    console.warn('Sound generation failed:', e);
+                }
             }
             
             async startApp() {
@@ -365,6 +379,11 @@ initAudioContext() {
                 startBtn.textContent = '許可を取得中...';
                 
                 try {
+                    // オーディオコンテキストの初期化（ユーザーインタラクション後）
+                    if (this.audioContext && this.audioContext.state === 'suspended') {
+                        await this.audioContext.resume();
+                    }
+                    
                     // 位置情報の取得
                     this.updateStatus('位置情報を取得しています...');
                     await this.getCurrentPosition();
@@ -390,13 +409,14 @@ initAudioContext() {
             getCurrentPosition() {
                 return new Promise((resolve, reject) => {
                     if (!navigator.geolocation) {
-                        reject(new Error('位置情報がサポートされていません'));
+                        console.warn('Geolocation not supported, using default position');
+                        resolve(); // デフォルト位置を使用
                         return;
                     }
                     
                     const options = {
                         enableHighAccuracy: true,
-                        timeout: 15000,
+                        timeout: 10000,
                         maximumAge: 300000
                     };
                     
@@ -408,22 +428,11 @@ initAudioContext() {
                             };
                             this.startPosition = { ...this.currentPosition };
                             console.log('Position obtained:', this.currentPosition);
-                            resolve(position);
+                            resolve();
                         },
                         (error) => {
-                            let errorMsg = '位置情報の取得に失敗しました';
-                            switch(error.code) {
-                                case error.PERMISSION_DENIED:
-                                    errorMsg = '位置情報の許可が拒否されました';
-                                    break;
-                                case error.POSITION_UNAVAILABLE:
-                                    errorMsg = '位置情報が利用できません';
-                                    break;
-                                case error.TIMEOUT:
-                                    errorMsg = '位置情報の取得がタイムアウトしました';
-                                    break;
-                            }
-                            reject(new Error(errorMsg));
+                            console.warn('Geolocation failed, using default position:', error);
+                            resolve(); // エラーでもデフォルト位置で続行
                         },
                         options
                     );
@@ -433,20 +442,28 @@ initAudioContext() {
             async initMap() {
                 document.getElementById('loading').style.display = 'block';
                 
-                // Google Maps APIを動的に読み込み（デモ用なのでAPIキー無しでも動作するように）
-                if (!window.google) {
-                    await this.loadGoogleMapsAPI();
+                try {
+                    if (!window.google) {
+                        await this.loadGoogleMapsAPI();
+                    }
+                    
+                    if (window.google && google.maps) {
+                        this.map = new google.maps.Map(document.getElementById('map'), {
+                            center: this.currentPosition,
+                            zoom: 18,
+                            mapTypeId: google.maps.MapTypeId.SATELLITE,
+                            disableDefaultUI: true,
+                            gestureHandling: 'greedy',
+                            heading: 0,
+                            tilt: 0
+                        });
+                    } else {
+                        this.createMockMap();
+                    }
+                } catch (error) {
+                    console.warn('Map initialization failed:', error);
+                    this.createMockMap();
                 }
-                
-                this.map = new google.maps.Map(document.getElementById('map'), {
-                    center: this.currentPosition,
-                    zoom: 18,
-                    mapTypeId: google.maps.MapTypeId.SATELLITE,
-                    disableDefaultUI: true,
-                    gestureHandling: 'greedy',
-                    heading: 0, // 初期の地図の向き
-                    tilt: 0     // 傾きは0（真上から見下ろす）
-                });
                 
                 document.getElementById('loading').style.display = 'none';
             }
@@ -454,45 +471,40 @@ initAudioContext() {
             loadGoogleMapsAPI() {
                 return new Promise((resolve, reject) => {
                     const script = document.createElement('script');
-                    // 実際の使用時は YOUR_API_KEY_HERE を実際のAPIキーに置き換えてください
-                    script.src = `https://maps.googleapis.com/maps/api/js?key=AIzaSyDbZWtPobAYr04A8da3OUOjtNNdjfvkbXA';
+                    script.src = `https://maps.googleapis.com/maps/api/js?key=AIzaSyDbZWtPobAYr04A8da3OUOjtNNdjfvkbXA`;
                     script.async = true;
                     script.defer = true;
                     script.onload = resolve;
                     script.onerror = () => {
-                        // APIキーが無い場合のフォールバック
-                        console.warn('Google Maps API key not found, using mock implementation');
-                        this.createMockMap();
-                        resolve();
+                        console.warn('Google Maps API failed to load');
+                        resolve(); // エラーでもモックマップで続行
                     };
                     document.head.appendChild(script);
                 });
             }
             
             createMockMap() {
-                // APIキーが無い場合のモック地図
                 const mapElement = document.getElementById('map');
-                mapElement.style.background = 'linear-gradient(45deg, #87CEEB, #98FB98)';
                 mapElement.innerHTML = `
-                    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); 
-                                background: rgba(255,255,255,0.9); padding: 20px; border-radius: 10px; text-align: center;">
+                    <div class="mock-map">
                         <h3>🗺️ デモモード</h3>
                         <p>実際のGoogle Mapsを使用するには<br>APIキーが必要です</p>
                         <small>現在位置: ${this.currentPosition.lat.toFixed(4)}, ${this.currentPosition.lng.toFixed(4)}</small>
                     </div>
                 `;
                 
-                // モック地図オブジェクト
                 this.map = {
-                    setCenter: (pos) => console.log('Map center:', pos),
-                    setZoom: (zoom) => console.log('Map zoom:', zoom),
-                    setMapTypeId: (type) => console.log('Map type:', type)
+                    setCenter: (pos) => console.log('Mock map center:', pos),
+                    setZoom: (zoom) => console.log('Mock map zoom:', zoom),
+                    setMapTypeId: (type) => console.log('Mock map type:', type),
+                    setHeading: (heading) => console.log('Mock map heading:', heading)
                 };
             }
             
             async requestSensorPermission() {
                 try {
-                    if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+                    if (typeof DeviceOrientationEvent !== 'undefined' && 
+                        typeof DeviceOrientationEvent.requestPermission === 'function') {
                         const permission = await DeviceOrientationEvent.requestPermission();
                         if (permission !== 'granted') {
                             throw new Error('デバイスセンサーの許可が拒否されました');
@@ -500,19 +512,17 @@ initAudioContext() {
                     }
                     this.startSensors();
                 } catch (error) {
-                    // iOS以外では直接センサーを開始
-                    try {
-                        this.startSensors();
-                    } catch (e) {
-                        throw new Error('デバイスセンサーにアクセスできません');
-                    }
+                    console.warn('Sensor permission failed:', error);
+                    this.startSensors(); // 許可なしでも続行を試みる
                 }
             }
             
             startSensors() {
-                window.addEventListener('deviceorientation', (event) => {
-                    this.handleOrientation(event);
-                }, { passive: true });
+                if (typeof DeviceOrientationEvent !== 'undefined') {
+                    window.addEventListener('deviceorientation', (event) => {
+                        this.handleOrientation(event);
+                    }, { passive: true });
+                }
                 
                 this.isPermissionGranted = true;
             }
@@ -561,7 +571,6 @@ initAudioContext() {
                 this.countdownElement.textContent = text;
                 document.body.appendChild(this.countdownElement);
                 
-                // カウントダウン音を再生
                 if (text !== '投げて！') {
                     this.playSound('countdown');
                 }
@@ -593,7 +602,7 @@ initAudioContext() {
                 const newTilt = event.beta || 0;
                 const currentTime = Date.now();
                 
-                const deltaTime = (currentTime - this.lastTime) / 1000;
+                const deltaTime = Math.max((currentTime - this.lastTime) / 1000, 0.001);
                 const deltaTilt = newTilt - this.lastTilt;
                 this.tiltSpeed = Math.abs(deltaTilt) / deltaTime;
                 
@@ -612,9 +621,13 @@ initAudioContext() {
                 
                 this.compassNeedle.style.transform = `rotate(${this.heading}deg)`;
                 
-                // 地図をコンパスの向きに合わせて回転
+                // 地図の向きを更新（Google Mapsが利用可能な場合のみ）
                 if (this.map && this.map.setHeading && window.google) {
-                    this.map.setHeading(this.heading);
+                    try {
+                        this.map.setHeading(this.heading);
+                    } catch (e) {
+                        console.warn('Map heading update failed:', e);
+                    }
                 }
             }
             
@@ -627,7 +640,7 @@ initAudioContext() {
                     this.startThrow();
                 }
                 
-                if (this.isActive) {
+                if (this.isActive && this.isMapReady) {
                     this.animateThrow();
                 }
             }
@@ -635,13 +648,16 @@ initAudioContext() {
             startThrow() {
                 this.isActive = true;
                 this.ballElement.classList.add('throwing');
-                this.updateStatus('投球中... 🏀');
                 this.playSound('throw');
                 
                 document.getElementById('altitudeIndicator').style.display = 'block';
                 
-                if (this.map && this.map.setMapTypeId) {
-                    this.map.setMapTypeId(google.maps.MapTypeId.SATELLITE);
+                if (this.map && this.map.setMapTypeId && window.google) {
+                    try {
+                        this.map.setMapTypeId(google.maps.MapTypeId.SATELLITE);
+                    } catch (e) {
+                        console.warn('Map type update failed:', e);
+                    }
                 }
                 
                 this.throwPower = Math.min(this.tiltSpeed / 8, 20);
@@ -650,13 +666,11 @@ initAudioContext() {
                 this.maxAltitude = this.throwPower * 10;
                 this.isMapReady = false;
                 
-                // 2秒待機してから地図の描画とアニメーション開始
                 this.updateStatus('航空写真を読み込んでいます... 📡');
                 setTimeout(() => {
                     this.isMapReady = true;
                     this.playSound('whoosh');
                     this.updateStatus('投球中... 🏀');
-                    this.animateThrow();
                 }, 2000);
             }
             
@@ -664,7 +678,6 @@ initAudioContext() {
                 if (!this.isActive || !this.isMapReady) return;
                 
                 this.animationFrame++;
-                // 飛行時間を10倍に延長（0.0025 → 0.00025）
                 const progress = this.animationFrame * 0.00025;
                 
                 const maxDistance = this.throwPower * 5000;
@@ -700,21 +713,26 @@ initAudioContext() {
                 };
                 
                 if (this.map && this.map.setCenter) {
-                    this.map.setCenter(newPosition);
-                    if (this.map.setMapTypeId && window.google) {
-                        this.map.setMapTypeId(google.maps.MapTypeId.SATELLITE);
-                    }
-                    if (this.map.setZoom) {
-                        const zoomLevel = 18 - (this.currentAltitude / this.maxAltitude) * 2;
-                        this.map.setZoom(Math.max(14, zoomLevel));
-                    }
-                    // 地図の向きを投球方向に維持
-                    if (this.map.setHeading && window.google) {
-                        this.map.setHeading(this.throwAngle);
+                    try {
+                        this.map.setCenter(newPosition);
+                        
+                        if (this.map.setMapTypeId && window.google) {
+                            this.map.setMapTypeId(google.maps.MapTypeId.SATELLITE);
+                        }
+                        
+                        if (this.map.setZoom) {
+                            const zoomLevel = 18 - (this.currentAltitude / this.maxAltitude) * 2;
+                            this.map.setZoom(Math.max(14, zoomLevel));
+                        }
+                        
+                        if (this.map.setHeading && window.google) {
+                            this.map.setHeading(this.throwAngle);
+                        }
+                    } catch (e) {
+                        console.warn('Map update failed:', e);
                     }
                 }
                 
-                // 着地判定（飛行時間延長に合わせて調整）
                 if (progress > 1.5 || currentDistance > maxDistance * 0.9) {
                     this.landBall(currentDistance, newPosition);
                     return;
@@ -748,14 +766,17 @@ initAudioContext() {
                 document.getElementById('altitudeIndicator').style.display = 'none';
                 
                 if (this.map) {
-                    if (this.map.setCenter) this.map.setCenter(landingPosition);
-                    if (this.map.setZoom) this.map.setZoom(16);
-                    if (this.map.setMapTypeId && window.google) {
-                        this.map.setMapTypeId(google.maps.MapTypeId.ROADMAP);
-                    }
-                    // 着地時は北向きに戻す
-                    if (this.map.setHeading && window.google) {
-                        this.map.setHeading(0);
+                    try {
+                        if (this.map.setCenter) this.map.setCenter(landingPosition);
+                        if (this.map.setZoom) this.map.setZoom(16);
+                        if (this.map.setMapTypeId && window.google) {
+                            this.map.setMapTypeId(google.maps.MapTypeId.ROADMAP);
+                        }
+                        if (this.map.setHeading && window.google) {
+                            this.map.setHeading(0);
+                        }
+                    } catch (e) {
+                        console.warn('Map landing update failed:', e);
                     }
                 }
                 
@@ -792,14 +813,17 @@ initAudioContext() {
                 document.getElementById('altitudeIndicator').style.display = 'none';
                 
                 if (this.map && this.startPosition) {
-                    if (this.map.setCenter) this.map.setCenter(this.startPosition);
-                    if (this.map.setZoom) this.map.setZoom(18);
-                    if (this.map.setMapTypeId && window.google) {
-                        this.map.setMapTypeId(google.maps.MapTypeId.SATELLITE);
-                    }
-                    // リセット時は現在の向きを維持
-                    if (this.map.setHeading && window.google) {
-                        this.map.setHeading(this.heading);
+                    try {
+                        if (this.map.setCenter) this.map.setCenter(this.startPosition);
+                        if (this.map.setZoom) this.map.setZoom(18);
+                        if (this.map.setMapTypeId && window.google) {
+                            this.map.setMapTypeId(google.maps.MapTypeId.SATELLITE);
+                        }
+                        if (this.map.setHeading && window.google) {
+                            this.map.setHeading(this.heading);
+                        }
+                    } catch (e) {
+                        console.warn('Map reset failed:', e);
                     }
                 }
                 
