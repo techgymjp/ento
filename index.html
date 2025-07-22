@@ -1,4 +1,55 @@
-<!DOCTYPE html>
+initAudioContext() {
+                // Web Audio APIで効果音を生成
+                try {
+                    this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                } catch (e) {
+                    console.warn('Audio context not supported');
+                    this.audioContext = null;
+                }
+            }
+            
+            playSound(type) {
+                if (!this.audioContext) return;
+                
+                try {
+                    const oscillator = this.audioContext.createOscillator();
+                    const gainNode = this.audioContext.createGain();
+                    
+                    oscillator.connect(gainNode);
+                    gainNode.connect(this.audioContext.destination);
+                    
+                    switch(type) {
+                        case 'countdown':
+                            oscillator.frequency.setValueAtTime(800, this.audioContext.currentTime);
+                            gainNode.gain.setValueAtTime(0.3, this.audioContext.currentTime);
+                            gainNode.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.2);
+                            break;
+                        case 'throw':
+                            oscillator.frequency.setValueAtTime(400, this.audioContext.currentTime);
+                            oscillator.frequency.exponentialRampToValueAtTime(100, this.audioContext.currentTime + 0.5);
+                            gainNode.gain.setValueAtTime(0.4, this.audioContext.currentTime);
+                            gainNode.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.5);
+                            break;
+                        case 'whoosh':
+                            oscillator.type = 'sawtooth';
+                            oscillator.frequency.setValueAtTime(200, this.audioContext.currentTime);
+                            oscillator.frequency.exponentialRampToValueAtTime(50, this.audioContext.currentTime + 1);
+                            gainNode.gain.setValueAtTime(0.2, this.audioContext.currentTime);
+                            gainNode.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 1);
+                            break;
+                        case 'land':
+                            oscillator.frequency.setValueAtTime(150, this.audioContext.currentTime);
+                            gainNode.gain.setValueAtTime(0.5, this.audioContext.currentTime);
+                            gainNode.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.3);
+                            break;
+                    }
+                    
+                    oscillator.start(this.audioContext.currentTime);
+                    oscillator.stop(this.audioContext.currentTime + (type === 'whoosh' ? 1 : 0.5));
+                } catch (e) {
+                    console.warn('Sound generation failed:', e);
+                }
+            }<!DOCTYPE html>
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
@@ -296,10 +347,14 @@
                 this.throwAngle = 0;
                 this.maxAltitude = 0;
                 this.currentAltitude = 0;
+                this.isMapReady = false;
                 
                 // カウントダウン
                 this.countdownTimer = null;
                 this.countdownElement = null;
+                
+                // 効果音の初期化
+                this.initAudioContext();
                 
                 this.updateStatus('位置情報とデバイスセンサーの許可が必要です');
             }
@@ -388,7 +443,9 @@
                     zoom: 18,
                     mapTypeId: google.maps.MapTypeId.SATELLITE,
                     disableDefaultUI: true,
-                    gestureHandling: 'greedy'
+                    gestureHandling: 'greedy',
+                    heading: 0, // 初期の地図の向き
+                    tilt: 0     // 傾きは0（真上から見下ろす）
                 });
                 
                 document.getElementById('loading').style.display = 'none';
@@ -398,7 +455,7 @@
                 return new Promise((resolve, reject) => {
                     const script = document.createElement('script');
                     // 実際の使用時は YOUR_API_KEY_HERE を実際のAPIキーに置き換えてください
-                    script.src = `https://maps.googleapis.com/maps/api/js?key=AIzaSyDbZWtPobAYr04A8da3OUOjtNNdjfvkbXA`;
+                    script.src = `https://maps.googleapis.com/maps/api/js?key=YOUR_API_KEY_HERE&libraries=geometry`;
                     script.async = true;
                     script.defer = true;
                     script.onload = resolve;
@@ -503,6 +560,11 @@
                 this.countdownElement.className = 'countdown';
                 this.countdownElement.textContent = text;
                 document.body.appendChild(this.countdownElement);
+                
+                // カウントダウン音を再生
+                if (text !== '投げて！') {
+                    this.playSound('countdown');
+                }
             }
             
             hideCountdown() {
@@ -549,6 +611,11 @@
                 document.getElementById('speed').textContent = Math.round(this.tiltSpeed) + '°/s';
                 
                 this.compassNeedle.style.transform = `rotate(${this.heading}deg)`;
+                
+                // 地図をコンパスの向きに合わせて回転
+                if (this.map && this.map.setHeading && window.google) {
+                    this.map.setHeading(this.heading);
+                }
             }
             
             updateBall() {
@@ -569,6 +636,7 @@
                 this.isActive = true;
                 this.ballElement.classList.add('throwing');
                 this.updateStatus('投球中... 🏀');
+                this.playSound('throw');
                 
                 document.getElementById('altitudeIndicator').style.display = 'block';
                 
@@ -580,15 +648,24 @@
                 this.throwAngle = this.heading || 0;
                 this.animationFrame = 0;
                 this.maxAltitude = this.throwPower * 10;
+                this.isMapReady = false;
                 
-                this.animateThrow();
+                // 2秒待機してから地図の描画とアニメーション開始
+                this.updateStatus('航空写真を読み込んでいます... 📡');
+                setTimeout(() => {
+                    this.isMapReady = true;
+                    this.playSound('whoosh');
+                    this.updateStatus('投球中... 🏀');
+                    this.animateThrow();
+                }, 2000);
             }
             
             animateThrow() {
-                if (!this.isActive) return;
+                if (!this.isActive || !this.isMapReady) return;
                 
                 this.animationFrame++;
-                const progress = this.animationFrame * 0.0025;
+                // 飛行時間を10倍に延長（0.0025 → 0.00025）
+                const progress = this.animationFrame * 0.00025;
                 
                 const maxDistance = this.throwPower * 5000;
                 const currentDistance = maxDistance * progress;
@@ -631,8 +708,13 @@
                         const zoomLevel = 18 - (this.currentAltitude / this.maxAltitude) * 2;
                         this.map.setZoom(Math.max(14, zoomLevel));
                     }
+                    // 地図の向きを投球方向に維持
+                    if (this.map.setHeading && window.google) {
+                        this.map.setHeading(this.throwAngle);
+                    }
                 }
                 
+                // 着地判定（飛行時間延長に合わせて調整）
                 if (progress > 1.5 || currentDistance > maxDistance * 0.9) {
                     this.landBall(currentDistance, newPosition);
                     return;
@@ -661,6 +743,7 @@
                 this.isActive = false;
                 this.ballElement.classList.remove('throwing', 'flying-high');
                 this.ballElement.classList.add('landing');
+                this.playSound('land');
                 
                 document.getElementById('altitudeIndicator').style.display = 'none';
                 
@@ -669,6 +752,10 @@
                     if (this.map.setZoom) this.map.setZoom(16);
                     if (this.map.setMapTypeId && window.google) {
                         this.map.setMapTypeId(google.maps.MapTypeId.ROADMAP);
+                    }
+                    // 着地時は北向きに戻す
+                    if (this.map.setHeading && window.google) {
+                        this.map.setHeading(0);
                     }
                 }
                 
@@ -698,6 +785,7 @@
                 
                 this.isActive = false;
                 this.isCountdownActive = false;
+                this.isMapReady = false;
                 this.ballElement.classList.remove('throwing', 'flying-high', 'landing');
                 this.ballElement.style.transform = 'translate(-50%, -50%)';
                 
@@ -708,6 +796,10 @@
                     if (this.map.setZoom) this.map.setZoom(18);
                     if (this.map.setMapTypeId && window.google) {
                         this.map.setMapTypeId(google.maps.MapTypeId.SATELLITE);
+                    }
+                    // リセット時は現在の向きを維持
+                    if (this.map.setHeading && window.google) {
+                        this.map.setHeading(this.heading);
                     }
                 }
                 
