@@ -307,7 +307,7 @@
     <div class="container">
         <div class="header">
             <h1 class="title">🏀 遠投の旅 - Google Maps版</h1>
-            <button class="header-btn" id="startBtn" onclick="startApp()">
+            <button class="header-btn" id="startBtn">
                 位置情報とセンサーを有効にする
             </button>
         </div>
@@ -361,6 +361,8 @@
     <script>
         class BallThrowMapsApp {
             constructor() {
+                console.log('BallThrowMapsApp constructor called');
+                
                 this.map = null;
                 this.mapElement = document.getElementById('map');
                 this.satelliteView = document.getElementById('satelliteView');
@@ -371,6 +373,12 @@
                 this.isBallMoving = false;
                 this.ballElement = document.getElementById('ball');
                 this.compassNeedle = document.getElementById('compassNeedle');
+                
+                // DOM要素の存在確認
+                if (!this.mapElement) console.warn('Map element not found');
+                if (!this.satelliteView) console.warn('Satellite view element not found');
+                if (!this.ballElement) console.warn('Ball element not found');
+                if (!this.compassNeedle) console.warn('Compass needle element not found');
                 
                 // 位置情報
                 this.currentPosition = { lat: 35.4476, lng: 139.6425 }; // 横浜の初期値
@@ -406,6 +414,7 @@
                 this.initAudioContext();
                 
                 this.updateStatus('位置情報とデバイスセンサーの許可が必要です');
+                console.log('BallThrowMapsApp constructor completed');
             }
             
             initAudioContext() {
@@ -461,34 +470,54 @@
             
             async startApp() {
                 const startBtn = document.getElementById('startBtn');
+                if (!startBtn) {
+                    console.error('Start button not found in startApp');
+                    return;
+                }
+                
+                console.log('Starting app initialization...');
                 startBtn.disabled = true;
                 startBtn.textContent = '許可を取得中...';
                 
                 try {
                     // オーディオコンテキストの初期化（ユーザーインタラクション後）
                     if (this.audioContext && this.audioContext.state === 'suspended') {
+                        console.log('Resuming audio context...');
                         await this.audioContext.resume();
                     }
                     
                     // 位置情報の取得
                     this.updateStatus('位置情報を取得しています...');
+                    console.log('Getting current position...');
                     await this.getCurrentPosition();
+                    console.log('Position obtained:', this.currentPosition);
                     
                     // 地図の初期化（Google Mapsに依存しない）
                     this.updateStatus('地図を準備しています...');
+                    console.log('Initializing map...');
                     await this.initMap();
+                    console.log('Map initialized, isMapReady:', this.isMapReady);
                     
                     // センサー許可の取得
                     this.updateStatus('デバイスセンサーの許可を取得しています...');
+                    console.log('Requesting sensor permissions...');
                     await this.requestSensorPermission();
+                    console.log('Sensor permission completed, isPermissionGranted:', this.isPermissionGranted);
                     
                     this.setupComplete();
+                    console.log('App setup completed successfully');
                     
                 } catch (error) {
                     console.error('Setup error:', error);
                     this.showError('初期化に失敗しました: ' + error.message);
                     startBtn.disabled = false;
                     startBtn.textContent = '再試行';
+                    
+                    // エラー時も継続を試みる
+                    setTimeout(() => {
+                        console.log('Attempting recovery...');
+                        this.setupComplete();
+                    }, 3000);
                 }
             }
             
@@ -585,7 +614,7 @@
                     // 複数の有効なAPIキーを試行
                     const apiKeys = [
                         'AIzaSyDbZWtPobAYr04A8da3OUOjtNNdjfvkbXA',
-                        'AIzaSyDbZWtPobAYr04A8da3OUOjtNNdjfvkbXA',  // 別のキー例
+                        'AIzaSyBFw0Qbyq9zTFTd-tUY6dDRTQ3xPQoH6J4',  // 別のキー例
                         // 必要に応じてここに追加の有効なAPIキーを記載
                     ];
                     
@@ -1428,12 +1457,53 @@
         }
         
         // アプリケーションのインスタンスを作成
-        const app = new BallThrowMapsApp();
+        let app = null;
+        
+        // ページ読み込み完了後にアプリを初期化
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOM loaded, initializing app...');
+            app = new BallThrowMapsApp();
+            console.log('App initialized:', app);
+        });
         
         // グローバル関数（HTMLから呼び出し用）
         function startApp() {
-            app.startApp();
+            console.log('startApp called, app instance:', app);
+            if (app && typeof app.startApp === 'function') {
+                app.startApp();
+            } else {
+                console.error('App not initialized or startApp method not found');
+                // アプリが初期化されていない場合の緊急対応
+                if (!app) {
+                    app = new BallThrowMapsApp();
+                    setTimeout(() => app.startApp(), 100);
+                } else {
+                    alert('アプリの初期化に失敗しました。ページを再読み込みしてください。');
+                }
+            }
         }
+        
+        // ボタンクリックのデバッグ用
+        window.addEventListener('load', function() {
+            const startBtn = document.getElementById('startBtn');
+            if (startBtn) {
+                console.log('Start button found:', startBtn);
+                
+                // 既存のonclickを削除して新しく設定
+                startBtn.onclick = null;
+                startBtn.removeAttribute('onclick');
+                
+                // イベントリスナーで直接設定
+                startBtn.addEventListener('click', function() {
+                    console.log('Button clicked directly');
+                    startApp();
+                });
+                
+                console.log('Button event listener added');
+            } else {
+                console.error('Start button not found');
+            }
+        });
     </script>
 </body>
 </html>
