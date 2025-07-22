@@ -70,9 +70,19 @@
             100% { transform: scale(1); }
         }
         
-        #map {
+        .map-container {
             flex: 1;
             position: relative;
+            overflow: hidden;
+        }
+        
+        #map {
+            position: absolute;
+            /* キャンバスサイズを2倍にして回転時の空白を防止 */
+            width: 200%;
+            height: 200%;
+            top: -50%;
+            left: -50%;
             background: linear-gradient(45deg, #87CEEB, #98FB98);
             transition: transform 0.3s ease;
             transform-origin: center center;
@@ -300,9 +310,11 @@
             地図を読み込み中...
         </div>
         
-        <div id="map">
-            <div class="satellite-view" id="satelliteView"></div>
-            <div class="map-overlay"></div>
+        <div class="map-container">
+            <div id="map">
+                <div class="satellite-view" id="satelliteView"></div>
+                <div class="map-overlay"></div>
+            </div>
         </div>
         <div class="ball" id="ball"></div>
         
@@ -758,9 +770,9 @@
                 // コンパスの針を更新
                 this.compassNeedle.style.transform = `rotate(${this.heading}deg)`;
                 
-                // 投げる前の画面をコンパスの方角に合わせて回転
+                // 投げる前の画面をコンパスの方角に合わせて回転（修正：逆回転）
                 if (!this.isActive && !this.isCountdownActive) {
-                    this.mapElement.style.transform = `rotate(${-this.heading}deg)`;
+                    this.mapElement.style.transform = `rotate(${this.heading}deg)`;
                 }
                 
                 // 地図の向きを更新
@@ -880,13 +892,14 @@
                 if (!this.isActive || !this.isMapReady) return;
                 
                 this.animationFrame++;
-                const progress = this.animationFrame * 0.01; // アニメーション速度を調整
+                // 移動スピードを0.1倍に（10倍遅く）
+                const progress = this.animationFrame * 0.001; // 0.01 → 0.001
                 
                 const maxDistance = this.throwPower * 3000; // 最大距離を調整
                 const currentDistance = maxDistance * Math.min(progress, 1);
                 
-                // 高度計算（放物線）
-                const altitudeProgress = Math.min(progress * 2, 1);
+                // 高度計算（放物線）- 対空時間を10倍長く
+                const altitudeProgress = Math.min(progress * 0.2, 1); // progress * 2 → progress * 0.2
                 this.currentAltitude = this.maxAltitude * 4 * altitudeProgress * (1 - altitudeProgress);
                 
                 document.getElementById('altitude').textContent = Math.round(this.currentAltitude);
@@ -940,8 +953,8 @@
                     }
                 }
                 
-                // 軌跡の追加（フレーム毎ではなく適度な間隔で）
-                if (this.animationFrame % 5 === 0) {
+                // 軌跡の追加（フレーム毎ではなく適度な間隔で）- より長い間隔に変更
+                if (this.animationFrame % 50 === 0) { // 5 → 50（移動スピードが遅くなったため）
                     const rect = this.ballElement.getBoundingClientRect();
                     this.createTrail(rect.left + rect.width/2, rect.top + rect.height/2);
                 }
@@ -1063,8 +1076,8 @@
                 // ボールの位置を開始位置にリセット
                 this.ballPosition = { ...this.startPosition };
                 
-                // 画面の回転を復活（コンパス方向に合わせる）
-                this.mapElement.style.transform = `rotate(${-this.heading}deg)`;
+                // 画面の回転を復活（コンパス方向に合わせる）- 修正：逆回転
+                this.mapElement.style.transform = `rotate(${this.heading}deg)`;
                 
                 // 地図を開始位置に戻す
                 if (this.map && this.startPosition) {
