@@ -88,6 +88,12 @@
             transform-origin: center center;
         }
         
+        /* Google Maps用のサイズ調整 */
+        #map .gm-style {
+            width: 100% !important;
+            height: 100% !important;
+        }
+        
         .ball {
             position: absolute;
             width: 24px;
@@ -530,7 +536,10 @@
                     }
                     
                     if (window.google && google.maps) {
-                        this.map = new google.maps.Map(document.getElementById('map'), {
+                        // 地図コンテナの参照を正しく取得
+                        const mapContainer = document.getElementById('map');
+                        
+                        this.map = new google.maps.Map(mapContainer, {
                             center: this.currentPosition,
                             zoom: 18,
                             mapTypeId: google.maps.MapTypeId.SATELLITE,
@@ -547,7 +556,19 @@
                         google.maps.event.addListenerOnce(this.map, 'idle', () => {
                             console.log('Google Map is ready');
                             this.isMapReady = true;
+                            // 地図の表示を強制的に更新
+                            google.maps.event.trigger(this.map, 'resize');
+                            this.map.setCenter(this.currentPosition);
                         });
+                        
+                        // 少し遅延してから地図のリサイズを実行
+                        setTimeout(() => {
+                            if (this.map) {
+                                google.maps.event.trigger(this.map, 'resize');
+                                this.map.setCenter(this.currentPosition);
+                            }
+                        }, 500);
+                        
                     } else {
                         this.createFallbackMap();
                     }
@@ -603,9 +624,14 @@
             
             createFallbackMap() {
                 console.log('Using fallback satellite view');
+                // フォールバック地図を表示
                 this.satelliteView.style.display = 'block';
                 this.updateSatelliteView('normal');
                 this.isMapReady = true;
+                
+                // 地図コンテナのサイズを確認して調整
+                const mapElement = document.getElementById('map');
+                mapElement.style.background = 'linear-gradient(45deg, #87CEEB, #98FB98)';
                 
                 // フォールバック地図用のモック地図オブジェクト
                 this.map = {
@@ -620,6 +646,12 @@
                     },
                     setMapTypeId: (type) => {
                         console.log('Fallback map type:', type);
+                        // 地図タイプに応じてスタイルを変更
+                        if (type === 'satellite') {
+                            this.updateSatelliteView('aerial');
+                        } else {
+                            this.updateSatelliteView('normal');
+                        }
                     },
                     setHeading: (heading) => {
                         console.log('Fallback map heading:', heading);
@@ -682,6 +714,22 @@
             setupComplete() {
                 this.updateStatus('投球準備完了！上のボタンを押してカウントダウンを開始');
                 this.updateCoordinatesDisplay();
+                
+                // 地図の表示を確実にする
+                if (this.map && typeof this.map.setCenter === 'function') {
+                    try {
+                        this.map.setCenter(this.currentPosition);
+                        // Google Mapsの場合はリサイズイベントを発火
+                        if (window.google && google.maps && google.maps.event) {
+                            setTimeout(() => {
+                                google.maps.event.trigger(this.map, 'resize');
+                                this.map.setCenter(this.currentPosition);
+                            }, 100);
+                        }
+                    } catch (e) {
+                        console.warn('Map setup failed:', e);
+                    }
+                }
                 
                 const startBtn = document.getElementById('startBtn');
                 startBtn.textContent = '投球開始 (3秒カウントダウン)';
