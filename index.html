@@ -585,7 +585,7 @@
                     // 複数の有効なAPIキーを試行
                     const apiKeys = [
                         'AIzaSyDbZWtPobAYr04A8da3OUOjtNNdjfvkbXA',
-                        'AIzaSyBFw0Qbyq9zTFTd-tUY6dDRTQ3xPQoH6J4',  // 別のキー例
+                        'AIzaSyDbZWtPobAYr04A8da3OUOjtNNdjfvkbXA',  // 別のキー例
                         // 必要に応じてここに追加の有効なAPIキーを記載
                     ];
                     
@@ -679,36 +679,111 @@
             
             async requestSensorPermission() {
                 try {
+                    // iOS 13+ のデバイス方向許可
                     if (typeof DeviceOrientationEvent !== 'undefined' && 
                         typeof DeviceOrientationEvent.requestPermission === 'function') {
-                        const permission = await DeviceOrientationEvent.requestPermission();
-                        if (permission !== 'granted') {
-                            throw new Error('デバイスセンサーの許可が拒否されました');
+                        
+                        this.updateStatus('デバイス方向センサーの許可を要請しています...');
+                        const orientationPermission = await DeviceOrientationEvent.requestPermission();
+                        console.log('Orientation permission:', orientationPermission);
+                        
+                        if (orientationPermission !== 'granted') {
+                            throw new Error('デバイス方向センサーの許可が拒否されました');
                         }
                     }
+                    
+                    // iOS 13+ のデバイスモーション許可
+                    if (typeof DeviceMotionEvent !== 'undefined' && 
+                        typeof DeviceMotionEvent.requestPermission === 'function') {
+                        
+                        this.updateStatus('デバイスモーションセンサーの許可を要請しています...');
+                        const motionPermission = await DeviceMotionEvent.requestPermission();
+                        console.log('Motion permission:', motionPermission);
+                        
+                        if (motionPermission !== 'granted') {
+                            throw new Error('デバイスモーションセンサーの許可が拒否されました');
+                        }
+                    }
+                    
+                    this.updateStatus('センサーを開始しています...');
                     this.startSensors();
+                    
                 } catch (error) {
                     console.warn('Sensor permission failed:', error);
-                    this.startSensors(); // 許可なしでも続行を試みる
+                    this.updateStatus('センサー許可に失敗しました。続行を試みます...');
+                    
+                    // 許可が取得できなくても続行を試みる
+                    setTimeout(() => {
+                        this.startSensors();
+                    }, 1000);
                 }
             }
             
             startSensors() {
+                let orientationStarted = false;
+                let motionStarted = false;
+                
                 // デバイス方向センサー
                 if (typeof DeviceOrientationEvent !== 'undefined') {
-                    window.addEventListener('deviceorientation', (event) => {
+                    const orientationHandler = (event) => {
+                        if (!orientationStarted) {
+                            console.log('Orientation sensor started');
+                            orientationStarted = true;
+                        }
                         this.handleOrientation(event);
-                    }, { passive: true });
+                    };
+                    
+                    window.addEventListener('deviceorientation', orientationHandler, { passive: true });
+                    
+                    // テスト用のイベント発火
+                    setTimeout(() => {
+                        if (!orientationStarted) {
+                            console.warn('Orientation sensor not responding, using fallback');
+                            // フォールバック用のダミーデータ
+                            this.handleOrientation({ alpha: 0, beta: 0, gamma: 0 });
+                        }
+                    }, 2000);
                 }
                 
                 // 加速度センサー（振り検出用）
                 if (typeof DeviceMotionEvent !== 'undefined') {
-                    window.addEventListener('devicemotion', (event) => {
+                    const motionHandler = (event) => {
+                        if (!motionStarted) {
+                            console.log('Motion sensor started');
+                            motionStarted = true;
+                        }
                         this.handleMotion(event);
-                    }, { passive: true });
+                    };
+                    
+                    window.addEventListener('devicemotion', motionHandler, { passive: true });
+                    
+                    // テスト用のイベント発火
+                    setTimeout(() => {
+                        if (!motionStarted) {
+                            console.warn('Motion sensor not responding, using fallback');
+                            // フォールバック用のダミーデータ
+                            this.handleMotion({ 
+                                acceleration: { x: 0, y: 0, z: 0 }
+                            });
+                        }
+                    }, 2000);
+                } else {
+                    console.warn('DeviceMotionEvent not supported, using fallback shake detection');
+                    // モーションセンサーが利用できない場合のフォールバック
+                    this.setupFallbackShakeDetection();
                 }
                 
                 this.isPermissionGranted = true;
+                
+                // センサー開始の確認
+                setTimeout(() => {
+                    if (orientationStarted || motionStarted) {
+                        console.log('Sensors successfully started');
+                    } else {
+                        console.warn('No sensors started, using fallback mode');
+                        this.setupFallbackMode();
+                    }
+                }, 3000);
             }
             
             setupComplete() {
@@ -789,7 +864,13 @@
                 this.isDetectingShake = true;
                 this.accelerationData = [];
                 this.maxAcceleration = 0;
-                this.updateStatus('今すぐスマホを振ってボールを投げてください！');
+                
+                // センサーが利用可能かチェック
+                if (typeof DeviceMotionEvent !== 'undefined') {
+                    this.updateStatus('今すぐスマホを振ってボールを投げてください！');
+                } else {
+                    this.updateStatus('画面を3回連続で素早くタップしてボールを投げてください！');
+                }
                 
                 setTimeout(() => {
                     if (!this.isActive) {
@@ -800,11 +881,49 @@
                 }, 8000); // 振り検出の時間を8秒に延長
             }
             
+            setupFallbackShakeDetection() {
+                // マウス/タッチイベントでシミュレートされた振り検出
+                let lastClickTime = 0;
+                let clickCount = 0;
+                
+                const handleInteraction = (event) => {
+                    if (!this.isDetectingShake) return;
+                    
+                    const currentTime = Date.now();
+                    if (currentTime - lastClickTime < 500) {
+                        clickCount++;
+                        if (clickCount >= 3) {
+                            // 3回連続クリック/タップで投げる動作をシミュレート
+                            this.maxAcceleration = 20; // シミュレート値
+                            this.startThrowWithShake();
+                            clickCount = 0;
+                        }
+                    } else {
+                        clickCount = 1;
+                    }
+                    lastClickTime = currentTime;
+                };
+                
+                document.addEventListener('click', handleInteraction);
+                document.addEventListener('touchstart', handleInteraction);
+                
+                console.log('Fallback shake detection enabled (3 quick taps to throw)');
+            }
+            
+            setupFallbackMode() {
+                // センサーが全く利用できない場合のフォールバックモード
+                this.heading = 0;
+                this.updateDisplay();
+                console.log('Running in fallback mode');
+            }
             handleMotion(event) {
                 if (!this.isDetectingShake) return;
                 
                 const acceleration = event.acceleration;
-                if (!acceleration) return;
+                if (!acceleration) {
+                    // 加速度データが取得できない場合のフォールバック
+                    return;
+                }
                 
                 // 3軸の加速度を合成
                 const totalAcceleration = Math.sqrt(
