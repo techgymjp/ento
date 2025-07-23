@@ -715,7 +715,7 @@
                 
                 // iOS
                 if (event.webkitCompassHeading !== undefined) {
-                    newHeading = event.webkitCompassHeading;
+                    newHeading = (360 - event.alpha + 360) % 360; // ここを修正
                 }
                 // Android
                 else if (event.alpha !== null) {
