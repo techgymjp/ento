@@ -97,7 +97,7 @@
             position: absolute;
             width: 60px;
             height: 60px;
-            background-image: url('ball.gif');
+            background: radial-gradient(circle at 30% 30%, #ff6b6b, #d63031);
             background-size: cover;
             background-position: center;
             border-radius: 50%;
@@ -458,17 +458,6 @@
         </div>
     </div>
 
-    <!-- Audio elements -->
-    <audio id="startSound" preload="auto">
-        <source src="start.mp3" type="audio/mpeg">
-    </audio>
-    <audio id="throwSound" preload="auto">
-        <source src="kich.mp3" type="audio/mpeg">
-    </audio>
-    <audio id="landingSound" preload="auto">
-        <source src="goal.mp3" type="audio/mpeg">
-    </audio>
-
     <script>
         class BallThrowJourneyApp {
             constructor() {
@@ -479,11 +468,6 @@
                 this.mapElement = document.getElementById('map');
                 this.ballElement = document.getElementById('ball');
                 this.compassNeedle = document.getElementById('compassNeedle');
-                
-                // Audio elements
-                this.startSound = document.getElementById('startSound');
-                this.throwSound = document.getElementById('throwSound');
-                this.landingSound = document.getElementById('landingSound');
                 
                 // State management
                 this.isActive = false;
@@ -510,7 +494,8 @@
                 // Shake detection
                 this.accelerationData = [];
                 this.maxAcceleration = 0;
-                this.shakeThreshold = 15;
+                this.shakeThreshold = 12; // 閾値を下げて検出しやすく
+                this.totalDistance = 0; // 移動距離の累積
                 
                 // Animation
                 this.animationFrame = 0;
@@ -525,6 +510,18 @@
                 
                 this.updateStatus('位置情報とデバイスセンサーの許可が必要です');
                 console.log('BallThrowJourneyApp initialized');
+            }
+            
+            // 2点間の距離を計算（メートル単位）
+            calculateDistance(lat1, lng1, lat2, lng2) {
+                const R = 6371000; // 地球の半径（メートル）
+                const dLat = (lat2 - lat1) * Math.PI / 180;
+                const dLng = (lng2 - lng1) * Math.PI / 180;
+                const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                         Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                         Math.sin(dLng/2) * Math.sin(dLng/2);
+                const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+                return R * c;
             }
             
             async startApp() {
@@ -721,16 +718,11 @@
                 // Android
                 else if (event.alpha !== null) {
                     newHeading = 360 - event.alpha;
-                    if (newHeading > 359 && newHeading < 360) { // 359.5度から360度を359度とみなす
-                        newHeading = 359;
-                    } else if (newHeading >= 0 && newHeading < 1) { // 0度から0.5度を1度とみなす
-                        newHeading = 1;
-                    }
+                    if (newHeading >= 360) newHeading -= 360;
+                    if (newHeading < 0) newHeading += 360;
                 }
                 
                 this.heading = newHeading;
-
-
                 
                 const newTilt = event.beta || 0;
                 const currentTime = Date.now();
@@ -757,13 +749,14 @@
             handleMotion(event) {
                 if (!this.isDetectingShake) return;
                 
-                const acceleration = event.acceleration;
+                const acceleration = event.acceleration || event.accelerationIncludingGravity;
                 if (!acceleration) return;
                 
+                // より正確な加速度計算
                 const totalAcceleration = Math.sqrt(
-                    (acceleration.x || 0) ** 2 + 
-                    (acceleration.y || 0) ** 2 + 
-                    (acceleration.z || 0) ** 2
+                    Math.pow(acceleration.x || 0, 2) + 
+                    Math.pow(acceleration.y || 0, 2) + 
+                    Math.pow(acceleration.z || 0, 2)
                 );
                 
                 const currentTime = Date.now();
@@ -781,29 +774,37 @@
                     this.maxAcceleration = totalAcceleration;
                 }
                 
-                // Update power meter
-                const powerLevel = Math.min(totalAcceleration / 30 * 100, 100);
+                // Update power meter - より感度を上げる
+                const powerLevel = Math.min((totalAcceleration / 20) * 100, 100);
                 document.getElementById('powerFill').style.height = powerLevel + '%';
                 document.getElementById('speed').textContent = `${Math.round(totalAcceleration * 10)/10}`;
                 
-                // Detect throw
+                // Debug log
+                console.log(`加速度: ${totalAcceleration.toFixed(2)}, 最大: ${this.maxAcceleration.toFixed(2)}, 閾値: ${this.shakeThreshold}`);
+                
+                // Detect throw - より感度を上げる
                 if (totalAcceleration > this.shakeThreshold && this.maxAcceleration > this.shakeThreshold) {
+                    console.log('投球検出！');
                     this.startThrowWithShake();
                 }
             }
             
             setupFallbackShakeDetection() {
+                console.log('フォールバック振り検出を設定');
                 let tapCount = 0;
                 let lastTapTime = 0;
                 
-                const handleTap = () => {
+                const handleTap = (e) => {
                     if (!this.isDetectingShake) return;
                     
+                    console.log('タップ検出');
                     const currentTime = Date.now();
-                    if (currentTime - lastTapTime < 300) {
+                    if (currentTime - lastTapTime < 500) {
                         tapCount++;
-                        if (tapCount >= 5) {
+                        console.log(`タップ回数: ${tapCount}`);
+                        if (tapCount >= 3) { // 3回連続タップで発動
                             this.maxAcceleration = 25;
+                            console.log('フォールバック投球発動！');
                             this.startThrowWithShake();
                             tapCount = 0;
                         }
@@ -815,6 +816,24 @@
                 
                 document.addEventListener('touchstart', handleTap);
                 document.addEventListener('click', handleTap);
+                
+                // 画面を長押しした場合も投球発動
+                let longPressTimer = null;
+                document.addEventListener('touchstart', (e) => {
+                    if (!this.isDetectingShake) return;
+                    longPressTimer = setTimeout(() => {
+                        this.maxAcceleration = 20;
+                        console.log('長押し投球発動！');
+                        this.startThrowWithShake();
+                    }, 1500);
+                });
+                
+                document.addEventListener('touchend', () => {
+                    if (longPressTimer) {
+                        clearTimeout(longPressTimer);
+                        longPressTimer = null;
+                    }
+                });
             }
             
             updateDisplay() {
@@ -825,22 +844,25 @@
                 // Update compass needle
                 this.compassNeedle.style.transform = `rotate(${this.heading}deg)`;
                 
+                // スタート地点からの距離を計算して表示
+                if (!this.isBallMoving) {
+                    this.totalDistance = this.calculateDistance(
+                        this.startPosition.lat, this.startPosition.lng,
+                        this.ballPosition.lat, this.ballPosition.lng
+                    );
+                    document.getElementById('distance').textContent = Math.round(this.totalDistance) + 'm';
+                }
+                
                 // Map rotation will be paused if heading is in this range to prevent jumps
-                const DEAD_ZONE_START = 350; // Start of the "upper" dead zone
-                const DEAD_ZONE_END = 10;    // End of the "lower" dead zone
+                const DEAD_ZONE_START = 350;
+                const DEAD_ZONE_END = 10;
                 
                 const isHeadingInDeadZone = (this.heading >= DEAD_ZONE_START && this.heading < 360) || 
                                             (this.heading >= 0 && this.heading < DEAD_ZONE_END);
 
-                // Rotate map to show throw direction at top
-                const isHeadingNear360 = (this.heading >= 359 && this.heading < 360);
-
                 // Only rotate map if conditions are met AND heading is NOT in the dead zone
                 if (!this.isActive && !this.isCountdownActive && !this.isBallMoving && this.isMapReady && !isHeadingInDeadZone) {
                     this.mapElement.style.transform = `rotate(${-this.heading}deg)`;
-                } else if (!this.isActive && !this.isCountdownActive && !this.isBallMoving && this.isMapReady && isHeadingInDeadZone) {
-                    // When in the dead zone, we explicitly don't update the transform,
-            
                 }
                 
                 this.updateCoordinatesDisplay();
@@ -895,14 +917,6 @@
             async startCountdown() {
                 if (this.isCountdownActive || this.isActive) return;
                 
-                // Play start sound
-                try {
-                    this.startSound.currentTime = 0;
-                    await this.startSound.play();
-                } catch (e) {
-                    console.warn('Could not play start sound:', e);
-                }
-                
                 this.isCountdownActive = true;
                 const startBtn = document.getElementById('startBtn');
                 startBtn.disabled = true;
@@ -951,9 +965,9 @@
                 // Show power meter
                 document.getElementById('powerMeter').style.display = 'block';
                 
-                this.updateStatus('📱 スマホを振ってボールを投げてください！');
+                this.updateStatus('📱 スマホを振って投球してください！（3回タップまたは長押しでも可能）');
                 
-                // Timeout after 10 seconds
+                // Timeout after 15 seconds
                 setTimeout(() => {
                     if (!this.isActive && this.isDetectingShake) {
                         this.isDetectingShake = false;
@@ -961,21 +975,22 @@
                         this.updateStatus('⏰ タイムアウトしました。再度お試しください。');
                         this.reset();
                     }
-                }, 10000);
+                }, 15000);
             }
             
             startThrowWithShake() {
                 if (this.isActive || !this.isDetectingShake) return;
                 
+                console.log('投球開始処理');
                 this.isDetectingShake = false;
                 document.getElementById('powerMeter').style.display = 'none';
                 
                 // Calculate throw power (max 1000m as requested)
                 const shakeIntensity = Math.min(this.maxAcceleration / 30, 1);
-                this.throwPower = shakeIntensity * 1000; // Max 1km
+                this.throwPower = Math.max(100, shakeIntensity * 1000); // 最低100m、最大1km
                 this.throwAngle = this.heading;
                 
-                console.log(`Throw detected! Power: ${this.throwPower}m, Direction: ${this.throwAngle}°`);
+                console.log(`投球検出! パワー: ${this.throwPower}m, 方向: ${this.throwAngle}°`);
                 
                 this.ballElement.classList.add('throwing');
                 this.ballTrailPoints = [];
@@ -1018,13 +1033,7 @@
                 this.isActive = true;
                 this.isBallMoving = true;
                 
-                // Play throw sound
-                try {
-                    this.throwSound.currentTime = 0;
-                    await this.throwSound.play();
-                } catch (e) {
-                    console.warn('Could not play throw sound:', e);
-                }
+                console.log('ボール移動開始');
                 
                 // Reset map rotation
                 this.mapElement.style.transform = 'rotate(0deg)';
@@ -1055,13 +1064,17 @@
             }
             
             animateThrow() {
-                if (!this.isActive || !this.isMapReady) return;
+                if (!this.isActive || !this.isMapReady) {
+                    console.log('アニメーション停止: active =', this.isActive, 'mapReady =', this.isMapReady);
+                    return;
+                }
                 
                 this.animationFrame++;
                 // Slower animation for better map loading
-                const progress = this.animationFrame * 0.002;
+                const progress = this.animationFrame * 0.003; // より遅く
                 
                 if (progress >= 1) {
+                    console.log('投球完了、着地処理開始');
                     this.landBall();
                     return;
                 }
@@ -1113,13 +1126,17 @@
                 }
                 
                 // Create trail effect
-                if (this.animationFrame % 50 === 0) {
+                if (this.animationFrame % 30 === 0) {
                     const rect = this.ballElement.getBoundingClientRect();
                     this.createTrail(rect.left + rect.width/2, rect.top + rect.height/2);
                 }
                 
-                // Update distance display
-                document.getElementById('distance').textContent = Math.round(currentDistance) + 'm';
+                // Update distance display - リアルタイムで距離更新
+                const realDistance = this.calculateDistance(
+                    this.startPosition.lat, this.startPosition.lng,
+                    this.ballPosition.lat, this.ballPosition.lng
+                );
+                document.getElementById('distance').textContent = Math.round(realDistance) + 'm';
                 this.updateCoordinatesDisplay();
                 
                 // Continue animation
@@ -1150,19 +1167,19 @@
                 this.isActive = false;
                 this.isBallMoving = false;
                 
-                // Play landing sound
-                try {
-                    this.landingSound.currentTime = 0;
-                    await this.landingSound.play();
-                } catch (e) {
-                    console.warn('Could not play landing sound:', e);
-                }
+                console.log('着地処理開始');
                 
                 // Remove ball animations
                 this.ballElement.classList.remove('throwing', 'flying');
                 this.ballElement.style.transform = 'translate(-50%, -50%) scale(1)';
                 
-                const finalDistance = Math.round(this.throwPower);
+                // 最終距離を正確に計算
+                const finalDistance = Math.round(this.calculateDistance(
+                    this.startPosition.lat, this.startPosition.lng,
+                    this.ballPosition.lat, this.ballPosition.lng
+                ));
+                
+                console.log('最終距離:', finalDistance + 'm');
                 
                 // Gradually zoom in on landing location
                 if (this.map) {
@@ -1238,6 +1255,8 @@
             }
             
             reset() {
+                console.log('リセット開始');
+                
                 // Clear all timers
                 if (this.countdownTimer) {
                     clearInterval(this.countdownTimer);
@@ -1260,6 +1279,7 @@
                 // Reset sensor data
                 this.accelerationData = [];
                 this.maxAcceleration = 0;
+                this.totalDistance = 0;
                 
                 // Reset ball appearance
                 this.ballElement.classList.remove('throwing', 'flying');
@@ -1277,7 +1297,7 @@
                 
                 // Reset map rotation to compass direction
                 if (this.isMapReady) {
-                    this.mapElement.style.transform = `rotate(${this.heading}deg)`;
+                    this.mapElement.style.transform = `rotate(${-this.heading}deg)`;
                 }
                 
                 // Reset map view
