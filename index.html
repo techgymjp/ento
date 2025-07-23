@@ -716,24 +716,38 @@
             handleOrientation(event) {
                 if (!this.isPermissionGranted) return;
                 
-                let newHeading = 0;
+                let rawHeading = 0;
                 
                 // iOS Safari uses webkitCompassHeading (0 = North, clockwise)
                 if (event.webkitCompassHeading !== undefined) {
-                    // webkitCompassHeading: 0 = North, but we need to correct orientation
-                    newHeading = (event.webkitCompassHeading + 180) % 360;
+                    rawHeading = event.webkitCompassHeading;
                 }
                 // Android and other browsers use alpha 
                 else if (event.alpha !== null) {
-                    // alpha: 0 = North, counter-clockwise, but device orientation is different
-                    newHeading = (event.alpha + 180) % 360;
+                    // alpha: 0 = North, counter-clockwise
+                    rawHeading = (360 - event.alpha) % 360;
                 }
                 
-                // Normalize heading
-                if (newHeading < 0) newHeading += 360;
-                if (newHeading >= 360) newHeading -= 360;
+                // Normalize heading to prevent sudden jumps at 0/360 boundary
+                if (rawHeading < 0) rawHeading += 360;
+                if (rawHeading >= 360) rawHeading -= 360;
                 
-                this.heading = newHeading;
+                // Smooth the heading changes to prevent spinning
+                if (Math.abs(rawHeading - this.heading) > 180) {
+                    // Handle wraparound case (e.g., 359° to 1°)
+                    if (rawHeading > this.heading) {
+                        rawHeading -= 360;
+                    } else {
+                        rawHeading += 360;
+                    }
+                }
+                
+                // Apply smoothing filter
+                this.heading = this.heading * 0.8 + rawHeading * 0.2;
+                
+                // Normalize final heading
+                if (this.heading < 0) this.heading += 360;
+                if (this.heading >= 360) this.heading -= 360;
                 
                 const newTilt = event.beta || 0;
                 const currentTime = Date.now();
@@ -750,11 +764,24 @@
             
             handleAbsoluteOrientation(event) {
                 if (event.absolute && event.alpha !== null) {
-                    // For absolute orientation, also add 180 degree correction
-                    this.absoluteHeading = (event.alpha + 180) % 360;
-                    this.heading = this.absoluteHeading;
+                    // For absolute orientation, use alpha directly
+                    let rawHeading = event.alpha;
                     
                     // Normalize
+                    if (rawHeading < 0) rawHeading += 360;
+                    if (rawHeading >= 360) rawHeading -= 360;
+                    
+                    // Apply same smoothing as regular orientation
+                    if (Math.abs(rawHeading - this.heading) > 180) {
+                        if (rawHeading > this.heading) {
+                            rawHeading -= 360;
+                        } else {
+                            rawHeading += 360;
+                        }
+                    }
+                    
+                    this.heading = this.heading * 0.8 + rawHeading * 0.2;
+                    
                     if (this.heading < 0) this.heading += 360;
                     if (this.heading >= 360) this.heading -= 360;
                 }
@@ -828,9 +855,11 @@
                 document.getElementById('compass').textContent = this.getCompassDirection(this.heading);
                 document.getElementById('tilt').textContent = Math.round(this.tilt) + '°';
                 
-                // Update compass needle - fix rotation direction (clockwise)
-                // Invert rotation to match real device rotation
-                this.compassNeedle.style.transform = `rotate(${-this.heading}deg)`;
+                // Update compass needle - fix the direction completely
+                // heading 0° = North should point UP, heading 180° = South should point DOWN
+                // Add 180 degree correction to fix the inversion
+                const correctedNeedleAngle = (this.heading + 180) % 360;
+                this.compassNeedle.style.transform = `rotate(${correctedNeedleAngle}deg)`;
                 
                 // Rotate map so current heading direction points UP + 180 degree correction
                 if (!this.isActive && !this.isCountdownActive && this.isMapReady) {
