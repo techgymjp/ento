@@ -721,7 +721,7 @@
                 // Android
                 else if (event.alpha !== null) {
                     newHeading = 360 - event.alpha;
-                    if (newHeading > 359 && newHeading <= 360) { // 359.5度から360度を359度とみなす
+                    if (newHeading > 359 && newHeading < 360) { // 359.5度から360度を359度とみなす
                         newHeading = 359;
                     } else if (newHeading >= 0 && newHeading < 1) { // 0度から0.5度を1度とみなす
                         newHeading = 1;
@@ -729,6 +729,8 @@
                 }
                 
                 this.heading = newHeading;
+
+
                 
                 const newTilt = event.beta || 0;
                 const currentTime = Date.now();
@@ -823,13 +825,22 @@
                 // Update compass needle
                 this.compassNeedle.style.transform = `rotate(${this.heading}deg)`;
                 
+                // Map rotation will be paused if heading is in this range to prevent jumps
+                const DEAD_ZONE_START = 350; // Start of the "upper" dead zone
+                const DEAD_ZONE_END = 10;    // End of the "lower" dead zone
+                
+                const isHeadingInDeadZone = (this.heading >= DEAD_ZONE_START && this.heading < 360) || 
+                                            (this.heading >= 0 && this.heading < DEAD_ZONE_END);
+
                 // Rotate map to show throw direction at top
                 const isHeadingNear360 = (this.heading >= 359 && this.heading < 360);
 
-                if (!this.isActive && !this.isCountdownActive && !this.isBallMoving && this.isMapReady && !isHeadingNear360) {
+                // Only rotate map if conditions are met AND heading is NOT in the dead zone
+                if (!this.isActive && !this.isCountdownActive && !this.isBallMoving && this.isMapReady && !isHeadingInDeadZone) {
                     this.mapElement.style.transform = `rotate(${-this.heading}deg)`;
-                } else if (!this.isActive && !this.isCountdownActive && !this.isBallMoving && this.isMapReady && isHeadingNear360) {
-                 
+                } else if (!this.isActive && !this.isCountdownActive && !this.isBallMoving && this.isMapReady && isHeadingInDeadZone) {
+                    // When in the dead zone, we explicitly don't update the transform,
+            
                 }
                 
                 this.updateCoordinatesDisplay();
