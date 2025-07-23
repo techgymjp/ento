@@ -713,16 +713,19 @@
                 
                 let newHeading = 0;
                 
-                // iOS
+                // iOS Safari uses webkitCompassHeading (0 = North, clockwise)
                 if (event.webkitCompassHeading !== undefined) {
                     newHeading = event.webkitCompassHeading;
                 }
-                // Android
+                // Android and other browsers use alpha (0 = North, but reversed)
                 else if (event.alpha !== null) {
-                    newHeading = 360 - event.alpha;
-                    if (newHeading >= 360) newHeading -= 360;
-                    if (newHeading < 0) newHeading += 360;
+                    // Convert alpha to compass heading (alpha: 0=North, counter-clockwise)
+                    newHeading = (360 - event.alpha) % 360;
                 }
+                
+                // Normalize heading
+                if (newHeading < 0) newHeading += 360;
+                if (newHeading >= 360) newHeading -= 360;
                 
                 this.heading = newHeading;
                 
@@ -741,10 +744,13 @@
             
             handleAbsoluteOrientation(event) {
                 if (event.absolute && event.alpha !== null) {
+                    // For absolute orientation, alpha is already correct (0 = North)
                     this.absoluteHeading = event.alpha;
-                    this.heading = 360 - this.absoluteHeading;
-                    if (this.heading >= 360) this.heading -= 360;
+                    this.heading = this.absoluteHeading;
+                    
+                    // Normalize
                     if (this.heading < 0) this.heading += 360;
+                    if (this.heading >= 360) this.heading -= 360;
                 }
             }
             
@@ -816,12 +822,15 @@
                 document.getElementById('compass').textContent = this.getCompassDirection(this.heading);
                 document.getElementById('tilt').textContent = Math.round(this.tilt) + '°';
                 
-                // Update compass needle
-                this.compassNeedle.style.transform = `rotate(${this.heading}deg)`;
+                // Update compass needle - heading 0° should point to N (top)
+                // CSS transform: rotate(0deg) points to 3 o'clock, so subtract 90deg
+                const needleRotation = this.heading - 90;
+                this.compassNeedle.style.transform = `rotate(${needleRotation}deg)`;
                 
-                // Rotate map to show throw direction at top
+                // Rotate map to show throw direction at top (only when not active)
                 if (!this.isActive && !this.isCountdownActive && this.isMapReady) {
-                    this.mapElement.style.transform = `rotate(${this.heading}deg)`;
+                    // Rotate map so current heading points up
+                    this.mapElement.style.transform = `rotate(${-this.heading}deg)`;
                 }
                 
                 this.updateCoordinatesDisplay();
@@ -1039,8 +1048,8 @@
                 if (!this.isActive || !this.isMapReady) return;
                 
                 this.animationFrame++;
-                // Slower animation for better map loading
-                const progress = this.animationFrame * 0.002;
+                // Slower animation for smoother map loading
+                const progress = Math.min(this.animationFrame * 0.003, 1);
                 
                 if (progress >= 1) {
                     this.landBall();
@@ -1052,13 +1061,14 @@
                 // Update ball scale - enlarge until halfway, then shrink
                 this.updateBallScale(progress);
                 
-                // Calculate new position using more accurate geodesic calculations
+                // Calculate new position using geodesic calculations
                 const bearing = this.throwAngle * Math.PI / 180;
                 const earthRadius = 6371000; // Earth radius in meters
                 
                 const lat1 = this.startPosition.lat * Math.PI / 180;
                 const lng1 = this.startPosition.lng * Math.PI / 180;
                 
+                // Destination point calculation
                 const lat2 = Math.asin(
                     Math.sin(lat1) * Math.cos(currentDistance / earthRadius) +
                     Math.cos(lat1) * Math.sin(currentDistance / earthRadius) * Math.cos(bearing)
@@ -1069,32 +1079,38 @@
                     Math.cos(currentDistance / earthRadius) - Math.sin(lat1) * Math.sin(lat2)
                 );
                 
+                // Update ball position
                 this.ballPosition = {
                     lat: lat2 * 180 / Math.PI,
                     lng: lng2 * 180 / Math.PI
                 };
                 
-                // Update map
+                // Update map center and view
                 if (this.map) {
                     try {
+                        // Center map on ball position
                         this.map.setCenter(this.ballPosition);
                         
-                        // Adjust zoom based on distance
+                        // Adjust zoom based on distance - start high, zoom out as ball travels
                         const baseZoom = 20;
-                        const minZoom = 10;
-                        const zoomLevel = Math.max(minZoom, baseZoom - progress * 10);
-                        this.map.setZoom(Math.round(zoomLevel));
+                        const minZoom = 8;
+                        const zoomReduction = Math.floor(progress * 12);
+                        const currentZoom = Math.max(minZoom, baseZoom - zoomReduction);
+                        this.map.setZoom(currentZoom);
                         
-                        // Keep map oriented in throw direction
+                        // Keep map oriented in throw direction for better tracking
                         this.map.setHeading(this.throwAngle);
                         
+                        // Force map refresh
+                        google.maps.event.trigger(this.map, 'resize');
+                        
                     } catch (e) {
-                        console.warn('Map update error:', e);
+                        console.warn('Map update error during animation:', e);
                     }
                 }
                 
-                // Create trail effect
-                if (this.animationFrame % 50 === 0) {
+                // Create trail effect every few frames
+                if (this.animationFrame % 30 === 0) {
                     const rect = this.ballElement.getBoundingClientRect();
                     this.createTrail(rect.left + rect.width/2, rect.top + rect.height/2);
                 }
@@ -1258,7 +1274,7 @@
                 
                 // Reset map rotation to compass direction
                 if (this.isMapReady) {
-                    this.mapElement.style.transform = `rotate(${this.heading}deg)`;
+                    this.mapElement.style.transform = `rotate(${-this.heading}deg)`;
                 }
                 
                 // Reset map view
