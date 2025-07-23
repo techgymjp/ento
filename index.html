@@ -271,21 +271,22 @@
         }
 
         .google-map-btn {
-            width: 100%;
-            padding: 15px;
-            font-size: 18px;
+            width: calc(100% - 10px);
+            padding: 12px 15px;
+            font-size: 16px;
             font-weight: bold;
             background: linear-gradient(45deg, #1976d2, #1565c0);
             color: white;
             border: none;
             border-radius: 12px;
             cursor: pointer;
-            margin-top: 15px;
+            margin: 15px 5px 0 5px;
             text-decoration: none;
             display: inline-block;
             text-align: center;
             transition: all 0.3s ease;
             box-shadow: 0 4px 15px rgba(25, 118, 210, 0.3);
+            box-sizing: border-box;
         }
 
         .google-map-btn:hover {
@@ -379,6 +380,19 @@
             .countdown { font-size: 120px; width: 200px; height: 200px; }
             .compass { width: 70px; height: 70px; }
             .compass-needle { height: 25px; }
+            .google-map-btn { 
+                font-size: 14px; 
+                padding: 10px 12px;
+                margin: 10px 5px 0 5px;
+            }
+            .landing-panel { 
+                padding: 20px; 
+                bottom: 60px;
+            }
+            .info-panel { 
+                padding: 15px; 
+                bottom: 60px;
+            }
         }
     </style>
 </head>
@@ -1016,6 +1030,10 @@
                 
                 console.log(`投球検出! パワー: ${this.throwPower}m, 方向: ${this.throwAngle}°`);
                 
+                // Play kick sound immediately when throw is detected
+                console.log('Playing kick sound immediately after throw detection');
+                this.playSound('kick');
+                
                 this.ballElement.classList.add('throwing');
                 this.ballTrailPoints = [];
                 this.clearTrails();
@@ -1048,9 +1066,6 @@
                     } else {
                         clearInterval(prepInterval);
                         document.body.removeChild(overlay);
-                        // Play kick sound right before ball movement starts
-                        console.log('Playing kick sound before ball movement');
-                        this.playSound('kick');
                         this.startBallMovement();
                     }
                 }, 1000);
@@ -1289,7 +1304,13 @@
                 if (this.sounds[soundName]) {
                     try {
                         const audio = this.sounds[soundName];
+                        
+                        // Reset audio to beginning
                         audio.currentTime = 0;
+                        
+                        // For debugging - check if audio is ready
+                        console.log(`Audio ${soundName} readyState:`, audio.readyState);
+                        console.log(`Audio ${soundName} networkState:`, audio.networkState);
                         
                         // Create a promise-based approach for better error handling
                         const playPromise = audio.play();
@@ -1297,21 +1318,34 @@
                         if (playPromise !== undefined) {
                             playPromise
                                 .then(() => {
-                                    console.log(`Successfully played ${soundName} sound`);
+                                    console.log(`✅ Successfully played ${soundName} sound`);
                                 })
                                 .catch(error => {
-                                    console.warn(`Could not play ${soundName} sound:`, error);
-                                    // Try to enable audio context if needed
-                                    if (error.name === 'NotAllowedError') {
-                                        console.log('Audio play was prevented - user interaction required');
+                                    console.error(`❌ Could not play ${soundName} sound:`, error);
+                                    console.log('Error details:', {
+                                        name: error.name,
+                                        message: error.message,
+                                        audioSrc: audio.src,
+                                        audioReadyState: audio.readyState,
+                                        audioNetworkState: audio.networkState
+                                    });
+                                    
+                                    // Try to reload and play again for network issues
+                                    if (error.name === 'NotSupportedError' || audio.networkState === 3) {
+                                        console.log(`Attempting to reload ${soundName} audio file...`);
+                                        audio.load();
+                                        setTimeout(() => {
+                                            audio.play().catch(e => console.log(`Retry failed for ${soundName}:`, e));
+                                        }, 100);
                                     }
                                 });
                         }
                     } catch (e) {
-                        console.warn(`Sound error for ${soundName}:`, e);
+                        console.error(`Sound error for ${soundName}:`, e);
                     }
                 } else {
-                    console.warn(`Sound ${soundName} not found`);
+                    console.warn(`❌ Sound ${soundName} not found in sounds object`);
+                    console.log('Available sounds:', Object.keys(this.sounds));
                 }
             }
             
