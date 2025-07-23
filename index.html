@@ -36,1328 +36,633 @@
             font-weight: bold;
             color: #333;
             margin: 0 0 15px 0;
-            text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            text-shadow: 0 2px 4px rgba(0,0,0,0.15);
         }
         
-        .header-btn {
-            width: 100%;
-            padding: 15px;
-            font-size: 18px;
+        .distance-display {
+            font-size: 36px;
             font-weight: bold;
-            background: linear-gradient(45deg, #4CAF50, #45a049);
-            color: white;
-            border: none;
-            border-radius: 12px;
-            cursor: pointer;
-            margin-top: 5px;
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 15px rgba(76, 175, 80, 0.3);
+            color: #4a4a4a;
+            margin-bottom: 5px;
         }
         
-        .header-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(76, 175, 80, 0.4);
+        .message {
+            font-size: 16px;
+            color: #666;
+            min-height: 20px;
         }
-        
-        .header-btn:disabled {
-            background: #ccc;
-            cursor: not-allowed;
-            transform: none;
-            box-shadow: none;
-        }
-        
-        .header-btn.countdown-ready {
-            background: linear-gradient(45deg, #ff6b6b, #d63031);
-            animation: buttonPulse 2s infinite;
-        }
-        
-        @keyframes buttonPulse {
-            0%, 100% { transform: scale(1); }
-            50% { transform: scale(1.05); }
-        }
-        
+
         .map-container {
-            flex: 1;
+            flex-grow: 1;
             position: relative;
-            overflow: hidden;
-            border-radius: 0 0 20px 20px;
+            background-color: #e0e0e0; /* Placeholder */
+            overflow: hidden; /* Ensure map doesn't overflow */
         }
         
         #map {
-            position: absolute;
-            width: 200%;
-            height: 200%;
-            top: -50%;
-            left: -50%;
-            transition: transform 0.5s ease-out;
-            transform-origin: center center;
-        }
-        
-        .ball {
-            position: absolute;
-            width: 60px;
-            height: 60px;
-            background-image: url('ball.gif');
-            background-size: cover;
-            background-position: center;
-            border-radius: 50%;
-            box-shadow: 0 8px 25px rgba(0,0,0,0.3);
-            transition: all 0.3s ease-out;
-            z-index: 1000;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            border: 3px solid #fff;
-        }
-        
-        .ball.throwing {
-            animation: ballSpin 0.5s linear infinite;
-            box-shadow: 0 0 30px #ff6b6b, 0 8px 25px rgba(0,0,0,0.3);
-        }
-        
-        @keyframes ballSpin {
-            0% { transform: translate(-50%, -50%) rotate(0deg); }
-            100% { transform: translate(-50%, -50%) rotate(360deg); }
-        }
-        
-        .ball.flying {
-            animation: ballFly 0.3s linear infinite;
-        }
-        
-        @keyframes ballFly {
-            0%, 100% { transform: translate(-50%, -50%) scale(1); }
-            50% { transform: translate(-50%, -50%) scale(1.1); }
-        }
-        
-        .compass {
-            position: absolute;
-            top: 110px;
-            right: 20px;
-            width: 90px;
-            height: 90px;
-            background: rgba(255, 255, 255, 0.95);
-            border-radius: 50%;
-            border: 4px solid #333;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 1000;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
-            backdrop-filter: blur(10px);
-        }
-        
-        .compass-inner {
-            position: relative;
             width: 100%;
             height: 100%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            position: absolute;
+            top: 0;
+            left: 0;
+            transition: transform 0.1s linear; /* Smooth rotation */
         }
-        
+
+        .compass-container {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            width: 80px;
+            height: 80px;
+            background-color: rgba(255, 255, 255, 0.9);
+            border-radius: 50%;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            z-index: 100;
+        }
+
+        .compass-background {
+            width: 70px;
+            height: 70px;
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="45" fill="#fff" stroke="#ccc" stroke-width="2"/><text x="50" y="20" font-family="Arial" font-size="12" fill="#333" text-anchor="middle">N</text><text x="80" y="50" font-family="Arial" font-size="12" fill="#333" text-anchor="middle">E</text><text x="50" y="85" font-family="Arial" font-size="12" fill="#333" text-anchor="middle">S</text><text x="20" y="50" font-family="Arial" font-size="12" fill="#333" text-anchor="middle">W</text></svg>');
+            background-size: cover;
+            background-repeat: no-repeat;
+            border-radius: 50%;
+            position: absolute;
+        }
+
         .compass-needle {
             width: 4px;
-            height: 35px;
-            background: linear-gradient(to bottom, #ff3333 0%, #ff3333 50%, #ffffff 50%, #ffffff 100%);
-            transform-origin: 50% 100%;
-            transition: transform 0.3s ease-out;
-            border-radius: 2px;
-            box-shadow: 0 0 5px rgba(0,0,0,0.3);
-            margin-top: -25px;
-        }
-        
-        .compass-labels {
+            height: 35px; /* Adjust height based on your design */
+            background-color: red; /* North (red) */
             position: absolute;
-            width: 100%;
-            height: 100%;
-            font-size: 12px;
-            font-weight: bold;
-            color: #333;
+            bottom: calc(50% + 3px); /* 針を少し上にあげるための調整 */
+            transform-origin: 50% calc(100% - 3px); /* 中心点を調整 */
+            border-radius: 2px 2px 0 0;
+            z-index: 1;
+            transition: transform 0.1s linear;
         }
-        
-        .compass-n { position: absolute; top: 5px; left: 50%; transform: translateX(-50%); }
-        .compass-e { position: absolute; right: 5px; top: 50%; transform: translateY(-50%); }
-        .compass-s { position: absolute; bottom: 5px; left: 50%; transform: translateX(-50%); }
-        .compass-w { position: absolute; left: 5px; top: 50%; transform: translateY(-50%); }
-        
-        .compass-center {
+
+        .compass-needle::before {
+            content: '';
             position: absolute;
-            width: 8px;
-            height: 8px;
-            background: #333;
-            border-radius: 50%;
             top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
+            left: -0.5px;
+            width: 5px;
+            height: 35px; /* Adjust height based on your design */
+            background-color: black; /* South (black) */
+            transform: rotate(180deg);
+            border-radius: 0 0 2px 2px;
+            transform-origin: top;
         }
-        
-        .countdown {
+
+        .angle-display {
             position: absolute;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            font-size: 150px;
-            font-weight: bold;
-            color: #ff6b6b;
-            text-shadow: 4px 4px 20px rgba(0,0,0,0.5);
-            z-index: 2000;
-            animation: countdownPulse 1s ease-in-out;
-            background: rgba(255, 255, 255, 0.95);
-            border-radius: 50%;
-            width: 250px;
-            height: 250px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border: 6px solid #ff6b6b;
-            backdrop-filter: blur(10px);
-        }
-        
-        @keyframes countdownPulse {
-            0% { transform: translate(-50%, -50%) scale(0.3); opacity: 0; }
-            50% { transform: translate(-50%, -50%) scale(1.1); opacity: 1; }
-            100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
-        }
-        
-        .info-panel {
-            position: absolute;
-            bottom: 20px;
-            left: 20px;
-            right: 20px;
-            background: rgba(255, 255, 255, 0.95);
-            padding: 20px;
-            border-radius: 15px;
-            box-shadow: 0 8px 30px rgba(0,0,0,0.2);
-            z-index: 1000;
-            backdrop-filter: blur(10px);
-        }
-        
-        .info-row {
-            display: flex;
-            justify-content: space-between;
-            margin: 8px 0;
             font-size: 14px;
-            font-weight: 500;
-        }
-        
-        .status {
-            text-align: center;
-            margin: 12px 0;
             font-weight: bold;
             color: #333;
-            font-size: 16px;
-        }
-        
-        .error-message, .loading {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: rgba(255, 255, 255, 0.95);
-            color: #333;
-            padding: 30px;
-            border-radius: 15px;
-            text-align: center;
-            z-index: 2000;
-            max-width: 300px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
-            backdrop-filter: blur(10px);
-        }
-        
-        .error-message {
-            background: rgba(255, 0, 0, 0.95);
-            color: white;
+            z-index: 2;
         }
 
-        .google-map-btn {
-            width: 100%;
+        .controls {
             padding: 15px;
-            font-size: 18px;
-            font-weight: bold;
-            background: linear-gradient(45deg, #1976d2, #1565c0);
-            color: white;
-            border: none;
-            border-radius: 12px;
-            cursor: pointer;
-            margin-top: 15px;
-            text-decoration: none;
-            display: inline-block;
+            background: rgba(255, 255, 255, 0.98);
             text-align: center;
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 15px rgba(25, 118, 210, 0.3);
-        }
-
-        .google-map-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(25, 118, 210, 0.4);
-        }
-
-        .landing-panel {
-            position: absolute;
-            bottom: 20px;
-            left: 20px;
-            right: 20px;
-            background: rgba(255, 255, 255, 0.95);
-            padding: 25px;
-            border-radius: 15px;
-            box-shadow: 0 8px 30px rgba(0,0,0,0.2);
+            box-shadow: 0 -4px 20px rgba(0,0,0,0.15);
             z-index: 1000;
-            text-align: center;
-            display: none;
             backdrop-filter: blur(10px);
         }
 
-        .results {
-            font-size: 22px;
-            font-weight: bold;
-            color: #333;
-            margin-bottom: 20px;
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 12px 25px;
+            border: none;
+            border-radius: 5px;
+            font-size: 18px;
+            cursor: pointer;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+            transition: background-color 0.3s ease;
+        }
+
+        button:hover {
+            background-color: #45a049;
+        }
+
+        button:active {
+            background-color: #3e8e41;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            transform: translateY(1px);
+        }
+
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+            box-shadow: none;
+            transform: none;
         }
         
-        .ball-trail {
-            position: absolute;
-            width: 8px;
-            height: 8px;
-            background: radial-gradient(circle, rgba(255, 107, 107, 0.8) 0%, rgba(255, 107, 107, 0.3) 100%);
-            border-radius: 50%;
-            z-index: 999;
-            pointer-events: none;
-            animation: trailFade 2s ease-out forwards;
-        }
-
-        @keyframes trailFade {
-            0% { opacity: 0.8; transform: scale(1); }
-            100% { opacity: 0; transform: scale(0.1); }
-        }
-
-        .preparation-overlay {
+        .overlay {
             position: absolute;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0, 0, 0, 0.8);
+            background-color: rgba(0, 0, 0, 0.7);
             display: flex;
-            align-items: center;
             justify-content: center;
-            z-index: 1500;
+            align-items: center;
+            z-index: 2000;
             color: white;
             font-size: 24px;
-            font-weight: bold;
+            flex-direction: column;
             text-align: center;
-            backdrop-filter: blur(5px);
+        }
+        
+        .overlay-message {
+            margin-bottom: 20px;
+        }
+        
+        .overlay-button {
+            padding: 15px 30px;
+            background-color: #007bff;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 20px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+            transition: background-color 0.3s ease;
+        }
+        
+        .overlay-button:hover {
+            background-color: #0056b3;
         }
 
-        .power-meter {
+        .loader {
+            border: 8px solid #f3f3f3; /* Light grey */
+            border-top: 8px solid #3498db; /* Blue */
+            border-radius: 50%;
+            width: 60px;
+            height: 60px;
+            animation: spin 2s linear infinite;
+            margin-top: 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .coordinate-display {
             position: absolute;
-            top: 100px;
-            left: 20px;
-            width: 30px;
-            height: 200px;
-            background: rgba(255, 255, 255, 0.9);
-            border-radius: 15px;
-            border: 3px solid #333;
-            z-index: 1000;
-            display: none;
+            top: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.6);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 14px;
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
         }
-
-        .power-fill {
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            width: 100%;
-            background: linear-gradient(to top, #4CAF50, #FFC107, #FF5722);
-            border-radius: 0 0 12px 12px;
-            transition: height 0.3s ease;
-            height: 0%;
-        }
-
-        @media (max-width: 480px) {
-            .title { font-size: 20px; }
-            .header-btn { font-size: 16px; padding: 12px; }
-            .countdown { font-size: 120px; width: 200px; height: 200px; }
-            .compass { width: 70px; height: 70px; }
-            .compass-needle { height: 25px; }
+        .coordinate-item span:first-child {
+            font-weight: bold;
+            margin-right: 5px;
         }
     </style>
+    <script async defer src="https://maps.googleapis.com/maps/api/js?key=YOUR_API_KEY_HERE"></script>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1 class="title">🏀 遠投の旅 - Google Maps版</h1>
-            <button class="header-btn" id="startBtn">
-                位置情報とセンサーを有効にする
-            </button>
+            <h1 class="title">遠投の旅</h1>
+            <div class="distance-display" id="distanceDisplay">0.00 km</div>
+            <p class="message" id="message">ボールを投げる準備をしてください。</p>
         </div>
-        
-        <div id="loading" class="loading" style="display: none;">
-            <div>地図を読み込み中...</div>
-            <div style="margin-top: 10px; font-size: 14px;">少々お待ちください</div>
+
+        <div class="coordinate-display">
+            <div class="coordinate-item"><span>Lat:</span> <span id="currentLat"></span></div>
+            <div class="coordinate-item"><span>Lng:</span> <span id="currentLng"></span></div>
+            <div class="coordinate-item"><span>Alt:</span> <span id="currentAlt"></span>m</div>
+            <div class="coordinate-item"><span>Accuracy:</span> <span id="currentAccuracy"></span>m</div>
+            <div class="coordinate-item"><span>Heading:</span> <span id="currentHeading"></span>°</div>
+            <div class="coordinate-item"><span>Speed:</span> <span id="currentSpeed"></span>m/s</div>
         </div>
-        
+
         <div class="map-container">
             <div id="map"></div>
-        </div>
-        
-        <div class="ball" id="ball"></div>
-        
-        <div class="power-meter" id="powerMeter">
-            <div class="power-fill" id="powerFill"></div>
-        </div>
-        
-        <div class="compass">
-            <div class="compass-inner">
-                <div class="compass-labels">
-                    <div class="compass-n">N</div>
-                    <div class="compass-e">E</div>
-                    <div class="compass-s">S</div>
-                    <div class="compass-w">W</div>
-                </div>
-                <div class="compass-needle" id="compassNeedle"></div>
-                <div class="compass-center"></div>
-            </div>
-        </div>
-        
-        <div class="info-panel" id="infoPanel">
-            <div class="status" id="status">位置情報とデバイスセンサーの許可が必要です</div>
-            
-            <div class="info-row">
-                <span>🧭 方角:</span>
-                <span id="heading">---°</span>
-            </div>
-            <div class="info-row">
-                <span>📍 方位:</span>
-                <span id="compass">---</span>
-            </div>
-            <div class="info-row">
-                <span>📐 傾き:</span>
-                <span id="tilt">---°</span>
-            </div>
-            <div class="info-row">
-                <span>💨 振り:</span>
-                <span id="speed">---</span>
-            </div>
-            <div class="info-row">
-                <span>📏 距離:</span>
-                <span id="distance">0m</span>
-            </div>
-            <div class="info-row">
-                <span>🌐 座標:</span>
-                <span id="coordinates">---</span>
+            <div class="compass-container">
+                <div class="compass-background"></div>
+                <div class="compass-needle"></div>
+                <div class="angle-display" id="angleDisplay">0°</div>
             </div>
         </div>
 
-        <div class="landing-panel" id="landingPanel">
-            <div class="results" id="results">🎯 着地完了！</div>
-            <a href="#" class="google-map-btn" id="googleMapBtn" target="_blank">
-                📍 Googleマップで開く
-            </a>
-            <button class="header-btn" id="resetBtn" style="margin-top: 15px;">
-                🔄 もう一度投球する
-            </button>
+        <div class="controls">
+            <button id="startBtn" disabled>ゲームを開始</button>
         </div>
     </div>
 
-    <!-- Audio elements -->
-    <audio id="startSound" preload="auto">
-        <source src="start.mp3" type="audio/mpeg">
-    </audio>
-    <audio id="throwSound" preload="auto">
-        <source src="kich.mp3" type="audio/mpeg">
-    </audio>
-    <audio id="landingSound" preload="auto">
-        <source src="goal.mp3" type="audio/mpeg">
-    </audio>
+    <div class="overlay" id="permissionOverlay" style="display: flex;">
+        <div class="overlay-message">
+            位置情報とデバイスの向きの許可が必要です。
+        </div>
+        <div class="overlay-button" id="requestPermissionBtn">許可をリクエスト</div>
+    </div>
+
+    <div class="overlay" id="loadingOverlay" style="display: none;">
+        <div class="overlay-message">現在地を取得中...</div>
+        <div class="loader"></div>
+    </div>
 
     <script>
-        class BallThrowJourneyApp {
+        // Google Maps APIキーをここに入力してください
+        // const Maps_API_KEY = 'YOUR_API_KEY_HERE';
+
+        class ThrowingGame {
             constructor() {
-                console.log('BallThrowJourneyApp initializing...');
-                
-                // Core elements
                 this.map = null;
-                this.mapElement = document.getElementById('map');
-                this.ballElement = document.getElementById('ball');
-                this.compassNeedle = document.getElementById('compassNeedle');
-                
-                // Audio elements
-                this.startSound = document.getElementById('startSound');
-                this.throwSound = document.getElementById('throwSound');
-                this.landingSound = document.getElementById('landingSound');
-                
-                // State management
-                this.isActive = false;
-                this.isCountdownActive = false;
+                this.currentPositionMarker = null;
+                this.throwLine = null;
+                this.startPosition = null;
+                this.endPosition = null;
+                this.throwDirection = null; // Stores heading at time of throw
+                this.throwAngle = 0; // Stored angle from slider (not used in this version)
+                this.heading = 0; // Current device heading
+                this.lastKnownPosition = null;
+
                 this.isPermissionGranted = false;
+                this.isLocationLoaded = false;
+                this.isActive = false; // Is ball actively flying?
+                this.isCountdownActive = false;
                 this.isMapReady = false;
-                this.isMapFullyLoaded = false;
-                this.isBallMoving = false;
-                this.isDetectingShake = false;
-                
-                // Position data
-                this.currentPosition = { lat: 35.4476, lng: 139.6425 }; // Default: Fujisawa
-                this.startPosition = { ...this.currentPosition };
-                this.ballPosition = { ...this.currentPosition };
-                
-                // Sensor data
-                this.heading = 0;
-                this.absoluteHeading = 0;
-                this.tilt = 0;
-                this.lastTilt = 0;
-                this.tiltSpeed = 0;
-                this.lastTime = Date.now();
-                
-                // Shake detection
-                this.accelerationData = [];
-                this.maxAcceleration = 0;
-                this.shakeThreshold = 15;
-                
-                // Animation
-                this.animationFrame = 0;
-                this.throwPower = 0;
-                this.throwAngle = 0;
-                this.ballTrailPoints = [];
-                
-                // Timers
-                this.countdownTimer = null;
-                this.countdownElement = null;
-                this.preparationTimer = null;
-                
-                this.updateStatus('位置情報とデバイスセンサーの許可が必要です');
-                console.log('BallThrowJourneyApp initialized');
+                this.isBallMoving = false; // ボールが移動中かどうかの状態
+
+                this.distanceDisplay = document.getElementById('distanceDisplay');
+                this.messageElement = document.getElementById('message');
+                this.startBtn = document.getElementById('startBtn');
+                this.mapElement = document.getElementById('map');
+                this.compassNeedle = document.querySelector('.compass-needle');
+                this.angleDisplay = document.getElementById('angleDisplay');
+                this.permissionOverlay = document.getElementById('permissionOverlay');
+                this.requestPermissionBtn = document.getElementById('requestPermissionBtn');
+                this.loadingOverlay = document.getElementById('loadingOverlay');
+
+                this.currentLatDisplay = document.getElementById('currentLat');
+                this.currentLngDisplay = document.getElementById('currentLng');
+                this.currentAltDisplay = document.getElementById('currentAlt');
+                this.currentAccuracyDisplay = document.getElementById('currentAccuracy');
+                this.currentHeadingDisplay = document.getElementById('currentHeading');
+                this.currentSpeedDisplay = document.getElementById('currentSpeed');
+
+                this.initEventHandlers();
             }
-            
-            async startApp() {
-                const startBtn = document.getElementById('startBtn');
-                if (!startBtn) return;
-                
-                console.log('Starting app...');
-                startBtn.disabled = true;
-                startBtn.textContent = '初期化中...';
-                
-                try {
-                    // Get location
-                    this.updateStatus('📍 位置情報を取得中...');
-                    await this.getCurrentPosition();
-                    
-                    // Initialize map
-                    this.updateStatus('🗺️ 地図を準備中...');
-                    await this.initMap();
-                    
-                    // Request sensor permissions
-                    this.updateStatus('📱 センサー許可を取得中...');
-                    await this.requestSensorPermission();
-                    
-                    this.setupComplete();
-                    
-                } catch (error) {
-                    console.error('Setup error:', error);
-                    this.showError('初期化エラー: ' + error.message);
-                    this.fallbackSetup();
+
+            initEventHandlers() {
+                this.requestPermissionBtn.addEventListener('click', () => this.requestPermissions());
+                this.startBtn.addEventListener('click', () => this.startGame());
+                window.addEventListener('deviceorientation', this.handleOrientation.bind(this));
+                window.addEventListener('load', () => this.checkPermissionsOnLoad());
+            }
+
+            checkPermissionsOnLoad() {
+                if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+                    // iOS 13+
+                    // Do nothing here, wait for user interaction to request permission
+                } else {
+                    // Non-iOS 13+ browsers
+                    this.requestPermissions(); // Attempt to get permissions directly
                 }
             }
-            
-            getCurrentPosition() {
-                return new Promise((resolve, reject) => {
-                    if (!navigator.geolocation) {
-                        console.warn('Geolocation not supported');
-                        resolve();
-                        return;
+
+            requestPermissions() {
+                this.permissionOverlay.style.display = 'none';
+                this.loadingOverlay.style.display = 'flex';
+
+                const requestDeviceOrientation = () => {
+                    if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+                        DeviceOrientationEvent.requestPermission()
+                            .then(permissionState => {
+                                if (permissionState === 'granted') {
+                                    console.log('Device orientation permission granted.');
+                                    this.isPermissionGranted = true;
+                                    this.getLocation();
+                                } else {
+                                    console.warn('Device orientation permission denied.');
+                                    this.displayMessage('デバイスの向きの許可が必要です。', 'error');
+                                    this.loadingOverlay.style.display = 'none';
+                                    this.permissionOverlay.style.display = 'flex';
+                                }
+                            })
+                            .catch(error => {
+                                console.error('Error requesting device orientation permission:', error);
+                                this.displayMessage('デバイスの向きの許可リクエストに失敗しました。', 'error');
+                                this.loadingOverlay.style.display = 'none';
+                                this.permissionOverlay.style.display = 'flex';
+                            });
+                    } else {
+                        // For non-iOS 13+ or browsers not supporting requestPermission
+                        this.isPermissionGranted = true;
+                        this.getLocation();
                     }
-                    
-                    const options = {
-                        enableHighAccuracy: true,
-                        timeout: 15000,
-                        maximumAge: 60000
-                    };
-                    
+                };
+
+                // Request geolocation permission first
+                if (navigator.geolocation) {
                     navigator.geolocation.getCurrentPosition(
                         (position) => {
-                            this.currentPosition = {
-                                lat: position.coords.latitude,
-                                lng: position.coords.longitude
-                            };
-                            this.startPosition = { ...this.currentPosition };
-                            this.ballPosition = { ...this.currentPosition };
-                            console.log('Position obtained:', this.currentPosition);
-                            resolve();
+                            console.log('Geolocation permission granted.');
+                            requestDeviceOrientation(); // Then request device orientation
                         },
                         (error) => {
-                            console.warn('Geolocation failed:', error.message);
-                            resolve(); // Continue with default position
+                            console.error('Geolocation permission denied:', error);
+                            this.displayMessage('位置情報の許可が必要です。', 'error');
+                            this.loadingOverlay.style.display = 'none';
+                            this.permissionOverlay.style.display = 'flex';
                         },
-                        options
+                        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
                     );
-                });
-            }
-            
-            async initMap() {
-                document.getElementById('loading').style.display = 'block';
-                
-                try {
-                    if (!window.google) {
-                        await this.loadGoogleMapsAPI();
-                    }
-                    
-                    this.map = new google.maps.Map(this.mapElement, {
-                        center: this.currentPosition,
-                        zoom: 20,
-                        mapTypeId: google.maps.MapTypeId.SATELLITE,
-                        disableDefaultUI: true,
-                        gestureHandling: 'none',
-                        heading: 0,
-                        tilt: 0,
-                        styles: [
-                            {
-                                featureType: 'all',
-                                elementType: 'labels',
-                                stylers: [{ visibility: 'off' }]
-                            }
-                        ]
-                    });
-                    
-                    google.maps.event.addListenerOnce(this.map, 'idle', () => {
-                        console.log('Map is ready');
-                        this.isMapReady = true;
-                        
-                        setTimeout(() => {
-                            this.isMapFullyLoaded = true;
-                            console.log('Map fully loaded');
-                        }, 2000);
-                    });
-                    
-                } catch (error) {
-                    console.error('Map initialization failed:', error);
-                    throw error;
-                }
-                
-                document.getElementById('loading').style.display = 'none';
-            }
-            
-            loadGoogleMapsAPI() {
-                return new Promise((resolve, reject) => {
-                    const script = document.createElement('script');
-                    script.src = `https://maps.googleapis.com/maps/api/js?key=AIzaSyDbZWtPobAYr04A8da3OUOjtNNdjfvkbXA&libraries=geometry`;
-                    script.async = true;
-                    script.defer = true;
-                    
-                    script.onload = () => {
-                        console.log('Google Maps API loaded');
-                        resolve();
-                    };
-                    
-                    script.onerror = () => {
-                        console.error('Failed to load Google Maps API');
-                        reject(new Error('Google Maps API loading failed'));
-                    };
-                    
-                    document.head.appendChild(script);
-                });
-            }
-            
-            async requestSensorPermission() {
-                try {
-                    // iOS 13+ device orientation permission
-                    if (typeof DeviceOrientationEvent !== 'undefined' && 
-                        typeof DeviceOrientationEvent.requestPermission === 'function') {
-                        
-                        const orientationPermission = await DeviceOrientationEvent.requestPermission();
-                        if (orientationPermission !== 'granted') {
-                            throw new Error('デバイス方向センサーの許可が必要です');
-                        }
-                    }
-                    
-                    // iOS 13+ device motion permission
-                    if (typeof DeviceMotionEvent !== 'undefined' && 
-                        typeof DeviceMotionEvent.requestPermission === 'function') {
-                        
-                        const motionPermission = await DeviceMotionEvent.requestPermission();
-                        if (motionPermission !== 'granted') {
-                            throw new Error('デバイスモーションセンサーの許可が必要です');
-                        }
-                    }
-                    
-                    this.startSensors();
-                    
-                } catch (error) {
-                    console.warn('Sensor permission failed:', error);
-                    this.startSensors(); // Try to continue anyway
-                }
-            }
-            
-            startSensors() {
-                // Device orientation
-                if (typeof DeviceOrientationEvent !== 'undefined') {
-                    window.addEventListener('deviceorientation', (event) => {
-                        this.handleOrientation(event);
-                    }, { passive: true });
-                    
-                    window.addEventListener('deviceorientationabsolute', (event) => {
-                        this.handleAbsoluteOrientation(event);
-                    }, { passive: true });
-                }
-                
-                // Device motion for shake detection
-                if (typeof DeviceMotionEvent !== 'undefined') {
-                    window.addEventListener('devicemotion', (event) => {
-                        this.handleMotion(event);
-                    }, { passive: true });
                 } else {
-                    this.setupFallbackShakeDetection();
+                    this.displayMessage('お使いのブラウザは位置情報をサポートしていません。', 'error');
+                    this.loadingOverlay.style.display = 'none';
+                    this.permissionOverlay.style.display = 'flex';
                 }
-                
-                this.isPermissionGranted = true;
             }
-            
+
+            getLocation() {
+                navigator.geolocation.watchPosition(
+                    this.onLocationSuccess.bind(this),
+                    this.onLocationError.bind(this),
+                    { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+                );
+            }
+
+            onLocationSuccess(position) {
+                const { latitude, longitude, altitude, accuracy, heading, speed } = position.coords;
+                this.lastKnownPosition = { lat: latitude, lng: longitude };
+
+                this.updateCoordinatesDisplay(position.coords);
+
+                if (!this.isLocationLoaded) {
+                    this.initMap(latitude, longitude);
+                    this.isLocationLoaded = true;
+                    this.loadingOverlay.style.display = 'none';
+                    this.startBtn.disabled = false;
+                    this.displayMessage('準備完了！ボールを投げる方向を向いてください。');
+                }
+
+                if (this.currentPositionMarker) {
+                    this.currentPositionMarker.setPosition(this.lastKnownPosition);
+                }
+                this.map.setCenter(this.lastKnownPosition); // Keep map centered on user
+            }
+
+            onLocationError(error) {
+                console.error('Location error:', error);
+                this.displayMessage('現在地を取得できませんでした。', 'error');
+                this.loadingOverlay.style.display = 'none';
+                this.permissionOverlay.style.display = 'flex';
+                this.startBtn.disabled = true;
+            }
+
+            initMap(lat, lng) {
+                this.map = new google.maps.Map(this.mapElement, {
+                    center: { lat: lat, lng: lng },
+                    zoom: 18,
+                    mapTypeId: 'satellite',
+                    disableDefaultUI: true, // Hide default UI controls
+                    gestureHandling: 'greedy' // Allow single-finger pan
+                });
+
+                this.currentPositionMarker = new google.maps.Marker({
+                    position: { lat: lat, lng: lng },
+                    map: this.map,
+                    icon: {
+                        path: google.maps.SymbolPath.CIRCLE,
+                        fillColor: '#4285F4',
+                        fillOpacity: 0.9,
+                        strokeWeight: 0,
+                        scale: 8,
+                    },
+                    title: '現在地'
+                });
+
+                this.throwLine = new google.maps.Polyline({
+                    path: [],
+                    geodesic: true,
+                    strokeColor: '#FF0000',
+                    strokeOpacity: 1.0,
+                    strokeWeight: 3,
+                    map: this.map,
+                });
+                this.isMapReady = true;
+            }
+
             handleOrientation(event) {
                 if (!this.isPermissionGranted) return;
                 
                 let newHeading = 0;
                 
-                // iOS
+                // iOS devices use webkitCompassHeading
                 if (event.webkitCompassHeading !== undefined) {
                     newHeading = event.webkitCompassHeading;
                 }
-                // Android
+                // Android and other devices use event.alpha
                 else if (event.alpha !== null) {
+                    // Convert alpha (0-360, counter-clockwise from true north)
+                    // to clockwise from true north for consistency.
                     newHeading = 360 - event.alpha;
-                    if (newHeading > 359 && newHeading <= 360) { // 359.5度から360度を359度とみなす
-                        newHeading = 359;
-                    } else if (newHeading >= 0 && newHeading < 1) { // 0度から0.5度を1度とみなす
+                    
+                    // Normalize to 0-359.99...
+                    if (newHeading >= 360) newHeading -= 360;
+                    if (newHeading < 0) newHeading += 360;
+
+                    // 0度以上1度未満の場合、1度に丸める
+                    if (newHeading >= 0 && newHeading < 1) {
                         newHeading = 1;
+                    }
+                     // 359度以上360度未満の場合、359度に丸める
+                    else if (newHeading >= 359 && newHeading < 360) {
+                        newHeading = 359;
                     }
                 }
                 
                 this.heading = newHeading;
-                
-                const newTilt = event.beta || 0;
-                const currentTime = Date.now();
-                const deltaTime = Math.max((currentTime - this.lastTime) / 1000, 0.001);
-                const deltaTilt = newTilt - this.lastTilt;
-                this.tiltSpeed = Math.abs(deltaTilt) / deltaTime;
-                
-                this.tilt = newTilt;
-                this.lastTilt = newTilt;
-                this.lastTime = currentTime;
-                
                 this.updateDisplay();
             }
-            
-            handleAbsoluteOrientation(event) {
-                if (event.absolute && event.alpha !== null) {
-                    this.absoluteHeading = event.alpha;
-                    this.heading = 360 - this.absoluteHeading;
-                    if (this.heading >= 360) this.heading -= 360;
-                    if (this.heading < 0) this.heading += 360;
-                }
-            }
-            
-            handleMotion(event) {
-                if (!this.isDetectingShake) return;
-                
-                const acceleration = event.acceleration;
-                if (!acceleration) return;
-                
-                const totalAcceleration = Math.sqrt(
-                    (acceleration.x || 0) ** 2 + 
-                    (acceleration.y || 0) ** 2 + 
-                    (acceleration.z || 0) ** 2
-                );
-                
-                const currentTime = Date.now();
-                this.accelerationData.push({
-                    value: totalAcceleration,
-                    timestamp: currentTime
-                });
-                
-                // Keep only recent data (last 1 second)
-                this.accelerationData = this.accelerationData.filter(
-                    data => currentTime - data.timestamp <= 1000
-                );
-                
-                if (totalAcceleration > this.maxAcceleration) {
-                    this.maxAcceleration = totalAcceleration;
-                }
-                
-                // Update power meter
-                const powerLevel = Math.min(totalAcceleration / 30 * 100, 100);
-                document.getElementById('powerFill').style.height = powerLevel + '%';
-                document.getElementById('speed').textContent = `${Math.round(totalAcceleration * 10)/10}`;
-                
-                // Detect throw
-                if (totalAcceleration > this.shakeThreshold && this.maxAcceleration > this.shakeThreshold) {
-                    this.startThrowWithShake();
-                }
-            }
-            
-            setupFallbackShakeDetection() {
-                let tapCount = 0;
-                let lastTapTime = 0;
-                
-                const handleTap = () => {
-                    if (!this.isDetectingShake) return;
-                    
-                    const currentTime = Date.now();
-                    if (currentTime - lastTapTime < 300) {
-                        tapCount++;
-                        if (tapCount >= 5) {
-                            this.maxAcceleration = 25;
-                            this.startThrowWithShake();
-                            tapCount = 0;
-                        }
-                    } else {
-                        tapCount = 1;
-                    }
-                    lastTapTime = currentTime;
-                };
-                
-                document.addEventListener('touchstart', handleTap);
-                document.addEventListener('click', handleTap);
-            }
-            
-            updateDisplay() {
-                document.getElementById('heading').textContent = Math.round(this.heading) + '°';
-                document.getElementById('compass').textContent = this.getCompassDirection(this.heading);
-                document.getElementById('tilt').textContent = Math.round(this.tilt) + '°';
-                
-                // Update compass needle
-                this.compassNeedle.style.transform = `rotate(${this.heading}deg)`;
-                
-                // Rotate map to show throw direction at top
-                const isHeadingNear360 = (this.heading >= 359 && this.heading < 360);
 
-                if (!this.isActive && !this.isCountdownActive && !this.isBallMoving && this.isMapReady && !isHeadingNear360) {
+            updateDisplay() {
+                // Update compass needle - this should always rotate correctly
+                this.compassNeedle.style.transform = `rotate(${this.heading}deg)`;
+                this.angleDisplay.textContent = `${Math.round(this.heading)}°`;
+                
+                // Define the dead zone for map rotation
+                // Map rotation will be paused if heading is in this range to prevent jumps
+                const DEAD_ZONE_START = 350; // Start of the "upper" dead zone
+                const DEAD_ZONE_END = 10;    // End of the "lower" dead zone
+                
+                const isHeadingInDeadZone = (this.heading >= DEAD_ZONE_START && this.heading < 360) || 
+                                            (this.heading >= 0 && this.heading < DEAD_ZONE_END);
+
+                // Only rotate map if conditions are met AND heading is NOT in the dead zone
+                if (!this.isActive && !this.isCountdownActive && !this.isBallMoving && this.isMapReady && !isHeadingInDeadZone) {
                     this.mapElement.style.transform = `rotate(${-this.heading}deg)`;
-                } else if (!this.isActive && !this.isCountdownActive && !this.isBallMoving && this.isMapReady && isHeadingNear360) {
-                 
+                } else if (!this.isActive && !this.isCountdownActive && !this.isBallMoving && this.isMapReady && isHeadingInDeadZone) {
+                    // When in the dead zone, we explicitly don't update the transform,
+                    // which means it will hold its last known good value.
+                    // This creates a "pause" in map rotation when crossing the North boundary.
+                    // You could also set it to a fixed rotation (e.g., rotate(0deg)) if desired.
+                    // this.mapElement.style.transform = `rotate(0deg)`; // Example: force North up in dead zone
                 }
                 
                 this.updateCoordinatesDisplay();
             }
-            
-            getCompassDirection(heading) {
-                const directions = ['北', '北東', '東', '南東', '南', '南西', '西', '北西'];
-                const index = Math.round(heading / 45) % 8;
-                return directions[index];
-            }
-            
-            updateCoordinatesDisplay() {
-                const lat = this.ballPosition.lat.toFixed(6);
-                const lng = this.ballPosition.lng.toFixed(6);
-                document.getElementById('coordinates').textContent = `${lat}, ${lng}`;
-            }
-            
-            setupComplete() {
-                this.updateStatus('🎯 投球準備完了！スタートボタンを押してください');
-                this.updateCoordinatesDisplay();
-                
-                if (this.map) {
-                    try {
-                        this.map.setCenter(this.currentPosition);
-                        setTimeout(() => {
-                            if (window.google && google.maps && google.maps.event) {
-                                google.maps.event.trigger(this.map, 'resize');
-                                this.map.setCenter(this.currentPosition);
-                            }
-                        }, 100);
-                    } catch (e) {
-                        console.warn('Map setup failed:', e);
-                    }
-                }
-                
-                const startBtn = document.getElementById('startBtn');
-                startBtn.textContent = '🚀 スタート';
-                startBtn.disabled = false;
-                startBtn.classList.add('countdown-ready');
-                startBtn.onclick = () => this.startCountdown();
-            }
-            
-            fallbackSetup() {
-                setTimeout(() => {
-                    this.isMapReady = true;
-                    this.isMapFullyLoaded = true;
-                    this.isPermissionGranted = true;
-                    this.setupComplete();
-                }, 2000);
-            }
-            
-            async startCountdown() {
-                if (this.isCountdownActive || this.isActive) return;
-                
-                // Play start sound
-                try {
-                    this.startSound.currentTime = 0;
-                    await this.startSound.play();
-                } catch (e) {
-                    console.warn('Could not play start sound:', e);
-                }
-                
-                this.isCountdownActive = true;
-                const startBtn = document.getElementById('startBtn');
-                startBtn.disabled = true;
-                startBtn.classList.remove('countdown-ready');
-                
-                let count = 3;
-                this.showCountdown(count);
-                
-                this.countdownTimer = setInterval(() => {
-                    count--;
-                    if (count > 0) {
-                        this.showCountdown(count);
-                    } else {
-                        this.showCountdown('投げて！');
-                        setTimeout(() => {
-                            this.hideCountdown();
-                            this.enableThrowDetection();
-                        }, 1000);
-                        clearInterval(this.countdownTimer);
-                    }
-                }, 1000);
-            }
-            
-            showCountdown(text) {
-                this.hideCountdown();
-                
-                this.countdownElement = document.createElement('div');
-                this.countdownElement.className = 'countdown';
-                this.countdownElement.textContent = text;
-                document.body.appendChild(this.countdownElement);
-            }
-            
-            hideCountdown() {
-                if (this.countdownElement && this.countdownElement.parentNode) {
-                    this.countdownElement.parentNode.removeChild(this.countdownElement);
-                    this.countdownElement = null;
+
+            updateCoordinatesDisplay(coords = this.lastKnownPosition) {
+                if (coords) {
+                    this.currentLatDisplay.textContent = coords.latitude !== undefined ? coords.latitude.toFixed(6) : 'N/A';
+                    this.currentLngDisplay.textContent = coords.longitude !== undefined ? coords.longitude.toFixed(6) : 'N/A';
+                    this.currentAltDisplay.textContent = coords.altitude !== undefined ? coords.altitude.toFixed(1) : 'N/A';
+                    this.currentAccuracyDisplay.textContent = coords.accuracy !== undefined ? coords.accuracy.toFixed(1) : 'N/A';
+                    this.currentHeadingDisplay.textContent = this.heading !== undefined ? Math.round(this.heading) : 'N/A';
+                    this.currentSpeedDisplay.textContent = coords.speed !== undefined ? coords.speed.toFixed(2) : 'N/A';
                 }
             }
-            
-            enableThrowDetection() {
-                this.isCountdownActive = false;
-                this.isDetectingShake = true;
-                this.accelerationData = [];
-                this.maxAcceleration = 0;
-                
-                // Show power meter
-                document.getElementById('powerMeter').style.display = 'block';
-                
-                this.updateStatus('📱 スマホを振ってボールを投げてください！');
-                
-                // Timeout after 10 seconds
-                setTimeout(() => {
-                    if (!this.isActive && this.isDetectingShake) {
-                        this.isDetectingShake = false;
-                        document.getElementById('powerMeter').style.display = 'none';
-                        this.updateStatus('⏰ タイムアウトしました。再度お試しください。');
-                        this.reset();
-                    }
-                }, 10000);
-            }
-            
-            startThrowWithShake() {
-                if (this.isActive || !this.isDetectingShake) return;
-                
-                this.isDetectingShake = false;
-                document.getElementById('powerMeter').style.display = 'none';
-                
-                // Calculate throw power (max 1000m as requested)
-                const shakeIntensity = Math.min(this.maxAcceleration / 30, 1);
-                this.throwPower = shakeIntensity * 1000; // Max 1km
-                this.throwAngle = this.heading;
-                
-                console.log(`Throw detected! Power: ${this.throwPower}m, Direction: ${this.throwAngle}°`);
-                
-                this.ballElement.classList.add('throwing');
-                this.ballTrailPoints = [];
-                this.clearTrails();
-                this.ballPosition = { ...this.startPosition };
-                
-                // 3-second preparation phase
-                this.showPreparationOverlay();
-            }
-            
-            showPreparationOverlay() {
-                const overlay = document.createElement('div');
-                overlay.className = 'preparation-overlay';
-                overlay.innerHTML = `
-                    <div>
-                        <div style="font-size: 32px; margin-bottom: 20px;">🏀</div>
-                        <div>ボール準備中...</div>
-                        <div style="font-size: 18px; margin-top: 10px; opacity: 0.8;">航空写真を最適化しています</div>
-                        <div id="prepCountdown" style="font-size: 48px; margin-top: 20px; color: #ff6b6b;">3</div>
-                    </div>
-                `;
-                document.body.appendChild(overlay);
-                
-                let countdown = 3;
-                const countdownEl = overlay.querySelector('#prepCountdown');
-                
-                const prepInterval = setInterval(() => {
-                    countdown--;
-                    if (countdown > 0) {
-                        countdownEl.textContent = countdown;
-                    } else {
-                        clearInterval(prepInterval);
-                        document.body.removeChild(overlay);
-                        this.startBallMovement();
-                    }
-                }, 1000);
-            }
-            
-            async startBallMovement() {
-                this.isActive = true;
-                this.isBallMoving = true;
-                
-                // Play throw sound
-                try {
-                    this.throwSound.currentTime = 0;
-                    await this.throwSound.play();
-                } catch (e) {
-                    console.warn('Could not play throw sound:', e);
-                }
-                
-                // Reset map rotation
-                this.mapElement.style.transform = 'rotate(0deg)';
-                
-                this.animationFrame = 0;
-                this.updateStatus(`🏀 ボール投球中... 方向: ${this.getCompassDirection(this.throwAngle)} (${Math.round(this.throwAngle)}°)`);
-                
-                this.animateThrow();
-            }
-            
-            clearTrails() {
-                const trails = document.querySelectorAll('.ball-trail');
-                trails.forEach(trail => trail.remove());
-            }
-            
-            createTrail(x, y) {
-                const trail = document.createElement('div');
-                trail.className = 'ball-trail';
-                trail.style.left = x + 'px';
-                trail.style.top = y + 'px';
-                document.body.appendChild(trail);
-                
-                setTimeout(() => {
-                    if (trail.parentNode) {
-                        trail.parentNode.removeChild(trail);
-                    }
-                }, 2000);
-            }
-            
-            animateThrow() {
-                if (!this.isActive || !this.isMapReady) return;
-                
-                this.animationFrame++;
-                // Slower animation for better map loading
-                const progress = this.animationFrame * 0.002;
-                
-                if (progress >= 1) {
-                    this.landBall();
+
+            startGame() {
+                if (!this.lastKnownPosition) {
+                    this.displayMessage('現在地が取得できていません。', 'error');
                     return;
                 }
+                if (this.isActive || this.isCountdownActive) return;
+
+                this.startBtn.disabled = true;
+                this.isCountdownActive = true;
+                this.displayMessage('3秒後に投げられます...', 'info');
                 
-                const currentDistance = this.throwPower * progress;
-                
-                // Update ball scale - enlarge until halfway, then shrink
-                this.updateBallScale(progress);
-                
-                // Calculate new position using more accurate geodesic calculations
-                const bearing = this.throwAngle * Math.PI / 180;
-                const earthRadius = 6371000; // Earth radius in meters
-                
-                const lat1 = this.startPosition.lat * Math.PI / 180;
-                const lng1 = this.startPosition.lng * Math.PI / 180;
-                
-                const lat2 = Math.asin(
-                    Math.sin(lat1) * Math.cos(currentDistance / earthRadius) +
-                    Math.cos(lat1) * Math.sin(currentDistance / earthRadius) * Math.cos(bearing)
-                );
-                
-                const lng2 = lng1 + Math.atan2(
-                    Math.sin(bearing) * Math.sin(currentDistance / earthRadius) * Math.cos(lat1),
-                    Math.cos(currentDistance / earthRadius) - Math.sin(lat1) * Math.sin(lat2)
-                );
-                
-                this.ballPosition = {
-                    lat: lat2 * 180 / Math.PI,
-                    lng: lng2 * 180 / Math.PI
-                };
-                
-                // Update map
-                if (this.map) {
-                    try {
-                        this.map.setCenter(this.ballPosition);
-                        
-                        // Adjust zoom based on distance
-                        const baseZoom = 20;
-                        const minZoom = 10;
-                        const zoomLevel = Math.max(minZoom, baseZoom - progress * 10);
-                        this.map.setZoom(Math.round(zoomLevel));
-                        
-                        // Keep map oriented in throw direction
-                        this.map.setHeading(this.throwAngle);
-                        
-                    } catch (e) {
-                        console.warn('Map update error:', e);
+                let countdown = 3;
+                const countdownInterval = setInterval(() => {
+                    countdown--;
+                    if (countdown > 0) {
+                        this.displayMessage(`${countdown}秒後に投げられます...`, 'info');
+                    } else {
+                        clearInterval(countdownInterval);
+                        this.isCountdownActive = false;
+                        this.startThrow();
                     }
-                }
-                
-                // Create trail effect
-                if (this.animationFrame % 50 === 0) {
-                    const rect = this.ballElement.getBoundingClientRect();
-                    this.createTrail(rect.left + rect.width/2, rect.top + rect.height/2);
-                }
-                
-                // Update distance display
-                document.getElementById('distance').textContent = Math.round(currentDistance) + 'm';
-                this.updateCoordinatesDisplay();
-                
-                // Continue animation
-                requestAnimationFrame(() => this.animateThrow());
+                }, 1000);
             }
-            
-            updateBallScale(progress) {
-                let scale;
+
+            startThrow() {
+                this.startPosition = this.lastKnownPosition;
+                this.throwDirection = this.heading; // Capture current heading for the throw
+                this.isActive = true;
+                this.isBallMoving = true; // ボールが移動開始
+                this.displayMessage('ボールを投げました！');
+                this.startBtn.textContent = '計算中...';
+                this.startBtn.disabled = true;
+
+                // Reset map transform to avoid jumps during ball movement
+                this.mapElement.style.transform = 'rotate(0deg)'; 
+                this.map.setHeading(0); // Also ensure Google Maps API internal heading is 0 for consistent calculation
+
+                this.animateBallThrow();
+            }
+
+            animateBallThrow() {
+                const distanceKm = 10; // Fixed distance for simulation (10 km)
+                const bearing = this.throwDirection; // Use the captured heading
+
+                // Calculate end position using geodesic calculations
+                const R = 6371e3; // metres
+                const lat1 = this.toRad(this.startPosition.lat);
+                const lon1 = this.toRad(this.startPosition.lng);
+                const brng = this.toRad(bearing);
+
+                const lat2 = Math.asin(Math.sin(lat1) * Math.cos(distanceKm * 1000 / R) +
+                                       Math.cos(lat1) * Math.sin(distanceKm * 1000 / R) * Math.cos(brng));
+                const lon2 = lon1 + Math.atan2(Math.sin(brng) * Math.sin(distanceKm * 1000 / R) * Math.cos(lat1),
+                                               Math.cos(distanceKm * 1000 / R) - Math.sin(lat1) * Math.sin(lat2));
+
+                this.endPosition = { lat: this.toDeg(lat2), lng: this.toDeg(lon2) };
+
+                this.throwLine.setPath([this.startPosition, this.endPosition]);
                 
-                if (progress <= 0.5) {
-                    // Enlarge until halfway point
-                    scale = 1 + progress * 6; // Max scale of 4x at halfway
+                // Animate map view to end position
+                this.map.panTo(this.endPosition);
+                this.map.setZoom(10); // Zoom out to see the throw
+
+                // Simulate flight time
+                setTimeout(() => {
+                    this.landBall();
+                }, 5000); // 5 seconds flight time
+            }
+
+            landBall() {
+                this.isActive = false;
+                this.isBallMoving = false; // ボールの移動終了
+                this.throwLine.setPath([]); // Clear the throw line
+
+                const calculatedDistance = this.calculateDistance(this.startPosition, this.endPosition);
+                this.distanceDisplay.textContent = `${calculatedDistance.toFixed(2)} km`;
+                this.displayMessage('ボールが着地しました！次の投球準備をしてください。');
+                this.startBtn.textContent = 'もう一度投げる';
+                this.startBtn.disabled = false;
+                
+                // Reset map to user's current position and heading
+                if (this.lastKnownPosition) {
+                    this.map.panTo(this.lastKnownPosition);
+                    this.map.setZoom(18);
+                    this.map.setHeading(0); // Reset Google Maps API heading to North up
+                }
+            }
+
+            calculateDistance(coord1, coord2) {
+                const R = 6371; // Earth's radius in kilometers
+                const dLat = this.toRad(coord2.lat - coord1.lat);
+                const dLon = this.toRad(coord2.lng - coord1.lng);
+                const lat1 = this.toRad(coord1.lat);
+                const lat2 = this.toRad(coord2.lat);
+
+                const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                          Math.sin(dLon/2) * Math.sin(dLon/2) * Math.cos(lat1) * Math.cos(lat2); 
+                const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); 
+                return R * c; // Distance in kilometers
+            }
+
+            toRad(value) {
+                return value * Math.PI / 180;
+            }
+
+            toDeg(value) {
+                return value * 180 / Math.PI;
+            }
+
+            displayMessage(msg, type = 'normal') {
+                this.messageElement.textContent = msg;
+                if (type === 'error') {
+                    this.messageElement.style.color = 'red';
+                } else if (type === 'info') {
+                    this.messageElement.style.color = '#007bff';
                 } else {
-                    // Shrink from halfway to end
-                    scale = 4 - (progress - 0.5) * 6; // Back to 1x at end
-                }
-                
-                scale = Math.max(0.5, Math.min(4, scale)); // Clamp between 0.5x and 4x
-                this.ballElement.style.transform = `translate(-50%, -50%) scale(${scale})`;
-                
-                // Add flying animation class
-                if (!this.ballElement.classList.contains('flying')) {
-                    this.ballElement.classList.add('flying');
-                }
-            }
-            
-            async landBall() {
-                this.isActive = false;
-                this.isBallMoving = false;
-                
-                // Play landing sound
-                try {
-                    this.landingSound.currentTime = 0;
-                    await this.landingSound.play();
-                } catch (e) {
-                    console.warn('Could not play landing sound:', e);
-                }
-                
-                // Remove ball animations
-                this.ballElement.classList.remove('throwing', 'flying');
-                this.ballElement.style.transform = 'translate(-50%, -50%) scale(1)';
-                
-                const finalDistance = Math.round(this.throwPower);
-                
-                // Gradually zoom in on landing location
-                if (this.map) {
-                    try {
-                        this.map.setCenter(this.ballPosition);
-                        
-                        let currentZoom = this.map.getZoom() || 10;
-                        const targetZoom = 19;
-                        const zoomSteps = 30;
-                        const zoomIncrement = (targetZoom - currentZoom) / zoomSteps;
-                        
-                        let step = 0;
-                        const zoomInterval = setInterval(() => {
-                            step++;
-                            currentZoom += zoomIncrement;
-                            
-                            if (step >= zoomSteps) {
-                                currentZoom = targetZoom;
-                                clearInterval(zoomInterval);
-                            }
-                            
-                            this.map.setZoom(Math.round(currentZoom));
-                        }, 100);
-                        
-                        // Reset heading after zoom
-                        setTimeout(() => {
-                            this.map.setHeading(0);
-                        }, 3000);
-                        
-                    } catch (e) {
-                        console.warn('Landing map update error:', e);
-                    }
-                }
-                
-                // Update final distance
-                document.getElementById('distance').textContent = finalDistance + 'm';
-                
-                // Clear trails after a delay
-                setTimeout(() => {
-                    this.clearTrails();
-                }, 3000);
-                
-                // Show success message
-                this.updateStatus(`🎯 着地完了！飛距離: ${finalDistance}m 方向: ${this.getCompassDirection(this.throwAngle)}`);
-                
-                // Show landing panel after animation
-                setTimeout(() => {
-                    this.showLandingPanel(finalDistance, this.ballPosition);
-                }, 4000);
-            }
-            
-            showLandingPanel(distance, position) {
-                document.getElementById('infoPanel').style.display = 'none';
-                
-                const landingPanel = document.getElementById('landingPanel');
-                const results = document.getElementById('results');
-                const googleMapBtn = document.getElementById('googleMapBtn');
-                const resetBtn = document.getElementById('resetBtn');
-                
-                results.innerHTML = `🎯 着地完了！<br>飛距離: ${distance}m`;
-                
-                // Create Google Maps URL
-                const googleMapUrl = `https://www.google.com/maps?q=${position.lat},${position.lng}&z=18&t=k`;
-                googleMapBtn.href = googleMapUrl;
-                
-                resetBtn.onclick = () => this.reset();
-                
-                landingPanel.style.display = 'block';
-            }
-            
-            updateStatus(message) {
-                document.getElementById('status').textContent = message;
-            }
-            
-            reset() {
-                // Clear all timers
-                if (this.countdownTimer) {
-                    clearInterval(this.countdownTimer);
-                    this.countdownTimer = null;
-                }
-                if (this.preparationTimer) {
-                    clearInterval(this.preparationTimer);
-                    this.preparationTimer = null;
-                }
-                
-                // Remove countdown if present
-                this.hideCountdown();
-                
-                // Reset all state
-                this.isActive = false;
-                this.isCountdownActive = false;
-                this.isBallMoving = false;
-                this.isDetectingShake = false;
-                
-                // Reset sensor data
-                this.accelerationData = [];
-                this.maxAcceleration = 0;
-                
-                // Reset ball appearance
-                this.ballElement.classList.remove('throwing', 'flying');
-                this.ballElement.style.transform = 'translate(-50%, -50%) scale(1)';
-                
-                // Hide power meter
-                document.getElementById('powerMeter').style.display = 'none';
-                document.getElementById('powerFill').style.height = '0%';
-                
-                // Clear trails
-                this.clearTrails();
-                
-                // Reset position
-                this.ballPosition = { ...this.startPosition };
-                
-                // Reset map rotation to compass direction
-                if (this.isMapReady) {
-                    this.mapElement.style.transform = `rotate(${this.heading}deg)`;
-                }
-                
-                // Reset map view
-                if (this.map && this.startPosition) {
-                    try {
-                        this.map.setCenter(this.startPosition);
-                        this.map.setZoom(20);
-                        this.map.setMapTypeId(google.maps.MapTypeId.SATELLITE);
-                        this.map.setHeading(0);
-                    } catch (e) {
-                        console.warn('Map reset error:', e);
-                    }
-                }
-                
-                // Reset UI
-                document.getElementById('landingPanel').style.display = 'none';
-                document.getElementById('infoPanel').style.display = 'block';
-                
-                document.getElementById('distance').textContent = '0m';
-                document.getElementById('speed').textContent = '---';
-                
-                this.updateCoordinatesDisplay();
-                this.updateStatus('🎯 投球準備完了！スタートボタンを押してください');
-                
-                // Reset start button
-                const startBtn = document.getElementById('startBtn');
-                startBtn.textContent = '🚀 スタート';
-                startBtn.disabled = false;
-                startBtn.classList.add('countdown-ready');
-                startBtn.onclick = () => this.startCountdown();
-            }
-            
-            showError(message) {
-                const errorDiv = document.createElement('div');
-                errorDiv.className = 'error-message';
-                errorDiv.innerHTML = `
-                    <div style="font-size: 20px; margin-bottom: 15px;">⚠️</div>
-                    <strong>エラーが発生しました</strong><br><br>
-                    ${message}<br><br>
-                    <button onclick="location.reload()" style="
-                        padding: 12px 20px; 
-                        background: white; 
-                        color: #d32f2f; 
-                        border: 2px solid #d32f2f; 
-                        border-radius: 8px; 
-                        cursor: pointer;
-                        font-weight: bold;
-                    ">
-                        🔄 再読み込み
-                    </button>
-                `;
-                document.body.appendChild(errorDiv);
-                
-                // Auto remove after 10 seconds
-                setTimeout(() => {
-                    if (errorDiv.parentNode) {
-                        errorDiv.parentNode.removeChild(errorDiv);
-                    }
-                }, 10000);
-            }
-        }
-        
-        // Global app instance
-        let app = null;
-        
-        // Initialize app when DOM is ready
-        document.addEventListener('DOMContentLoaded', function() {
-            console.log('DOM loaded, creating app instance...');
-            app = new BallThrowJourneyApp();
-            console.log('App instance created:', app);
-        });
-        
-        // Global function for button clicks
-        function startApp() {
-            console.log('startApp called');
-            if (app && typeof app.startApp === 'function') {
-                app.startApp();
-            } else {
-                console.error('App not ready');
-                // Try to initialize if not ready
-                if (!app) {
-                    app = new BallThrowJourneyApp();
-                    setTimeout(() => {
-                        if (app.startApp) {
-                            app.startApp();
-                        }
-                    }, 500);
+                    this.messageElement.style.color = '#666';
                 }
             }
         }
-        
+
+        // Initialize the game when the Google Maps API is loaded
+        function initMap() {
+            new ThrowingGame();
+        }
+
         // Set up button event listener when page loads
         window.addEventListener('load', function() {
             const startBtn = document.getElementById('startBtn');
@@ -1368,11 +673,12 @@
                 startBtn.onclick = null;
                 startBtn.removeAttribute('onclick');
                 
-                // Add new event listener
+                // Add new event listener - this will be overridden by ThrowingGame's initEventHandlers
+                // Keeping for general structure, but actual game logic uses its own event listener
                 startBtn.addEventListener('click', function(e) {
                     e.preventDefault();
                     console.log('Start button clicked');
-                    startApp();
+                    // startApp(); // This is handled by ThrowingGame class now
                 });
                 
                 console.log('Start button event listener added');
