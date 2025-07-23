@@ -97,9 +97,10 @@
             position: absolute;
             width: 60px;
             height: 60px;
-            background: radial-gradient(circle at 30% 30%, #ff6b6b, #d63031);
+            background-image: url('ball.gif');
             background-size: cover;
             background-position: center;
+            background-repeat: no-repeat;
             border-radius: 50%;
             box-shadow: 0 8px 25px rgba(0,0,0,0.3);
             transition: all 0.3s ease-out;
@@ -468,6 +469,19 @@
                 this.mapElement = document.getElementById('map');
                 this.ballElement = document.getElementById('ball');
                 this.compassNeedle = document.getElementById('compassNeedle');
+                
+                // Audio elements
+                this.sounds = {
+                    start: new Audio('start.mp3'),
+                    kick: new Audio('kich.mp3'),
+                    goal: new Audio('goal.mp3')
+                };
+                
+                // Preload audio files
+                Object.values(this.sounds).forEach(audio => {
+                    audio.preload = 'auto';
+                    audio.volume = 0.7;
+                });
                 
                 // State management
                 this.isActive = false;
@@ -917,6 +931,9 @@
             async startCountdown() {
                 if (this.isCountdownActive || this.isActive) return;
                 
+                // Play start sound
+                this.playSound('start');
+                
                 this.isCountdownActive = true;
                 const startBtn = document.getElementById('startBtn');
                 startBtn.disabled = true;
@@ -1034,6 +1051,9 @@
                 this.isBallMoving = true;
                 
                 console.log('ボール移動開始');
+                
+                // Play kick sound
+                this.playSound('kick');
                 
                 // Reset map rotation
                 this.mapElement.style.transform = 'rotate(0deg)';
@@ -1169,6 +1189,9 @@
                 
                 console.log('着地処理開始');
                 
+                // Play goal sound
+                this.playSound('goal');
+                
                 // Remove ball animations
                 this.ballElement.classList.remove('throwing', 'flying');
                 this.ballElement.style.transform = 'translate(-50%, -50%) scale(1)';
@@ -1252,6 +1275,19 @@
             
             updateStatus(message) {
                 document.getElementById('status').textContent = message;
+            }
+            
+            playSound(soundName) {
+                if (this.sounds[soundName]) {
+                    try {
+                        this.sounds[soundName].currentTime = 0;
+                        this.sounds[soundName].play().catch(e => {
+                            console.warn(`Could not play ${soundName} sound:`, e);
+                        });
+                    } catch (e) {
+                        console.warn(`Sound error for ${soundName}:`, e);
+                    }
+                }
             }
             
             reset() {
