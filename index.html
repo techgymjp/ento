@@ -499,6 +499,7 @@
                 
                 // Canvas and image data
                 this.aerialImages = [];
+                this.ballImage = null; // ボール画像を保存
                 this.canvasWidth = 0;
                 this.canvasHeight = 0;
                 this.ballCanvasX = 0;
@@ -979,7 +980,31 @@
                 this.ballCanvasX = this.canvasWidth / 2;
                 this.ballCanvasY = this.canvasHeight / 2;
                 
+                // Load ball image for canvas drawing
+                this.loadBallImage();
+                
                 console.log('Canvas initialized:', this.canvasWidth, 'x', this.canvasHeight);
+            }
+            
+            loadBallImage() {
+                this.ballImage = new Image();
+                this.ballImage.onload = () => {
+                    console.log('✅ Ball image loaded successfully');
+                };
+                this.ballImage.onerror = () => {
+                    console.warn('⚠️ Ball image failed to load, will use fallback');
+                    this.ballImage = null;
+                };
+                // Try to load ball.png first, then ball.gif as fallback
+                this.ballImage.src = 'ball.png';
+                
+                // If ball.png fails, try ball.gif
+                this.ballImage.addEventListener('error', () => {
+                    if (this.ballImage.src.includes('ball.png')) {
+                        console.log('Trying ball.gif as fallback...');
+                        this.ballImage.src = 'ball.gif';
+                    }
+                });
             }
             
             fallbackSetup() {
@@ -1264,7 +1289,7 @@
                 }
                 
                 this.animationFrame++;
-                const progress = this.animationFrame * 0.008; // Faster animation for canvas
+                const progress = this.animationFrame * 0.004; // Faster animation for canvas
                 
                 if (progress >= 1 || this.backgroundOffsetY >= this.canvasHeight * 4) {
                     console.log('キャンバスアニメーション完了、着地処理開始');
@@ -1313,7 +1338,7 @@
                     try {
                         // Move background down based on throw speed
                         const speedFactor = Math.min(this.maxAcceleration / 15, 3);
-                        this.backgroundOffsetY += speedFactor * 8;
+                        this.backgroundOffsetY += speedFactor * 4;
                         
                         // Draw the aerial image, moving it downward
                         const imgWidth = this.canvasWidth * 2;
@@ -1393,7 +1418,7 @@
                 
                 const ballRadius = 30 * scale;
                 
-                // Ball shadow
+                // Draw ball shadow first
                 this.ctx.save();
                 this.ctx.globalAlpha = 0.3;
                 this.ctx.fillStyle = '#000';
@@ -1407,42 +1432,69 @@
                 this.ctx.fill();
                 this.ctx.restore();
                 
-                // Ball gradient
-                const gradient = this.ctx.createRadialGradient(
-                    this.ballCanvasX - ballRadius * 0.3,
-                    this.ballCanvasY - ballRadius * 0.3,
-                    0,
-                    this.ballCanvasX,
-                    this.ballCanvasY,
-                    ballRadius
-                );
-                gradient.addColorStop(0, '#ff8a65');
-                gradient.addColorStop(0.7, '#ff5722');
-                gradient.addColorStop(1, '#d84315');
-                
-                // Draw ball
-                this.ctx.fillStyle = gradient;
-                this.ctx.beginPath();
-                this.ctx.arc(this.ballCanvasX, this.ballCanvasY, ballRadius, 0, 2 * Math.PI);
-                this.ctx.fill();
-                
-                // Ball highlight
-                this.ctx.fillStyle = '#ffccbc';
-                this.ctx.beginPath();
-                this.ctx.arc(
-                    this.ballCanvasX - ballRadius * 0.3,
-                    this.ballCanvasY - ballRadius * 0.3,
-                    ballRadius * 0.2,
-                    0, 2 * Math.PI
-                );
-                this.ctx.fill();
-                
-                // Ball outline
-                this.ctx.strokeStyle = '#bf360c';
-                this.ctx.lineWidth = 2;
-                this.ctx.beginPath();
-                this.ctx.arc(this.ballCanvasX, this.ballCanvasY, ballRadius, 0, 2 * Math.PI);
-                this.ctx.stroke();
+                // Draw ball image if available
+                if (this.ballImage && this.ballImage.complete) {
+                    // Draw ball.png/ball.gif
+                    const ballSize = ballRadius * 2;
+                    
+                    this.ctx.save();
+                    
+                    // Add rotation effect during flight
+                    this.ctx.translate(this.ballCanvasX, this.ballCanvasY);
+                    this.ctx.rotate((progress * 360 * 4) * Math.PI / 180); // 4 rotations during flight
+                    
+                    this.ctx.drawImage(
+                        this.ballImage,
+                        -ballSize / 2,
+                        -ballSize / 2,
+                        ballSize,
+                        ballSize
+                    );
+                    
+                    this.ctx.restore();
+                    
+                    console.log(`🏀 Drawing ball image at scale ${scale.toFixed(2)}x`);
+                    
+                } else {
+                    // Fallback: draw orange gradient ball if image not available
+                    console.log('🟠 Drawing fallback orange ball');
+                    
+                    const gradient = this.ctx.createRadialGradient(
+                        this.ballCanvasX - ballRadius * 0.3,
+                        this.ballCanvasY - ballRadius * 0.3,
+                        0,
+                        this.ballCanvasX,
+                        this.ballCanvasY,
+                        ballRadius
+                    );
+                    gradient.addColorStop(0, '#ff8a65');
+                    gradient.addColorStop(0.7, '#ff5722');
+                    gradient.addColorStop(1, '#d84315');
+                    
+                    // Draw ball
+                    this.ctx.fillStyle = gradient;
+                    this.ctx.beginPath();
+                    this.ctx.arc(this.ballCanvasX, this.ballCanvasY, ballRadius, 0, 2 * Math.PI);
+                    this.ctx.fill();
+                    
+                    // Ball highlight
+                    this.ctx.fillStyle = '#ffccbc';
+                    this.ctx.beginPath();
+                    this.ctx.arc(
+                        this.ballCanvasX - ballRadius * 0.3,
+                        this.ballCanvasY - ballRadius * 0.3,
+                        ballRadius * 0.2,
+                        0, 2 * Math.PI
+                    );
+                    this.ctx.fill();
+                    
+                    // Ball outline
+                    this.ctx.strokeStyle = '#bf360c';
+                    this.ctx.lineWidth = 2;
+                    this.ctx.beginPath();
+                    this.ctx.arc(this.ballCanvasX, this.ballCanvasY, ballRadius, 0, 2 * Math.PI);
+                    this.ctx.stroke();
+                }
             }
             
             clearTrails() {
@@ -1656,6 +1708,9 @@
                 this.ballElement.style.display = 'block';
                 this.ballElement.classList.remove('throwing', 'flying');
                 this.ballElement.style.transform = 'translate(-50%, -50%) scale(1)';
+                
+                // Reload ball image for canvas (in case it failed before)
+                this.loadBallImage();
                 
                 // Hide power meter
                 document.getElementById('powerMeter').style.display = 'none';
