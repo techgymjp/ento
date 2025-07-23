@@ -1521,7 +1521,7 @@
                 }
                 
                 this.animationFrame++;
-                const progress = this.animationFrame * 0.008; // Faster animation for canvas
+                const progress = this.animationFrame * 0.004; // Faster animation for canvas
                 
                 if (progress >= 1 || this.backgroundOffsetY >= this.canvasHeight * 4) {
                     console.log('キャンバスアニメーション完了、着地処理開始');
@@ -1570,7 +1570,7 @@
                     try {
                         // Move background down based on throw speed
                         const speedFactor = Math.min(this.maxAcceleration / 15, 3);
-                        this.backgroundOffsetY += speedFactor * 8;
+                        this.backgroundOffsetY += speedFactor * 4;
                         
                         // Draw the aerial image, moving it downward (上から下へ)
                         const imgWidth = this.canvasWidth * 2;
