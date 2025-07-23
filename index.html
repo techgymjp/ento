@@ -722,9 +722,9 @@
                 else if (event.alpha !== null) {
                     newHeading = 360 - event.alpha;
                     if (newHeading > 359 && newHeading <= 360) { // 359.5度から360度を359度とみなす
-                        newHeading = 359;
-                    } else if (newHeading >= 0 && newHeading < 1) { // 0度から0.5度を1度とみなす
                         newHeading = 1;
+                    } else if (newHeading >= 0 && newHeading < 1) { // 0度から0.5度を1度とみなす
+                        newHeading = 359;
                     }
                 }
                 
