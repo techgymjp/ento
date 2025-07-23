@@ -159,15 +159,10 @@
             width: 4px;
             height: 35px;
             background: linear-gradient(to bottom, #ff3333 0%, #ff3333 50%, #ffffff 50%, #ffffff 100%);
-            transform-origin: 50% 50%;
+            transform-origin: 50% 100%;
             transition: transform 0.3s ease-out;
             border-radius: 2px;
             box-shadow: 0 0 5px rgba(0,0,0,0.3);
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            margin-top: -17.5px;
-            margin-left: -2px;
         }
         
         .compass-labels {
@@ -716,38 +711,20 @@
             handleOrientation(event) {
                 if (!this.isPermissionGranted) return;
                 
-                let rawHeading = 0;
+                let newHeading = 0;
                 
-                // Get raw compass heading directly without modification
+                // iOS
                 if (event.webkitCompassHeading !== undefined) {
-                    // iOS: webkitCompassHeading gives 0° = North, clockwise
-                    rawHeading = event.webkitCompassHeading;
+                    newHeading = event.webkitCompassHeading;
                 }
+                // Android
                 else if (event.alpha !== null) {
-                    // Android: alpha gives 0° = North, but counter-clockwise
-                    // Convert to clockwise: 0°=North, 90°=East, 180°=South, 270°=West
-                    rawHeading = (360 - event.alpha) % 360;
+                    newHeading = 360 - event.alpha;
+                    if (newHeading >= 360) newHeading -= 360;
+                    if (newHeading < 0) newHeading += 360;
                 }
                 
-                // Simple normalization
-                while (rawHeading < 0) rawHeading += 360;
-                while (rawHeading >= 360) rawHeading -= 360;
-                
-                // Apply light smoothing only
-                if (this.heading === 0) {
-                    // First reading
-                    this.heading = rawHeading;
-                } else {
-                    // Smooth transition, handle wraparound
-                    let diff = rawHeading - this.heading;
-                    if (diff > 180) diff -= 360;
-                    if (diff < -180) diff += 360;
-                    
-                    this.heading += diff * 0.3; // Lighter smoothing
-                    
-                    while (this.heading < 0) this.heading += 360;
-                    while (this.heading >= 360) this.heading -= 360;
-                }
+                this.heading = newHeading;
                 
                 const newTilt = event.beta || 0;
                 const currentTime = Date.now();
@@ -764,25 +741,10 @@
             
             handleAbsoluteOrientation(event) {
                 if (event.absolute && event.alpha !== null) {
-                    let rawHeading = event.alpha;
-                    
-                    // Simple normalization
-                    while (rawHeading < 0) rawHeading += 360;
-                    while (rawHeading >= 360) rawHeading -= 360;
-                    
-                    // Light smoothing
-                    if (this.heading === 0) {
-                        this.heading = rawHeading;
-                    } else {
-                        let diff = rawHeading - this.heading;
-                        if (diff > 180) diff -= 360;
-                        if (diff < -180) diff += 360;
-                        
-                        this.heading += diff * 0.3;
-                        
-                        while (this.heading < 0) this.heading += 360;
-                        while (this.heading >= 360) this.heading -= 360;
-                    }
+                    this.absoluteHeading = event.alpha;
+                    this.heading = 360 - this.absoluteHeading;
+                    if (this.heading >= 360) this.heading -= 360;
+                    if (this.heading < 0) this.heading += 360;
                 }
             }
             
@@ -854,11 +816,10 @@
                 document.getElementById('compass').textContent = this.getCompassDirection(this.heading);
                 document.getElementById('tilt').textContent = Math.round(this.tilt) + '°';
                 
-                // Compass needle points to current heading direction
-                // Map rotates +heading, needle rotates +2*heading to point to current direction
-                this.compassNeedle.style.transform = `rotate(${this.heading * 2}deg)`;
+                // Update compass needle
+                this.compassNeedle.style.transform = `rotate(${this.heading}deg)`;
                 
-                // Rotate map so current heading direction points UP
+                // Rotate map to show throw direction at top
                 if (!this.isActive && !this.isCountdownActive && this.isMapReady) {
                     this.mapElement.style.transform = `rotate(${this.heading}deg)`;
                 }
@@ -1078,8 +1039,8 @@
                 if (!this.isActive || !this.isMapReady) return;
                 
                 this.animationFrame++;
-                // Slower animation for smoother map loading
-                const progress = Math.min(this.animationFrame * 0.003, 1);
+                // Slower animation for better map loading
+                const progress = this.animationFrame * 0.002;
                 
                 if (progress >= 1) {
                     this.landBall();
@@ -1091,14 +1052,13 @@
                 // Update ball scale - enlarge until halfway, then shrink
                 this.updateBallScale(progress);
                 
-                // Calculate new position using geodesic calculations
+                // Calculate new position using more accurate geodesic calculations
                 const bearing = this.throwAngle * Math.PI / 180;
                 const earthRadius = 6371000; // Earth radius in meters
                 
                 const lat1 = this.startPosition.lat * Math.PI / 180;
                 const lng1 = this.startPosition.lng * Math.PI / 180;
                 
-                // Destination point calculation
                 const lat2 = Math.asin(
                     Math.sin(lat1) * Math.cos(currentDistance / earthRadius) +
                     Math.cos(lat1) * Math.sin(currentDistance / earthRadius) * Math.cos(bearing)
@@ -1109,38 +1069,32 @@
                     Math.cos(currentDistance / earthRadius) - Math.sin(lat1) * Math.sin(lat2)
                 );
                 
-                // Update ball position
                 this.ballPosition = {
                     lat: lat2 * 180 / Math.PI,
                     lng: lng2 * 180 / Math.PI
                 };
                 
-                // Update map center and view
+                // Update map
                 if (this.map) {
                     try {
-                        // Center map on ball position
                         this.map.setCenter(this.ballPosition);
                         
-                        // Adjust zoom based on distance - start high, zoom out as ball travels
+                        // Adjust zoom based on distance
                         const baseZoom = 20;
-                        const minZoom = 8;
-                        const zoomReduction = Math.floor(progress * 12);
-                        const currentZoom = Math.max(minZoom, baseZoom - zoomReduction);
-                        this.map.setZoom(currentZoom);
+                        const minZoom = 10;
+                        const zoomLevel = Math.max(minZoom, baseZoom - progress * 10);
+                        this.map.setZoom(Math.round(zoomLevel));
                         
-                        // Keep map oriented in throw direction for better tracking
+                        // Keep map oriented in throw direction
                         this.map.setHeading(this.throwAngle);
                         
-                        // Force map refresh
-                        google.maps.event.trigger(this.map, 'resize');
-                        
                     } catch (e) {
-                        console.warn('Map update error during animation:', e);
+                        console.warn('Map update error:', e);
                     }
                 }
                 
-                // Create trail effect every few frames
-                if (this.animationFrame % 30 === 0) {
+                // Create trail effect
+                if (this.animationFrame % 50 === 0) {
                     const rect = this.ballElement.getBoundingClientRect();
                     this.createTrail(rect.left + rect.width/2, rect.top + rect.height/2);
                 }
