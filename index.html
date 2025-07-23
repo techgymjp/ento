@@ -1138,12 +1138,7 @@
             }
             
             async prepareAerialImages() {
-                console.log('航空写真準備開始');
-                
-                if (!this.map) {
-                    console.warn('Map not available for image preparation');
-                    return;
-                }
+                console.log('🛰️ 航空写真準備開始');
                 
                 // Calculate trajectory positions for 1km
                 const bearing = this.throwAngle * Math.PI / 180;
@@ -1174,14 +1169,13 @@
                         lng: lng2 * 180 / Math.PI
                     };
                     
+                    console.log(`📍 位置 ${i + 1}: ${position.lat.toFixed(6)}, ${position.lng.toFixed(6)} (距離: ${distance}m)`);
+                    
                     try {
-                        // Create temporary map for each position
-                        const tempCanvas = document.createElement('canvas');
-                        tempCanvas.width = this.canvasWidth * 2; // 4x area (2x width, 2x height)
-                        tempCanvas.height = this.canvasHeight * 2;
-                        
                         // Use Google Maps Static API for high resolution satellite images
-                        const imageUrl = this.getStaticMapUrl(position, tempCanvas.width, tempCanvas.height);
+                        const imageUrl = this.getStaticMapUrl(position, this.canvasWidth * 2, this.canvasHeight * 2);
+                        console.log(`🌍 画像URL ${i + 1}: ${imageUrl.substring(0, 120)}...`);
+                        
                         const image = await this.loadImage(imageUrl);
                         
                         this.aerialImages.push({
@@ -1190,14 +1184,71 @@
                             distance: distance
                         });
                         
-                        console.log(`航空写真 ${i + 1}/${imageCount} 準備完了`);
+                        console.log(`✅ 航空写真 ${i + 1}/${imageCount} 準備完了`);
                         
                     } catch (error) {
-                        console.error(`航空写真 ${i + 1} 準備失敗:`, error);
+                        console.error(`❌ 航空写真 ${i + 1} 準備失敗:`, error);
+                        
+                        // Add fallback image even if loading fails
+                        const fallbackImage = this.createFallbackImage(i);
+                        this.aerialImages.push({
+                            image: fallbackImage,
+                            position: position,
+                            distance: distance,
+                            isFallback: true
+                        });
+                        
+                        console.log(`🟢 フォールバック画像 ${i + 1} 作成完了`);
                     }
                 }
                 
-                console.log('航空写真準備完了、画像数:', this.aerialImages.length);
+                console.log(`🎯 航空写真準備完了！画像数: ${this.aerialImages.length}`);
+            }
+            
+            createFallbackImage(index) {
+                const canvas = document.createElement('canvas');
+                canvas.width = this.canvasWidth * 2;
+                canvas.height = this.canvasHeight * 2;
+                const ctx = canvas.getContext('2d');
+                
+                // Create varied gradient backgrounds
+                const colors = [
+                    ['#4CAF50', '#2E7D32'], // Green
+                    ['#2196F3', '#1565C0'], // Blue  
+                    ['#FF9800', '#F57C00'], // Orange
+                    ['#9C27B0', '#7B1FA2'], // Purple
+                    ['#795548', '#5D4037'], // Brown
+                    ['#607D8B', '#455A64'], // Blue Grey
+                    ['#8BC34A', '#689F38'], // Light Green
+                    ['#00BCD4', '#0097A7']  // Cyan
+                ];
+                
+                const colorPair = colors[index % colors.length];
+                const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+                gradient.addColorStop(0, colorPair[0]);
+                gradient.addColorStop(1, colorPair[1]);
+                
+                ctx.fillStyle = gradient;
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                
+                // Add pattern
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+                for (let i = 0; i < 50; i++) {
+                    const x = Math.random() * canvas.width;
+                    const y = Math.random() * canvas.height;
+                    ctx.fillRect(x, y, 4, 4);
+                }
+                
+                // Add text
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+                ctx.font = '32px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText(`区間 ${index + 1}`, canvas.width / 2, canvas.height / 2);
+                
+                // Convert to image
+                const img = new Image();
+                img.src = canvas.toDataURL();
+                return img;
             }
             
             getStaticMapUrl(position, width, height) {
@@ -1264,10 +1315,6 @@
                 
                 console.log('ボール移動開始 - キャンバスモード');
                 
-                // *** 移動開始の瞬間に効果音を再生 ***
-                console.log('🔊 Playing kick sound at ball movement start');
-                this.playSound('kick');
-                
                 // Hide map and show canvas
                 this.mapElement.style.display = 'none';
                 this.gameCanvas.style.display = 'block';
@@ -1279,6 +1326,25 @@
                 
                 this.updateStatus(`🏀 ボール投球中... 方向: ${this.getCompassDirection(this.throwAngle)} (${Math.round(this.throwAngle)}°)`);
                 
+                // *** 効果音を確実に再生（遅延なし） ***
+                console.log('🔊 Playing kick sound NOW at ball movement start');
+                try {
+                    const kickAudio = this.sounds.kick;
+                    kickAudio.currentTime = 0;
+                    kickAudio.volume = 1.0; // 最大音量
+                    
+                    const playPromise = kickAudio.play();
+                    if (playPromise !== undefined) {
+                        playPromise.then(() => {
+                            console.log('✅ Kick sound played successfully!');
+                        }).catch(error => {
+                            console.error('❌ Kick sound failed:', error);
+                        });
+                    }
+                } catch (error) {
+                    console.error('❌ Kick sound error:', error);
+                }
+                
                 this.animateCanvasThrow();
             }
             
@@ -1289,7 +1355,7 @@
                 }
                 
                 this.animationFrame++;
-                const progress = this.animationFrame * 0.004; // Faster animation for canvas
+                const progress = this.animationFrame * 0.008; // Faster animation for canvas
                 
                 if (progress >= 1 || this.backgroundOffsetY >= this.canvasHeight * 4) {
                     console.log('キャンバスアニメーション完了、着地処理開始');
@@ -1338,13 +1404,13 @@
                     try {
                         // Move background down based on throw speed
                         const speedFactor = Math.min(this.maxAcceleration / 15, 3);
-                        this.backgroundOffsetY += speedFactor * 4;
+                        this.backgroundOffsetY += speedFactor * 8;
                         
-                        // Draw the aerial image, moving it downward
+                        // Draw the aerial image, moving it downward (上から下へ)
                         const imgWidth = this.canvasWidth * 2;
                         const imgHeight = this.canvasHeight * 2;
                         const imgX = -this.canvasWidth / 2; // Center horizontally
-                        const imgY = -this.canvasHeight / 2 - this.backgroundOffsetY; // Move down
+                        const imgY = -this.canvasHeight / 2 + this.backgroundOffsetY; // 修正: + で下向きに移動
                         
                         this.ctx.drawImage(
                             aerialData.image,
@@ -1352,7 +1418,11 @@
                             imgWidth, imgHeight
                         );
                         
-                        console.log(`🖼️ Drawing aerial image ${imageIndex + 1}/${this.aerialImages.length} at distance ${Math.round(currentDistance)}m`);
+                        if (aerialData.isFallback) {
+                            console.log(`🟢 Drawing fallback image ${imageIndex + 1}/${this.aerialImages.length} at distance ${Math.round(currentDistance)}m`);
+                        } else {
+                            console.log(`🖼️ Drawing aerial image ${imageIndex + 1}/${this.aerialImages.length} at distance ${Math.round(currentDistance)}m`);
+                        }
                         
                     } catch (error) {
                         console.error('航空写真描画エラー:', error);
@@ -1382,11 +1452,11 @@
             drawFallbackBackground() {
                 // Draw animated gradient background as fallback
                 const gradient = this.ctx.createLinearGradient(
-                    0, -this.backgroundOffsetY, 
-                    this.canvasWidth, this.canvasHeight - this.backgroundOffsetY
+                    0, 0, 
+                    this.canvasWidth, this.canvasHeight
                 );
                 
-                // Create moving gradient effect
+                // Create moving gradient effect based on offset
                 const phase = (this.backgroundOffsetY / 100) % 1;
                 gradient.addColorStop(0, `hsl(${120 + phase * 60}, 60%, 40%)`);
                 gradient.addColorStop(0.5, `hsl(${90 + phase * 60}, 50%, 35%)`);
@@ -1395,13 +1465,20 @@
                 this.ctx.fillStyle = gradient;
                 this.ctx.fillRect(0, 0, this.canvasWidth, this.canvasHeight);
                 
-                // Add some texture
+                // Add moving texture that scrolls downward
                 this.ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
                 for (let i = 0; i < 20; i++) {
-                    const x = (i * 50 + this.backgroundOffsetY) % this.canvasWidth;
-                    const y = (i * 30 + this.backgroundOffsetY) % this.canvasHeight;
+                    const x = (i * 50) % this.canvasWidth;
+                    const y = (i * 30 + this.backgroundOffsetY) % (this.canvasHeight + 100);
                     this.ctx.fillRect(x, y, 2, 2);
                 }
+                
+                // Add text that moves down
+                this.ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+                this.ctx.font = '24px Arial';
+                this.ctx.textAlign = 'center';
+                const textY = (this.backgroundOffsetY / 2) % (this.canvasHeight + 100);
+                this.ctx.fillText('航空写真読み込み中...', this.canvasWidth / 2, textY);
             }
             
             drawCanvasBall(progress) {
