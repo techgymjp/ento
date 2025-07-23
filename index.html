@@ -93,6 +93,16 @@
             transform-origin: center center;
         }
         
+        #gameCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 999;
+            display: none;
+        }
+        
         .ball {
             position: absolute;
             width: 60px;
@@ -412,6 +422,7 @@
         
         <div class="map-container">
             <div id="map"></div>
+            <canvas id="gameCanvas"></canvas>
         </div>
         
         <div class="ball" id="ball"></div>
@@ -483,6 +494,16 @@
                 this.mapElement = document.getElementById('map');
                 this.ballElement = document.getElementById('ball');
                 this.compassNeedle = document.getElementById('compassNeedle');
+                this.gameCanvas = document.getElementById('gameCanvas');
+                this.ctx = null;
+                
+                // Canvas and image data
+                this.aerialImages = [];
+                this.canvasWidth = 0;
+                this.canvasHeight = 0;
+                this.ballCanvasX = 0;
+                this.ballCanvasY = 0;
+                this.backgroundOffsetY = 0;
                 
                 // Audio elements
                 this.sounds = {
@@ -919,6 +940,9 @@
                 this.updateStatus('🎯 投球準備完了！スタートボタンを押してください');
                 this.updateCoordinatesDisplay();
                 
+                // Initialize canvas
+                this.initCanvas();
+                
                 if (this.map) {
                     try {
                         this.map.setCenter(this.currentPosition);
@@ -938,6 +962,24 @@
                 startBtn.disabled = false;
                 startBtn.classList.add('countdown-ready');
                 startBtn.onclick = () => this.startCountdown();
+            }
+            
+            initCanvas() {
+                if (!this.gameCanvas) return;
+                
+                const container = this.gameCanvas.parentElement;
+                this.canvasWidth = container.clientWidth;
+                this.canvasHeight = container.clientHeight;
+                
+                this.gameCanvas.width = this.canvasWidth;
+                this.gameCanvas.height = this.canvasHeight;
+                this.ctx = this.gameCanvas.getContext('2d');
+                
+                // Ball position in canvas (center)
+                this.ballCanvasX = this.canvasWidth / 2;
+                this.ballCanvasY = this.canvasHeight / 2;
+                
+                console.log('Canvas initialized:', this.canvasWidth, 'x', this.canvasHeight);
             }
             
             fallbackSetup() {
@@ -1050,11 +1092,14 @@
                     <div>
                         <div style="font-size: 32px; margin-bottom: 20px;">🏀</div>
                         <div>ボール準備中...</div>
-                        <div style="font-size: 18px; margin-top: 10px; opacity: 0.8;">航空写真を最適化しています</div>
+                        <div style="font-size: 18px; margin-top: 10px; opacity: 0.8;">航空写真を準備しています</div>
                         <div id="prepCountdown" style="font-size: 48px; margin-top: 20px; color: #ff6b6b;">3</div>
                     </div>
                 `;
                 document.body.appendChild(overlay);
+                
+                // Start preparing aerial images
+                this.prepareAerialImages();
                 
                 let countdown = 3;
                 const countdownEl = overlay.querySelector('#prepCountdown');
@@ -1071,19 +1116,261 @@
                 }, 1000);
             }
             
+            async prepareAerialImages() {
+                console.log('航空写真準備開始');
+                
+                if (!this.map) {
+                    console.warn('Map not available for image preparation');
+                    return;
+                }
+                
+                // Calculate trajectory positions for 1km
+                const bearing = this.throwAngle * Math.PI / 180;
+                const earthRadius = 6371000;
+                const maxDistance = 1000; // 1km
+                const imageCount = 8; // Number of images to prepare
+                
+                this.aerialImages = [];
+                
+                for (let i = 0; i < imageCount; i++) {
+                    const distance = (maxDistance / imageCount) * i;
+                    
+                    const lat1 = this.startPosition.lat * Math.PI / 180;
+                    const lng1 = this.startPosition.lng * Math.PI / 180;
+                    
+                    const lat2 = Math.asin(
+                        Math.sin(lat1) * Math.cos(distance / earthRadius) +
+                        Math.cos(lat1) * Math.sin(distance / earthRadius) * Math.cos(bearing)
+                    );
+                    
+                    const lng2 = lng1 + Math.atan2(
+                        Math.sin(bearing) * Math.sin(distance / earthRadius) * Math.cos(lat1),
+                        Math.cos(distance / earthRadius) - Math.sin(lat1) * Math.sin(lat2)
+                    );
+                    
+                    const position = {
+                        lat: lat2 * 180 / Math.PI,
+                        lng: lng2 * 180 / Math.PI
+                    };
+                    
+                    try {
+                        // Create temporary map for each position
+                        const tempCanvas = document.createElement('canvas');
+                        tempCanvas.width = this.canvasWidth * 2; // 4x area (2x width, 2x height)
+                        tempCanvas.height = this.canvasHeight * 2;
+                        
+                        // Use Google Maps Static API for high resolution satellite images
+                        const imageUrl = this.getStaticMapUrl(position, tempCanvas.width, tempCanvas.height);
+                        const image = await this.loadImage(imageUrl);
+                        
+                        this.aerialImages.push({
+                            image: image,
+                            position: position,
+                            distance: distance
+                        });
+                        
+                        console.log(`航空写真 ${i + 1}/${imageCount} 準備完了`);
+                        
+                    } catch (error) {
+                        console.error(`航空写真 ${i + 1} 準備失敗:`, error);
+                    }
+                }
+                
+                console.log('航空写真準備完了、画像数:', this.aerialImages.length);
+            }
+            
+            getStaticMapUrl(position, width, height) {
+                const apiKey = 'AIzaSyDbZWtPobAYr04A8da3OUOjtNNdjfvkbXA';
+                const zoom = 18;
+                const maptype = 'satellite';
+                
+                return `https://maps.googleapis.com/maps/api/staticmap?` +
+                       `center=${position.lat},${position.lng}&` +
+                       `zoom=${zoom}&` +
+                       `size=${Math.min(width, 640)}x${Math.min(height, 640)}&` +
+                       `maptype=${maptype}&` +
+                       `key=${apiKey}&` +
+                       `scale=2`; // High resolution
+            }
+            
+            loadImage(url) {
+                return new Promise((resolve, reject) => {
+                    const img = new Image();
+                    img.crossOrigin = 'anonymous';
+                    img.onload = () => resolve(img);
+                    img.onerror = reject;
+                    img.src = url;
+                });
+            }
+            
             async startBallMovement() {
                 this.isActive = true;
                 this.isBallMoving = true;
                 
-                console.log('ボール移動開始');
+                console.log('ボール移動開始 - キャンバスモード');
                 
-                // Reset map rotation
-                this.mapElement.style.transform = 'rotate(0deg)';
+                // Hide map and show canvas
+                this.mapElement.style.display = 'none';
+                this.gameCanvas.style.display = 'block';
+                this.ballElement.style.display = 'none'; // Hide HTML ball element
                 
+                // Reset animation state
                 this.animationFrame = 0;
+                this.backgroundOffsetY = 0;
+                
+                // Play kick sound immediately
+                console.log('Playing kick sound at ball movement start');
+                this.playSound('kick');
+                
                 this.updateStatus(`🏀 ボール投球中... 方向: ${this.getCompassDirection(this.throwAngle)} (${Math.round(this.throwAngle)}°)`);
                 
-                this.animateThrow();
+                this.animateCanvasThrow();
+            }
+            
+            animateCanvasThrow() {
+                if (!this.isActive || !this.ctx) {
+                    console.log('キャンバスアニメーション停止');
+                    return;
+                }
+                
+                this.animationFrame++;
+                const progress = this.animationFrame * 0.008; // Faster animation for canvas
+                
+                if (progress >= 1 || this.backgroundOffsetY >= this.canvasHeight * 4) {
+                    console.log('キャンバスアニメーション完了、着地処理開始');
+                    this.landBall();
+                    return;
+                }
+                
+                // Clear canvas
+                this.ctx.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
+                
+                // Calculate which aerial image to use
+                const currentDistance = this.throwPower * progress;
+                const imageIndex = Math.min(
+                    Math.floor((currentDistance / 1000) * this.aerialImages.length),
+                    this.aerialImages.length - 1
+                );
+                
+                // Draw background (aerial image)
+                if (this.aerialImages[imageIndex]) {
+                    const aerialData = this.aerialImages[imageIndex];
+                    
+                    // Move background down based on throw speed
+                    const speedFactor = Math.min(this.maxAcceleration / 15, 3); // Speed affects scroll rate
+                    this.backgroundOffsetY += speedFactor * 8;
+                    
+                    // Draw the aerial image, moving it downward
+                    const imgWidth = this.canvasWidth * 2;
+                    const imgHeight = this.canvasHeight * 2;
+                    const imgX = -this.canvasWidth / 2; // Center horizontally
+                    const imgY = -this.canvasHeight / 2 - this.backgroundOffsetY; // Move down
+                    
+                    this.ctx.drawImage(
+                        aerialData.image,
+                        imgX, imgY,
+                        imgWidth, imgHeight
+                    );
+                    
+                    // Update ball position based on current distance
+                    const bearing = this.throwAngle * Math.PI / 180;
+                    const earthRadius = 6371000;
+                    
+                    const lat1 = this.startPosition.lat * Math.PI / 180;
+                    const lng1 = this.startPosition.lng * Math.PI / 180;
+                    
+                    const lat2 = Math.asin(
+                        Math.sin(lat1) * Math.cos(currentDistance / earthRadius) +
+                        Math.cos(lat1) * Math.sin(currentDistance / earthRadius) * Math.cos(bearing)
+                    );
+                    
+                    const lng2 = lng1 + Math.atan2(
+                        Math.sin(bearing) * Math.sin(currentDistance / earthRadius) * Math.cos(lat1),
+                        Math.cos(currentDistance / earthRadius) - Math.sin(lat1) * Math.sin(lat2)
+                    );
+                    
+                    this.ballPosition = {
+                        lat: lat2 * 180 / Math.PI,
+                        lng: lng2 * 180 / Math.PI
+                    };
+                }
+                
+                // Draw ball at center with scaling effect
+                this.drawCanvasBall(progress);
+                
+                // Update distance display
+                const realDistance = Math.round(currentDistance);
+                document.getElementById('distance').textContent = realDistance + 'm';
+                this.updateCoordinatesDisplay();
+                
+                // Continue animation
+                requestAnimationFrame(() => this.animateCanvasThrow());
+            }
+            
+            drawCanvasBall(progress) {
+                if (!this.ctx) return;
+                
+                // Ball scaling effect
+                let scale;
+                if (progress <= 0.5) {
+                    scale = 1 + progress * 3; // Enlarge to 4x at halfway
+                } else {
+                    scale = 4 - (progress - 0.5) * 3; // Shrink back to 1x
+                }
+                scale = Math.max(0.5, Math.min(4, scale));
+                
+                const ballRadius = 30 * scale;
+                
+                // Ball shadow
+                this.ctx.save();
+                this.ctx.globalAlpha = 0.3;
+                this.ctx.fillStyle = '#000';
+                this.ctx.beginPath();
+                this.ctx.arc(
+                    this.ballCanvasX + 5,
+                    this.ballCanvasY + 5,
+                    ballRadius * 0.8,
+                    0, 2 * Math.PI
+                );
+                this.ctx.fill();
+                this.ctx.restore();
+                
+                // Ball gradient
+                const gradient = this.ctx.createRadialGradient(
+                    this.ballCanvasX - ballRadius * 0.3,
+                    this.ballCanvasY - ballRadius * 0.3,
+                    0,
+                    this.ballCanvasX,
+                    this.ballCanvasY,
+                    ballRadius
+                );
+                gradient.addColorStop(0, '#ff8a65');
+                gradient.addColorStop(0.7, '#ff5722');
+                gradient.addColorStop(1, '#d84315');
+                
+                // Draw ball
+                this.ctx.fillStyle = gradient;
+                this.ctx.beginPath();
+                this.ctx.arc(this.ballCanvasX, this.ballCanvasY, ballRadius, 0, 2 * Math.PI);
+                this.ctx.fill();
+                
+                // Ball highlight
+                this.ctx.fillStyle = '#ffccbc';
+                this.ctx.beginPath();
+                this.ctx.arc(
+                    this.ballCanvasX - ballRadius * 0.3,
+                    this.ballCanvasY - ballRadius * 0.3,
+                    ballRadius * 0.2,
+                    0, 2 * Math.PI
+                );
+                this.ctx.fill();
+                
+                // Ball outline
+                this.ctx.strokeStyle = '#bf360c';
+                this.ctx.lineWidth = 2;
+                this.ctx.beginPath();
+                this.ctx.arc(this.ballCanvasX, this.ballCanvasY, ballRadius, 0, 2 * Math.PI);
+                this.ctx.stroke();
             }
             
             clearTrails() {
@@ -1105,111 +1392,16 @@
                 }, 2000);
             }
             
-            animateThrow() {
-                if (!this.isActive || !this.isMapReady) {
-                    console.log('アニメーション停止: active =', this.isActive, 'mapReady =', this.isMapReady);
-                    return;
-                }
-                
-                this.animationFrame++;
-                // Slower animation for better map loading
-                const progress = this.animationFrame * 0.0015; // より遅く
-                
-                if (progress >= 1) {
-                    console.log('投球完了、着地処理開始');
-                    this.landBall();
-                    return;
-                }
-                
-                const currentDistance = this.throwPower * progress;
-                
-                // Update ball scale - enlarge until halfway, then shrink
-                this.updateBallScale(progress);
-                
-                // Calculate new position using more accurate geodesic calculations
-                const bearing = this.throwAngle * Math.PI / 180;
-                const earthRadius = 6371000; // Earth radius in meters
-                
-                const lat1 = this.startPosition.lat * Math.PI / 180;
-                const lng1 = this.startPosition.lng * Math.PI / 180;
-                
-                const lat2 = Math.asin(
-                    Math.sin(lat1) * Math.cos(currentDistance / earthRadius) +
-                    Math.cos(lat1) * Math.sin(currentDistance / earthRadius) * Math.cos(bearing)
-                );
-                
-                const lng2 = lng1 + Math.atan2(
-                    Math.sin(bearing) * Math.sin(currentDistance / earthRadius) * Math.cos(lat1),
-                    Math.cos(currentDistance / earthRadius) - Math.sin(lat1) * Math.sin(lat2)
-                );
-                
-                this.ballPosition = {
-                    lat: lat2 * 180 / Math.PI,
-                    lng: lng2 * 180 / Math.PI
-                };
-                
-                // Update map
-                if (this.map) {
-                    try {
-                        this.map.setCenter(this.ballPosition);
-                        
-                        // Adjust zoom based on distance
-                        const baseZoom = 20;
-                        const minZoom = 10;
-                        const zoomLevel = Math.max(minZoom, baseZoom - progress * 10);
-                        this.map.setZoom(Math.round(zoomLevel));
-                        
-                        // Keep map oriented in throw direction
-                        this.map.setHeading(this.throwAngle);
-                        
-                    } catch (e) {
-                        console.warn('Map update error:', e);
-                    }
-                }
-                
-                // Create trail effect
-                if (this.animationFrame % 30 === 0) {
-                    const rect = this.ballElement.getBoundingClientRect();
-                    this.createTrail(rect.left + rect.width/2, rect.top + rect.height/2);
-                }
-                
-                // Update distance display - リアルタイムで距離更新
-                const realDistance = this.calculateDistance(
-                    this.startPosition.lat, this.startPosition.lng,
-                    this.ballPosition.lat, this.ballPosition.lng
-                );
-                document.getElementById('distance').textContent = Math.round(realDistance) + 'm';
-                this.updateCoordinatesDisplay();
-                
-                // Continue animation
-                requestAnimationFrame(() => this.animateThrow());
-            }
-            
-            updateBallScale(progress) {
-                let scale;
-                
-                if (progress <= 0.5) {
-                    // Enlarge until halfway point
-                    scale = 1 + progress * 6; // Max scale of 4x at halfway
-                } else {
-                    // Shrink from halfway to end
-                    scale = 4 - (progress - 0.5) * 6; // Back to 1x at end
-                }
-                
-                scale = Math.max(0.5, Math.min(4, scale)); // Clamp between 0.5x and 4x
-                this.ballElement.style.transform = `translate(-50%, -50%) scale(${scale})`;
-                
-                // Add flying animation class
-                if (!this.ballElement.classList.contains('flying')) {
-                    this.ballElement.classList.add('flying');
-                }
-            }
-            
             async landBall() {
                 this.isActive = false;
                 this.isBallMoving = false;
                 
                 console.log('着地処理開始');
+                
+                // Hide canvas and show map again
+                this.gameCanvas.style.display = 'none';
+                this.mapElement.style.display = 'block';
+                this.ballElement.style.display = 'block';
                 
                 // Play goal sound
                 this.playSound('goal');
@@ -1376,7 +1568,20 @@
                 this.maxAcceleration = 0;
                 this.totalDistance = 0;
                 
+                // Reset canvas state
+                this.backgroundOffsetY = 0;
+                this.aerialImages = [];
+                
+                // Hide canvas and show map
+                if (this.gameCanvas) {
+                    this.gameCanvas.style.display = 'none';
+                }
+                if (this.mapElement) {
+                    this.mapElement.style.display = 'block';
+                }
+                
                 // Reset ball appearance
+                this.ballElement.style.display = 'block';
                 this.ballElement.classList.remove('throwing', 'flying');
                 this.ballElement.style.transform = 'translate(-50%, -50%) scale(1)';
                 
