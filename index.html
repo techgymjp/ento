@@ -1072,16 +1072,12 @@
                 
                 console.log(`投球検出! パワー: ${this.throwPower}m, 方向: ${this.throwAngle}°`);
                 
-                // Play kick sound immediately when throw is detected
-                console.log('Playing kick sound immediately after throw detection');
-                this.playSound('kick');
-                
                 this.ballElement.classList.add('throwing');
                 this.ballTrailPoints = [];
                 this.clearTrails();
                 this.ballPosition = { ...this.startPosition };
                 
-                // 3-second preparation phase
+                // 3-second preparation phase (効果音はここではまだ鳴らさない)
                 this.showPreparationOverlay();
             }
             
@@ -1184,21 +1180,55 @@
                 const zoom = 18;
                 const maptype = 'satellite';
                 
-                return `https://maps.googleapis.com/maps/api/staticmap?` +
-                       `center=${position.lat},${position.lng}&` +
-                       `zoom=${zoom}&` +
-                       `size=${Math.min(width, 640)}x${Math.min(height, 640)}&` +
-                       `maptype=${maptype}&` +
-                       `key=${apiKey}&` +
-                       `scale=2`; // High resolution
+                const url = `https://maps.googleapis.com/maps/api/staticmap?` +
+                           `center=${position.lat},${position.lng}&` +
+                           `zoom=${zoom}&` +
+                           `size=${Math.min(width, 640)}x${Math.min(height, 640)}&` +
+                           `maptype=${maptype}&` +
+                           `key=${apiKey}&` +
+                           `scale=2`; // High resolution
+                
+                console.log('Static Map URL:', url);
+                return url;
             }
             
             loadImage(url) {
                 return new Promise((resolve, reject) => {
                     const img = new Image();
                     img.crossOrigin = 'anonymous';
-                    img.onload = () => resolve(img);
-                    img.onerror = reject;
+                    
+                    img.onload = () => {
+                        console.log('✅ Image loaded successfully:', url.substring(0, 100) + '...');
+                        resolve(img);
+                    };
+                    
+                    img.onerror = (error) => {
+                        console.error('❌ Image failed to load:', url.substring(0, 100) + '...', error);
+                        // Create fallback colored rectangle
+                        const canvas = document.createElement('canvas');
+                        canvas.width = 640;
+                        canvas.height = 640;
+                        const ctx = canvas.getContext('2d');
+                        
+                        // Create gradient background as fallback
+                        const gradient = ctx.createLinearGradient(0, 0, 640, 640);
+                        gradient.addColorStop(0, '#4CAF50');
+                        gradient.addColorStop(1, '#2E7D32');
+                        ctx.fillStyle = gradient;
+                        ctx.fillRect(0, 0, 640, 640);
+                        
+                        // Add text
+                        ctx.fillStyle = 'white';
+                        ctx.font = '20px Arial';
+                        ctx.textAlign = 'center';
+                        ctx.fillText('航空写真', 320, 320);
+                        
+                        // Convert canvas to image
+                        const fallbackImg = new Image();
+                        fallbackImg.onload = () => resolve(fallbackImg);
+                        fallbackImg.src = canvas.toDataURL();
+                    };
+                    
                     img.src = url;
                 });
             }
@@ -1209,6 +1239,10 @@
                 
                 console.log('ボール移動開始 - キャンバスモード');
                 
+                // *** 移動開始の瞬間に効果音を再生 ***
+                console.log('🔊 Playing kick sound at ball movement start');
+                this.playSound('kick');
+                
                 // Hide map and show canvas
                 this.mapElement.style.display = 'none';
                 this.gameCanvas.style.display = 'block';
@@ -1217,10 +1251,6 @@
                 // Reset animation state
                 this.animationFrame = 0;
                 this.backgroundOffsetY = 0;
-                
-                // Play kick sound immediately
-                console.log('Playing kick sound at ball movement start');
-                this.playSound('kick');
                 
                 this.updateStatus(`🏀 ボール投球中... 方向: ${this.getCompassDirection(this.throwAngle)} (${Math.round(this.throwAngle)}°)`);
                 
@@ -1234,7 +1264,7 @@
                 }
                 
                 this.animationFrame++;
-                const progress = this.animationFrame * 0.004; // Faster animation for canvas
+                const progress = this.animationFrame * 0.008; // Faster animation for canvas
                 
                 if (progress >= 1 || this.backgroundOffsetY >= this.canvasHeight * 4) {
                     console.log('キャンバスアニメーション完了、着地処理開始');
@@ -1276,25 +1306,37 @@
                     this.aerialImages.length - 1
                 );
                 
-                // Draw background (aerial image)
-                if (this.aerialImages[imageIndex]) {
+                // Draw background (aerial image) with error handling
+                if (this.aerialImages.length > 0 && this.aerialImages[imageIndex]) {
                     const aerialData = this.aerialImages[imageIndex];
                     
-                    // Move background down based on throw speed
-                    const speedFactor = Math.min(this.maxAcceleration / 15, 3); // Speed affects scroll rate
-                    this.backgroundOffsetY += speedFactor * 4;
-                    
-                    // Draw the aerial image, moving it downward
-                    const imgWidth = this.canvasWidth * 2;
-                    const imgHeight = this.canvasHeight * 2;
-                    const imgX = -this.canvasWidth / 2; // Center horizontally
-                    const imgY = -this.canvasHeight / 2 - this.backgroundOffsetY; // Move down
-                    
-                    this.ctx.drawImage(
-                        aerialData.image,
-                        imgX, imgY,
-                        imgWidth, imgHeight
-                    );
+                    try {
+                        // Move background down based on throw speed
+                        const speedFactor = Math.min(this.maxAcceleration / 15, 3);
+                        this.backgroundOffsetY += speedFactor * 8;
+                        
+                        // Draw the aerial image, moving it downward
+                        const imgWidth = this.canvasWidth * 2;
+                        const imgHeight = this.canvasHeight * 2;
+                        const imgX = -this.canvasWidth / 2; // Center horizontally
+                        const imgY = -this.canvasHeight / 2 - this.backgroundOffsetY; // Move down
+                        
+                        this.ctx.drawImage(
+                            aerialData.image,
+                            imgX, imgY,
+                            imgWidth, imgHeight
+                        );
+                        
+                        console.log(`🖼️ Drawing aerial image ${imageIndex + 1}/${this.aerialImages.length} at distance ${Math.round(currentDistance)}m`);
+                        
+                    } catch (error) {
+                        console.error('航空写真描画エラー:', error);
+                        // Fallback: draw colored background
+                        this.drawFallbackBackground();
+                    }
+                } else {
+                    console.warn('航空写真が利用できません、フォールバック背景を描画');
+                    this.drawFallbackBackground();
                 }
                 
                 // Draw ball at center with scaling effect
@@ -1310,6 +1352,31 @@
                 
                 // Continue animation
                 requestAnimationFrame(() => this.animateCanvasThrow());
+            }
+            
+            drawFallbackBackground() {
+                // Draw animated gradient background as fallback
+                const gradient = this.ctx.createLinearGradient(
+                    0, -this.backgroundOffsetY, 
+                    this.canvasWidth, this.canvasHeight - this.backgroundOffsetY
+                );
+                
+                // Create moving gradient effect
+                const phase = (this.backgroundOffsetY / 100) % 1;
+                gradient.addColorStop(0, `hsl(${120 + phase * 60}, 60%, 40%)`);
+                gradient.addColorStop(0.5, `hsl(${90 + phase * 60}, 50%, 35%)`);
+                gradient.addColorStop(1, `hsl(${60 + phase * 60}, 40%, 30%)`);
+                
+                this.ctx.fillStyle = gradient;
+                this.ctx.fillRect(0, 0, this.canvasWidth, this.canvasHeight);
+                
+                // Add some texture
+                this.ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+                for (let i = 0; i < 20; i++) {
+                    const x = (i * 50 + this.backgroundOffsetY) % this.canvasWidth;
+                    const y = (i * 30 + this.backgroundOffsetY) % this.canvasHeight;
+                    this.ctx.fillRect(x, y, 2, 2);
+                }
             }
             
             drawCanvasBall(progress) {
