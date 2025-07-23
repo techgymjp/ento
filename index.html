@@ -454,6 +454,12 @@
                     return;
                 }
                 
+                // 既にボタンが無効化されている場合はスキップ
+                if (startBtn.disabled && startBtn.textContent.includes('許可を取得中')) {
+                    console.log('App initialization already in progress');
+                    return;
+                }
+                
                 console.log('Starting app initialization...');
                 startBtn.disabled = true;
                 startBtn.textContent = '許可を取得中...';
@@ -1146,21 +1152,46 @@
         // ページ読み込み完了後にアプリを初期化
         document.addEventListener('DOMContentLoaded', function() {
             console.log('DOM loaded, initializing app...');
-            app = new BallThrowMapsApp();
-            console.log('App initialized:', app);
+            try {
+                app = new BallThrowMapsApp();
+                console.log('App initialized successfully:', app);
+                
+                // ボタンのイベントリスナーを設定
+                const startBtn = document.getElementById('startBtn');
+                if (startBtn) {
+                    startBtn.addEventListener('click', function() {
+                        console.log('Start button clicked');
+                        if (app && typeof app.startApp === 'function') {
+                            app.startApp();
+                        } else {
+                            console.error('App or startApp method not available');
+                        }
+                    });
+                }
+            } catch (error) {
+                console.error('App initialization failed:', error);
+            }
         });
         
-        // グローバル関数（HTMLから呼び出し用）
+        // グローバル関数（HTMLから呼び出し用） - デバッグ用に残す
         function startApp() {
             console.log('startApp called, app instance:', app);
             if (app && typeof app.startApp === 'function') {
                 app.startApp();
             } else {
                 console.error('App not initialized or startApp method not found');
-                if (!app) {
-                    app = new BallThrowMapsApp();
-                    setTimeout(() => app.startApp(), 100);
-                } else {
+                // 緊急時の再初期化
+                try {
+                    if (!app) {
+                        app = new BallThrowMapsApp();
+                    }
+                    setTimeout(() => {
+                        if (app && app.startApp) {
+                            app.startApp();
+                        }
+                    }, 100);
+                } catch (error) {
+                    console.error('Emergency app initialization failed:', error);
                     alert('アプリの初期化に失敗しました。ページを再読み込みしてください。');
                 }
             }
@@ -1172,12 +1203,26 @@
             if (startBtn) {
                 console.log('Start button found:', startBtn);
                 
+                // 既存のイベントをクリア
                 startBtn.onclick = null;
                 startBtn.removeAttribute('onclick');
                 
+                // 新しいイベントリスナーを追加
                 startBtn.addEventListener('click', function() {
                     console.log('Button clicked directly');
-                    startApp();
+                    if (app && typeof app.startApp === 'function') {
+                        app.startApp();
+                    } else {
+                        console.error('App not ready, initializing...');
+                        if (!app) {
+                            app = new BallThrowMapsApp();
+                        }
+                        setTimeout(() => {
+                            if (app.startApp) {
+                                app.startApp();
+                            }
+                        }, 100);
+                    }
                 });
                 
                 console.log('Button event listener added');
