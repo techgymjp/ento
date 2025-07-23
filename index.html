@@ -824,8 +824,12 @@
                 this.compassNeedle.style.transform = `rotate(${this.heading}deg)`;
                 
                 // Rotate map to show throw direction at top
-                if (!this.isActive && !this.isCountdownActive && this.isMapReady) {
+                const isHeadingNear360 = (this.heading >= 359 && this.heading < 360);
+
+                if (!this.isActive && !this.isCountdownActive && !this.isBallMoving && this.isMapReady && !isHeadingNear360) {
                     this.mapElement.style.transform = `rotate(${-this.heading}deg)`;
+                } else if (!this.isActive && !this.isCountdownActive && !this.isBallMoving && this.isMapReady && isHeadingNear360) {
+                 
                 }
                 
                 this.updateCoordinatesDisplay();
