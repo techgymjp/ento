@@ -342,13 +342,42 @@
             100% { opacity: 0; transform: scale(0.1); }
         }
 
+        .kick-button {
+            width: 200px;
+            height: 80px;
+            background: linear-gradient(45deg, #ff6b6b, #ff5722);
+            color: white;
+            border: none;
+            border-radius: 40px;
+            font-size: 24px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 20px;
+            box-shadow: 0 8px 25px rgba(255, 107, 107, 0.4);
+            transition: all 0.3s ease;
+            animation: kickButtonPulse 2s infinite;
+        }
+
+        .kick-button:hover {
+            transform: scale(1.05);
+            box-shadow: 0 12px 35px rgba(255, 107, 107, 0.6);
+        }
+
+        .kick-button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            animation: none;
+            transform: none;
+            box-shadow: none;
+        }
+
         .preparation-overlay {
             position: absolute;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0, 0, 0, 0.8);
+            background: rgba(0, 0, 0, 0.9);
             display: flex;
             align-items: center;
             justify-content: center;
@@ -358,6 +387,39 @@
             font-weight: bold;
             text-align: center;
             backdrop-filter: blur(5px);
+        }
+
+        @keyframes kickButtonPulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.08); }
+        }
+
+        .preparation-status {
+            margin: 15px 0;
+            font-size: 16px;
+            line-height: 1.5;
+        }
+
+        .status-item {
+            margin: 8px 0;
+            padding: 8px 12px;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .status-ready {
+            background: rgba(76, 175, 80, 0.3);
+            color: #4CAF50;
+        }
+
+        .status-loading {
+            background: rgba(255, 193, 7, 0.3);
+            color: #FFC107;
+        }
+
+        .status-error {
+            background: rgba(244, 67, 54, 0.3);
+            color: #F44336;
         }
 
         .power-meter {
@@ -373,17 +435,28 @@
             display: none;
         }
 
-        .power-fill {
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            width: 100%;
-            background: linear-gradient(to top, #4CAF50, #FFC107, #FF5722);
-            border-radius: 0 0 12px 12px;
-            transition: height 0.3s ease;
-            height: 0%;
+        @media (max-width: 480px) {
+            .title { font-size: 20px; }
+            .header-btn { font-size: 16px; padding: 12px; }
+            .countdown { font-size: 120px; width: 200px; height: 200px; }
+            .compass { width: 70px; height: 70px; }
+            .compass-needle { height: 25px; }
+            .google-map-btn { 
+                font-size: 14px; 
+                padding: 10px 12px;
+                margin: 10px 5px 0 5px;
+                this.updateStatus('位置情報とデバイスセンサーの許可が必要です');
+                console.log('BallThrowJourneyApp initialized');
+            }
+            .landing-panel { 
+                padding: 20px; 
+                bottom: 60px;
+            }
+            .info-panel { 
+                padding: 15px; 
+                bottom: 60px;
+            }
         }
-
         @media (max-width: 480px) {
             .title { font-size: 20px; }
             .header-btn { font-size: 16px; padding: 12px; }
@@ -403,8 +476,12 @@
                 padding: 15px; 
                 bottom: 60px;
             }
+            .kick-button {
+                width: 160px;
+                height: 60px;
+                font-size: 20px;
+            }
         }
-    </style>
 </head>
 <body>
     <div class="container">
@@ -560,13 +637,16 @@
                 this.throwAngle = 0;
                 this.ballTrailPoints = [];
                 
+                // Preparation state
+                this.isAudioReady = false;
+                this.isAerialImagesReady = false;
+                this.isBallImageReady = false;
+                this.preparationOverlay = null;
+                
                 // Timers
                 this.countdownTimer = null;
                 this.countdownElement = null;
                 this.preparationTimer = null;
-                
-                this.updateStatus('位置情報とデバイスセンサーの許可が必要です');
-                console.log('BallThrowJourneyApp initialized');
             }
             
             // 2点間の距離を計算（メートル単位）
@@ -990,10 +1070,14 @@
                 this.ballImage = new Image();
                 this.ballImage.onload = () => {
                     console.log('✅ Ball image loaded successfully');
+                    this.isBallImageReady = true;
+                    this.updatePreparationStatus();
                 };
                 this.ballImage.onerror = () => {
                     console.warn('⚠️ Ball image failed to load, will use fallback');
                     this.ballImage = null;
+                    this.isBallImageReady = true; // フォールバックでも準備完了とする
+                    this.updatePreparationStatus();
                 };
                 // Try to load ball.png first, then ball.gif as fallback
                 this.ballImage.src = 'ball.png';
@@ -1102,39 +1186,126 @@
                 this.clearTrails();
                 this.ballPosition = { ...this.startPosition };
                 
-                // 3-second preparation phase (効果音はここではまだ鳴らさない)
-                this.showPreparationOverlay();
+                // リソース準備フェーズを開始
+                this.showResourcePreparation();
             }
             
-            showPreparationOverlay() {
-                const overlay = document.createElement('div');
-                overlay.className = 'preparation-overlay';
-                overlay.innerHTML = `
+            showResourcePreparation() {
+                this.preparationOverlay = document.createElement('div');
+                this.preparationOverlay.className = 'preparation-overlay';
+                this.preparationOverlay.innerHTML = `
                     <div>
                         <div style="font-size: 32px; margin-bottom: 20px;">🏀</div>
-                        <div>ボール準備中...</div>
-                        <div style="font-size: 18px; margin-top: 10px; opacity: 0.8;">航空写真を準備しています</div>
-                        <div id="prepCountdown" style="font-size: 48px; margin-top: 20px; color: #ff6b6b;">3</div>
+                        <div style="font-size: 24px; margin-bottom: 20px;">投球準備中...</div>
+                        
+                        <div class="preparation-status">
+                            <div class="status-item status-loading" id="statusAudio">
+                                🔊 効果音: 準備中...
+                            </div>
+                            <div class="status-item status-loading" id="statusImages">
+                                🛰️ 航空写真: 準備中...
+                            </div>
+                            <div class="status-item status-loading" id="statusBall">
+                                🏀 ボール画像: 準備中...
+                            </div>
+                        </div>
+                        
+                        <button class="kick-button" id="kickButton" disabled>
+                            準備中...
+                        </button>
                     </div>
                 `;
-                document.body.appendChild(overlay);
+                document.body.appendChild(this.preparationOverlay);
                 
-                // Start preparing aerial images
+                // リソース準備を開始
+                this.prepareResources();
+            }
+            
+            async prepareResources() {
+                console.log('🚀 リソース準備開始');
+                
+                // Reset preparation status
+                this.isAudioReady = false;
+                this.isAerialImagesReady = false;
+                this.isBallImageReady = false;
+                
+                // 並行してリソースを準備
+                this.prepareAudio();
                 this.prepareAerialImages();
+                this.loadBallImage();
+            }
+            
+            prepareAudio() {
+                console.log('🔊 効果音準備開始');
                 
-                let countdown = 3;
-                const countdownEl = overlay.querySelector('#prepCountdown');
+                // オーディオの準備状況をチェック
+                const kickAudio = this.sounds.kick;
                 
-                const prepInterval = setInterval(() => {
-                    countdown--;
-                    if (countdown > 0) {
-                        countdownEl.textContent = countdown;
-                    } else {
-                        clearInterval(prepInterval);
-                        document.body.removeChild(overlay);
+                if (kickAudio.readyState >= 2) { // HAVE_CURRENT_DATA以上
+                    console.log('✅ 効果音準備完了（既に読み込み済み）');
+                    this.isAudioReady = true;
+                    this.updatePreparationStatus();
+                } else {
+                    kickAudio.addEventListener('canplaythrough', () => {
+                        console.log('✅ 効果音準備完了');
+                        this.isAudioReady = true;
+                        this.updatePreparationStatus();
+                    }, { once: true });
+                    
+                    kickAudio.addEventListener('error', () => {
+                        console.warn('⚠️ 効果音読み込み失敗、フォールバックで続行');
+                        this.isAudioReady = true; // エラーでも続行
+                        this.updatePreparationStatus();
+                    }, { once: true });
+                    
+                    kickAudio.load(); // 強制的に再読み込み
+                }
+            }
+            
+            updatePreparationStatus() {
+                if (!this.preparationOverlay) return;
+                
+                const statusAudio = this.preparationOverlay.querySelector('#statusAudio');
+                const statusImages = this.preparationOverlay.querySelector('#statusImages');
+                const statusBall = this.preparationOverlay.querySelector('#statusBall');
+                const kickButton = this.preparationOverlay.querySelector('#kickButton');
+                
+                // Update audio status
+                if (this.isAudioReady) {
+                    statusAudio.className = 'status-item status-ready';
+                    statusAudio.textContent = '🔊 効果音: 準備完了 ✅';
+                }
+                
+                // Update aerial images status
+                if (this.isAerialImagesReady) {
+                    statusImages.className = 'status-item status-ready';
+                    statusImages.textContent = `🛰️ 航空写真: 準備完了 (${this.aerialImages.length}枚) ✅`;
+                }
+                
+                // Update ball image status
+                if (this.isBallImageReady) {
+                    statusBall.className = 'status-item status-ready';
+                    statusBall.textContent = '🏀 ボール画像: 準備完了 ✅';
+                }
+                
+                // Enable kick button if all resources are ready
+                if (this.isAudioReady && this.isAerialImagesReady && this.isBallImageReady) {
+                    kickButton.disabled = false;
+                    kickButton.textContent = '🚀 KICK!';
+                    kickButton.onclick = () => {
+                        this.hideResourcePreparation();
                         this.startBallMovement();
-                    }
-                }, 1000);
+                    };
+                    
+                    console.log('🎯 全リソース準備完了！Kickボタン有効化');
+                }
+            }
+            
+            hideResourcePreparation() {
+                if (this.preparationOverlay && this.preparationOverlay.parentNode) {
+                    this.preparationOverlay.parentNode.removeChild(this.preparationOverlay);
+                    this.preparationOverlay = null;
+                }
             }
             
             async prepareAerialImages() {
@@ -1203,6 +1374,8 @@
                 }
                 
                 console.log(`🎯 航空写真準備完了！画像数: ${this.aerialImages.length}`);
+                this.isAerialImagesReady = true;
+                this.updatePreparationStatus();
             }
             
             createFallbackImage(index) {
