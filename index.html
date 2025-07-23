@@ -159,7 +159,7 @@
             width: 4px;
             height: 35px;
             background: linear-gradient(to bottom, #ff3333 0%, #ff3333 50%, #ffffff 50%, #ffffff 100%);
-            transform-origin: 50% 100%;
+            transform-origin: 50% 50%;
             transition: transform 0.3s ease-out;
             border-radius: 2px;
             box-shadow: 0 0 5px rgba(0,0,0,0.3);
@@ -854,10 +854,15 @@
                 document.getElementById('compass').textContent = this.getCompassDirection(this.heading);
                 document.getElementById('tilt').textContent = Math.round(this.tilt) + '°';
                 
-                // Compass needle logic: 
-                // Since the map rotates with device, the needle must rotate OPPOSITE to heading
-                // to always point to actual North on the screen
-                this.compassNeedle.style.transform = `rotate(${-this.heading}deg)`;
+                // Compass needle should point to ACTUAL North direction on screen
+                // When facing North (0°): needle points UP
+                // When facing East (90°): needle points LEFT (because North is to the left)
+                // When facing South (180°): needle points DOWN (because North is behind/down)
+                // When facing West (270°): needle points RIGHT (because North is to the right)
+                // 
+                // Since we rotate the map by +heading, the needle should rotate by +heading too
+                // to maintain its absolute direction to North
+                this.compassNeedle.style.transform = `rotate(${this.heading}deg)`;
                 
                 // Rotate map so current heading direction points UP
                 if (!this.isActive && !this.isCountdownActive && this.isMapReady) {
