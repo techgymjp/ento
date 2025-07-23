@@ -82,7 +82,7 @@
             height: 200%;
             top: -50%;
             left: -50%;
-            transition: transform 0.3s ease;
+            transition: transform 0.8s ease-out;
             transform-origin: center center;
         }
         
@@ -349,7 +349,7 @@
                 this.isCountdownActive = false;
                 this.isPermissionGranted = false;
                 this.isMapReady = false;
-                this.isMapFullyLoaded = false; // 航空写真の完全読み込み確認用
+                this.isMapFullyLoaded = false;
                 this.isBallMoving = false;
                 this.ballElement = document.getElementById('ball');
                 this.compassNeedle = document.getElementById('compassNeedle');
@@ -358,6 +358,14 @@
                 this.currentPosition = { lat: 35.4476, lng: 139.6425 }; // 横浜の初期値
                 this.startPosition = { ...this.currentPosition };
                 this.ballPosition = { ...this.currentPosition };
+                
+                // 地図の状態管理
+                this.initialMapState = {
+                    center: null,
+                    zoom: 21,
+                    heading: 0
+                };
+                this.mapScale = 1; // キャンバススケール用
                 
                 // センサーデータ
                 this.heading = 0;
@@ -510,7 +518,7 @@
                     if (window.google && google.maps) {
                         this.map = new google.maps.Map(this.mapElement, {
                             center: this.currentPosition,
-                            zoom: 21, // 18から21に変更（より拡大）
+                            zoom: 21,
                             mapTypeId: google.maps.MapTypeId.SATELLITE,
                             disableDefaultUI: true,
                             gestureHandling: 'none',
@@ -518,18 +526,18 @@
                             tilt: 0
                         });
                         
+                        // 初期状態を保存
+                        this.initialMapState.center = { ...this.currentPosition };
+                        this.initialMapState.zoom = 21;
+                        this.initialMapState.heading = 0;
+                        
                         // 地図が完全に読み込まれるまで待機
                         google.maps.event.addListenerOnce(this.map, 'idle', () => {
                             console.log('Google Map is ready');
                             this.isMapReady = true;
+                            this.isMapFullyLoaded = true;
                             google.maps.event.trigger(this.map, 'resize');
                             this.map.setCenter(this.currentPosition);
-                            
-                            // タイルが完全に読み込まれるまで待機
-                            setTimeout(() => {
-                                this.isMapFullyLoaded = true;
-                                console.log('Map fully loaded');
-                            }, 2000);
                         });
                         
                         // タイルの読み込み完了を監視
@@ -861,6 +869,7 @@
                 
                 this.throwAngle = this.heading || 0;
                 this.animationFrame = 0;
+                this.mapScale = 1; // スケールをリセット
                 
                 this.ballPosition = { ...this.startPosition };
                 
@@ -893,8 +902,8 @@
                 if (!this.isActive || !this.isMapReady || !this.isMapFullyLoaded) return;
                 
                 this.animationFrame++;
-                // ゆっくりとした移動速度（航空写真の描画に配慮）
-                const progress = this.animationFrame * 0.005; // 非常にゆっくり
+                // ゆっくりとした移動速度
+                const progress = this.animationFrame * 0.008; // 少し早めに調整
                 
                 const currentDistance = this.throwPower * Math.min(progress, 1);
                 
@@ -923,19 +932,25 @@
                     lng: lng2 * 180 / Math.PI
                 };
                 
-                // 地図の中心をボールの位置に更新
+                // 地図の表示をキャンバススケールで調整（地図自体は変更しない）
                 if (this.map) {
                     try {
-                        this.map.setCenter(this.ballPosition);
+                        // 進行に応じてスケールを縮小（最大20倍縮小）
+                        this.mapScale = 1 - (progress * 0.95); // 0.05まで縮小
+                        const minScale = 0.05;
+                        this.mapScale = Math.max(minScale, this.mapScale);
                         
-                        // 高度に応じてズームレベルを調整（初期ズーム21から徐々に広域に）
-                        const baseZoom = 21;
-                        const minZoom = 12; // より広域まで引く
-                        const zoomLevel = Math.max(minZoom, baseZoom - progress * 9); // より大きく変化
-                        this.map.setZoom(Math.round(zoomLevel));
+                        // 投球方向に応じて地図を回転・移動
+                        const offsetX = progress * 100 * Math.sin(bearing); // X方向のオフセット
+                        const offsetY = -progress * 100 * Math.cos(bearing); // Y方向のオフセット（北が上）
                         
-                        // 地図の向きを投球方向に固定
-                        this.map.setHeading(this.throwAngle);
+                        // CSS transformで地図全体をスケール・移動
+                        this.mapElement.style.transform = `
+                            scale(${this.mapScale}) 
+                            translate(${offsetX}px, ${offsetY}px) 
+                            rotate(${this.throwAngle}deg)
+                        `;
+                        
                     } catch (e) {
                         console.warn('Map update failed:', e);
                     }
@@ -984,29 +999,13 @@
                 this.ballElement.classList.add('landing');
                 this.playSound('goal');
                 
-                // 着地時に地図を徐々に拡大
+                // 着地時に地図を元のスケールに戻す
                 if (this.map) {
                     try {
-                        this.map.setCenter(landingPosition);
+                        // 地図を初期状態に戻す（スケールと回転をリセット）
+                        this.mapElement.style.transform = 'scale(1) translate(0px, 0px) rotate(0deg)';
+                        this.mapScale = 1;
                         
-                        // 徐々にズームアップ
-                        let currentZoom = this.map.getZoom();
-                        const targetZoom = 20;
-                        const zoomStep = (targetZoom - currentZoom) / 20;
-                        
-                        const zoomInterval = setInterval(() => {
-                            currentZoom += zoomStep;
-                            if (currentZoom >= targetZoom) {
-                                currentZoom = targetZoom;
-                                clearInterval(zoomInterval);
-                            }
-                            this.map.setZoom(Math.round(currentZoom));
-                        }, 100);
-                        
-                        // 地図の向きをリセット（北向き）
-                        setTimeout(() => {
-                            this.map.setHeading(0);
-                        }, 1000);
                     } catch (e) {
                         console.warn('Map landing update failed:', e);
                     }
@@ -1085,10 +1084,12 @@
                 // 地図を開始位置に戻す
                 if (this.map && this.startPosition) {
                     try {
-                        this.map.setCenter(this.startPosition);
-                        this.map.setZoom(21); // 18から21に変更（より拡大）
-                        this.map.setMapTypeId(google.maps.MapTypeId.SATELLITE);
-                        this.map.setHeading(0);
+                        // 地図の表示を初期状態にリセット
+                        this.mapElement.style.transform = `rotate(${this.heading}deg)`;
+                        this.mapScale = 1;
+                        
+                        // 地図自体は初期状態のまま（座標やズーム変更なし）
+                        
                     } catch (e) {
                         console.warn('Map reset failed:', e);
                     }
