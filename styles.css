@@ -1,0 +1,466 @@
+body {
+    margin: 0;
+    padding: 0;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    height: 100vh;
+    overflow: hidden;
+}
+
+.container {
+    position: relative;
+    width: 100%;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.header {
+    background: rgba(255, 255, 255, 0.98);
+    padding: 15px;
+    text-align: center;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+    z-index: 1000;
+    backdrop-filter: blur(10px);
+}
+
+.title {
+    font-size: 24px;
+    font-weight: bold;
+    color: #333;
+    margin: 0 0 15px 0;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.header-btn {
+    width: 100%;
+    padding: 15px;
+    font-size: 18px;
+    font-weight: bold;
+    background: linear-gradient(45deg, #4CAF50, #45a049);
+    color: white;
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    margin-top: 5px;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(76, 175, 80, 0.3);
+}
+
+.header-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(76, 175, 80, 0.4);
+}
+
+.header-btn:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+.header-btn.countdown-ready {
+    background: linear-gradient(45deg, #ff6b6b, #d63031);
+    animation: buttonPulse 2s infinite;
+}
+
+@keyframes buttonPulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+}
+
+.map-container {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+    border-radius: 0 0 20px 20px;
+}
+
+#map {
+    position: absolute;
+    width: 200%;
+    height: 200%;
+    top: -50%;
+    left: -50%;
+    transition: transform 0.5s ease-out;
+    transform-origin: center center;
+}
+
+#gameCanvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 999;
+    display: none;
+}
+
+.ball {
+    position: absolute;
+    width: 60px;
+    height: 60px;
+    background-image: url('ball.gif');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    border-radius: 50%;
+    box-shadow: 0 8px 25px rgba(0,0,0,0.3);
+    transition: all 0.3s ease-out;
+    z-index: 1000;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    border: 3px solid #fff;
+}
+
+.ball.throwing {
+    animation: ballSpin 0.5s linear infinite;
+    box-shadow: 0 0 30px #ff6b6b, 0 8px 25px rgba(0,0,0,0.3);
+}
+
+@keyframes ballSpin {
+    0% { transform: translate(-50%, -50%) rotate(0deg); }
+    100% { transform: translate(-50%, -50%) rotate(360deg); }
+}
+
+.ball.flying {
+    animation: ballFly 0.3s linear infinite;
+}
+
+@keyframes ballFly {
+    0%, 100% { transform: translate(-50%, -50%) scale(1); }
+    50% { transform: translate(-50%, -50%) scale(1.1); }
+}
+
+.compass {
+    position: absolute;
+    top: 110px;
+    right: 20px;
+    width: 90px;
+    height: 90px;
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 50%;
+    border: 4px solid #333;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+    backdrop-filter: blur(10px);
+}
+
+.compass-inner {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.compass-needle {
+    width: 4px;
+    height: 35px;
+    background: linear-gradient(to bottom, #ff3333 0%, #ff3333 50%, #ffffff 50%, #ffffff 100%);
+    transform-origin: 50% 100%;
+    transition: transform 0.3s ease-out;
+    border-radius: 2px;
+    box-shadow: 0 0 5px rgba(0,0,0,0.3);
+    margin-top: -25px;
+}
+
+.compass-labels {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    font-size: 12px;
+    font-weight: bold;
+    color: #333;
+}
+
+.compass-n { position: absolute; top: 5px; left: 50%; transform: translateX(-50%); }
+.compass-e { position: absolute; right: 5px; top: 50%; transform: translateY(-50%); }
+.compass-s { position: absolute; bottom: 5px; left: 50%; transform: translateX(-50%); }
+.compass-w { position: absolute; left: 5px; top: 50%; transform: translateY(-50%); }
+
+.compass-center {
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    background: #333;
+    border-radius: 50%;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+}
+
+.countdown {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 150px;
+    font-weight: bold;
+    color: #ff6b6b;
+    text-shadow: 4px 4px 20px rgba(0,0,0,0.5);
+    z-index: 2000;
+    animation: countdownPulse 1s ease-in-out;
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 50%;
+    width: 250px;
+    height: 250px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 6px solid #ff6b6b;
+    backdrop-filter: blur(10px);
+}
+
+@keyframes countdownPulse {
+    0% { transform: translate(-50%, -50%) scale(0.3); opacity: 0; }
+    50% { transform: translate(-50%, -50%) scale(1.1); opacity: 1; }
+    100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+}
+
+.info-panel {
+    position: absolute;
+    bottom: 80px;
+    left: 20px;
+    right: 20px;
+    background: rgba(255, 255, 255, 0.95);
+    padding: 20px;
+    border-radius: 15px;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.2);
+    z-index: 1000;
+    backdrop-filter: blur(10px);
+}
+
+.info-row {
+    display: flex;
+    justify-content: space-between;
+    margin: 4px 0;
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.status {
+    text-align: center;
+    margin: 4px 0;
+    font-weight: bold;
+    color: #333;
+    font-size: 16px;
+}
+
+.error-message, .loading {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(255, 255, 255, 0.95);
+    color: #333;
+    padding: 30px;
+    border-radius: 15px;
+    text-align: center;
+    z-index: 2000;
+    max-width: 300px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+    backdrop-filter: blur(10px);
+}
+
+.error-message {
+    background: rgba(255, 0, 0, 0.95);
+    color: white;
+}
+
+.google-map-btn {
+    width: calc(100% - 10px);
+    padding: 12px 15px;
+    font-size: 16px;
+    font-weight: bold;
+    background: linear-gradient(45deg, #1976d2, #1565c0);
+    color: white;
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    margin: 15px 5px 0 5px;
+    text-decoration: none;
+    display: inline-block;
+    text-align: center;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(25, 118, 210, 0.3);
+    box-sizing: border-box;
+}
+
+.google-map-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(25, 118, 210, 0.4);
+}
+
+.landing-panel {
+    position: absolute;
+    bottom: 80px;
+    left: 20px;
+    right: 20px;
+    background: rgba(255, 255, 255, 0.95);
+    padding: 25px;
+    border-radius: 15px;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.2);
+    z-index: 1000;
+    text-align: center;
+    display: none;
+    backdrop-filter: blur(10px);
+}
+
+.results {
+    font-size: 22px;
+    font-weight: bold;
+    color: #333;
+    margin-bottom: 20px;
+}
+
+.ball-trail {
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    background: radial-gradient(circle, rgba(255, 107, 107, 0.8) 0%, rgba(255, 107, 107, 0.3) 100%);
+    border-radius: 50%;
+    z-index: 999;
+    pointer-events: none;
+    animation: trailFade 2s ease-out forwards;
+}
+
+@keyframes trailFade {
+    0% { opacity: 0.8; transform: scale(1); }
+    100% { opacity: 0; transform: scale(0.1); }
+}
+
+.preparation-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.9);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1500;
+    color: white;
+    font-size: 24px;
+    font-weight: bold;
+    text-align: center;
+    backdrop-filter: blur(5px);
+}
+
+.kick-button {
+    width: 200px;
+    height: 80px;
+    background: linear-gradient(45deg, #ff6b6b, #ff5722);
+    color: white;
+    border: none;
+    border-radius: 40px;
+    font-size: 24px;
+    font-weight: bold;
+    cursor: pointer;
+    margin-top: 20px;
+    box-shadow: 0 8px 25px rgba(255, 107, 107, 0.4);
+    transition: all 0.3s ease;
+    animation: kickButtonPulse 2s infinite;
+}
+
+.kick-button:hover {
+    transform: scale(1.05);
+    box-shadow: 0 12px 35px rgba(255, 107, 107, 0.6);
+}
+
+.kick-button:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+    animation: none;
+    transform: none;
+    box-shadow: none;
+}
+
+@keyframes kickButtonPulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.08); }
+}
+
+.preparation-status {
+    margin: 15px 0;
+    font-size: 16px;
+    line-height: 1.5;
+}
+
+.status-item {
+    margin: 8px 0;
+    padding: 8px 12px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.status-ready {
+    background: rgba(76, 175, 80, 0.3);
+    color: #4CAF50;
+}
+
+.status-loading {
+    background: rgba(255, 193, 7, 0.3);
+    color: #FFC107;
+}
+
+.status-error {
+    background: rgba(244, 67, 54, 0.3);
+    color: #F44336;
+}
+
+.power-meter {
+    position: absolute;
+    top: 100px;
+    left: 20px;
+    width: 30px;
+    height: 200px;
+    background: rgba(255, 255, 255, 0.9);
+    border-radius: 15px;
+    border: 3px solid #333;
+    z-index: 1000;
+    display: none;
+}
+
+.power-fill {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    background: linear-gradient(to top, #4CAF50, #FFC107, #FF5722);
+    border-radius: 0 0 12px 12px;
+    transition: height 0.3s ease;
+    height: 0%;
+}
+
+@media (max-width: 480px) {
+    .title { font-size: 20px; }
+    .header-btn { font-size: 16px; padding: 12px; }
+    .countdown { font-size: 120px; width: 200px; height: 200px; }
+    .compass { width: 70px; height: 70px; }
+    .compass-needle { height: 25px; }
+    .google-map-btn { 
+        font-size: 14px; 
+        padding: 10px 12px;
+        margin: 10px 5px 0 5px;
+    }
+    .landing-panel { 
+        padding: 20px; 
+        bottom: 60px;
+    }
+    .info-panel { 
+        padding: 15px; 
+        bottom: 60px;
+    }
+    .kick-button {
+        width: 160px;
+        height: 60px;
+        font-size: 20px;
+    }
+}
