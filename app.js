@@ -683,7 +683,9 @@ class BallThrowJourneyApp {
     startThrowWithShake() {
         if (this.isActive || !this.isDetectingShake) return;
         
-        console.log('🎯 投球開始処理');
+        console.log('🎯 投球準備処理開始');
+        // 重要：ここではまだボール移動を開始しない
+        // リソース準備画面を表示（ボール移動はまだ開始しない）
         this.isDetectingShake = false;
         document.getElementById('powerMeter').style.display = 'none';
         
@@ -828,6 +830,7 @@ class BallThrowJourneyApp {
             kickButton.textContent = '🚀 KICK!';
             kickButton.onclick = () => {
                 this.hideResourcePreparation();
+                 // ここでボール移動を開始
                 this.startBallMovement();
             };
             
