@@ -1038,16 +1038,40 @@
                 startBtn.onclick = () => this.startCountdown();
             }
             
+        
+            // 修正: Canvas初期化にエラーハンドリングを追加
             initCanvas() {
-                if (!this.gameCanvas) return;
+                if (!this.gameCanvas) {
+                    console.error('❌ Game canvas element not found');
+                    return false;
+                }
                 
                 const container = this.gameCanvas.parentElement;
+                if (!container) {
+                    console.error('❌ Canvas container not found');
+                    return false;
+                }
+                
                 this.canvasWidth = container.clientWidth;
                 this.canvasHeight = container.clientHeight;
                 
+                if (this.canvasWidth <= 0 || this.canvasHeight <= 0) {
+                    console.error('❌ Invalid canvas dimensions:', this.canvasWidth, 'x', this.canvasHeight);
+                    return false;
+                }
+                
                 this.gameCanvas.width = this.canvasWidth;
                 this.gameCanvas.height = this.canvasHeight;
-                this.ctx = this.gameCanvas.getContext('2d');
+                
+                try {
+                    this.ctx = this.gameCanvas.getContext('2d');
+                    if (!this.ctx) {
+                        throw new Error('Canvas context is null');
+                    }
+                } catch (error) {
+                    console.error('❌ Failed to get canvas context:', error);
+                    return false;
+                }
                 
                 // Ball position in canvas (center)
                 this.ballCanvasX = this.canvasWidth / 2;
@@ -1056,9 +1080,12 @@
                 // Load ball image for canvas drawing
                 this.loadBallImage();
                 
-                console.log('Canvas initialized:', this.canvasWidth, 'x', this.canvasHeight);
+                console.log('✅ Canvas initialized successfully:', this.canvasWidth, 'x', this.canvasHeight);
+                return true;
             }
             
+
+            // 修正: ボール画像読み込みの改善
             loadBallImage() {
                 this.ballImage = new Image();
                 this.ballImage.onload = () => {
@@ -1067,10 +1094,9 @@
                     this.updatePreparationStatus();
                 };
                 this.ballImage.onerror = () => {
-                    console.warn('⚠️ Ball image failed to load, will use fallback');
-                    this.ballImage = null;
-                    this.isBallImageReady = true; // フォールバックでも準備完了とする
-                    this.updatePreparationStatus();
+                    console.warn('⚠️ Ball image failed to load, creating fallback');
+                    // フォールバック: Canvas上でボール画像を生成
+                    this.createFallbackBallImage();
                 };
                 // Try to load ball.png first, then ball.gif as fallback
                 this.ballImage.src = 'ball.png';
@@ -1080,8 +1106,74 @@
                     if (this.ballImage.src.includes('ball.png')) {
                         console.log('Trying ball.gif as fallback...');
                         this.ballImage.src = 'ball.gif';
+                    } else {
+                        // Both failed, create fallback
+                        this.createFallbackBallImage();
                     }
-                });
+                }, { once: true });
+            }
+            
+                
+
+            // 修正: フォールバックボール画像生成
+            createFallbackBallImage() {
+                const canvas = document.createElement('canvas');
+                canvas.width = 120;
+                canvas.height = 120;
+                const ctx = canvas.getContext('2d');
+                
+                // Draw basketball-style ball
+                const centerX = 60;
+                const centerY = 60;
+                const radius = 55;
+                
+                // Main ball gradient
+                const gradient = ctx.createRadialGradient(
+                    centerX - 20, centerY - 20, 0,
+                    centerX, centerY, radius
+                );
+                gradient.addColorStop(0, '#ff8a65');
+                gradient.addColorStop(0.7, '#ff5722');
+                gradient.addColorStop(1, '#d84315');
+                
+                ctx.fillStyle = gradient;
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
+                ctx.fill();
+                
+                // Basketball lines
+                ctx.strokeStyle = '#8d4004';
+                ctx.lineWidth = 3;
+                
+                // Vertical line
+                ctx.beginPath();
+                ctx.moveTo(centerX, centerY - radius);
+                ctx.lineTo(centerX, centerY + radius);
+                ctx.stroke();
+                
+                // Horizontal arc
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, radius * 0.7, -Math.PI, 0);
+                ctx.stroke();
+                
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, radius * 0.7, 0, Math.PI);
+                ctx.stroke();
+                
+                // Highlight
+                ctx.fillStyle = '#ffccbc';
+                ctx.beginPath();
+                ctx.arc(centerX - 15, centerY - 15, 8, 0, 2 * Math.PI);
+                ctx.fill();
+                
+                // Convert to image
+                this.ballImage = new Image();
+                this.ballImage.onload = () => {
+                    console.log('✅ Fallback ball image created');
+                    this.isBallImageReady = true;
+                    this.updatePreparationStatus();
+                };
+                this.ballImage.src = canvas.toDataURL();
             }
             
             fallbackSetup() {
@@ -1228,31 +1320,71 @@
                 this.loadBallImage();
             }
             
+            
+            // 修正: 音声準備の改善
             prepareAudio() {
                 console.log('🔊 効果音準備開始');
                 
-                // オーディオの準備状況をチェック
                 const kickAudio = this.sounds.kick;
                 
-                if (kickAudio.readyState >= 2) { // HAVE_CURRENT_DATA以上
-                    console.log('✅ 効果音準備完了（既に読み込み済み）');
-                    this.isAudioReady = true;
-                    this.updatePreparationStatus();
-                } else {
-                    kickAudio.addEventListener('canplaythrough', () => {
+                // 音声の状態をチェック
+                const checkAudioReady = () => {
+                    console.log(`Audio readyState: ${kickAudio.readyState}, networkState: ${kickAudio.networkState}`);
+                    
+                    if (kickAudio.readyState >= 2) { // HAVE_CURRENT_DATA以上
                         console.log('✅ 効果音準備完了');
                         this.isAudioReady = true;
                         this.updatePreparationStatus();
-                    }, { once: true });
-                    
-                    kickAudio.addEventListener('error', () => {
-                        console.warn('⚠️ 効果音読み込み失敗、フォールバックで続行');
-                        this.isAudioReady = true; // エラーでも続行
-                        this.updatePreparationStatus();
-                    }, { once: true });
-                    
-                    kickAudio.load(); // 強制的に再読み込み
+                        return true;
+                    }
+                    return false;
+                };
+                
+                // 既に読み込み済みかチェック
+                if (checkAudioReady()) {
+                    return;
                 }
+                
+                // イベントリスナーを設定
+                const onCanPlay = () => {
+                    console.log('✅ 効果音準備完了（イベント）');
+                    this.isAudioReady = true;
+                    this.updatePreparationStatus();
+                    cleanup();
+                };
+                
+                const onError = (e) => {
+                    console.warn('⚠️ 効果音読み込み失敗、フォールバックで続行', e);
+                    this.isAudioReady = true; // エラーでも続行
+                    this.updatePreparationStatus();
+                    cleanup();
+                };
+                
+                const cleanup = () => {
+                    kickAudio.removeEventListener('canplaythrough', onCanPlay);
+                    kickAudio.removeEventListener('error', onError);
+                };
+                
+                kickAudio.addEventListener('canplaythrough', onCanPlay, { once: true });
+                kickAudio.addEventListener('error', onError, { once: true });
+                
+                // 強制的に再読み込み
+                try {
+                    kickAudio.load();
+                } catch (e) {
+                    console.warn('Audio load failed:', e);
+                    onError(e);
+                }
+                
+                // タイムアウト処理
+                setTimeout(() => {
+                    if (!this.isAudioReady) {
+                        console.warn('⚠️ 効果音準備タイムアウト、続行');
+                        this.isAudioReady = true;
+                        this.updatePreparationStatus();
+                        cleanup();
+                    }
+                }, 3000);
             }
             
             updatePreparationStatus() {
