@@ -863,7 +863,7 @@
                 // East (90°): map rotates 90°, needle rotates -90° → needle points UP (relative to rotated screen)
                 // South (180°): map rotates 180°, needle rotates -180° → needle points UP
                 // West (270°): map rotates 270°, needle rotates -270° → needle points UP
-                this.compassNeedle.style.transform = `rotate(${-this.heading}deg)`;
+                this.compassNeedle.style.transform = `rotate(${this.heading}deg)`;
                 
                 // Rotate map so current heading direction points UP
                 if (!this.isActive && !this.isCountdownActive && this.isMapReady) {
