@@ -828,14 +828,14 @@
                 document.getElementById('compass').textContent = this.getCompassDirection(this.heading);
                 document.getElementById('tilt').textContent = Math.round(this.tilt) + '°';
                 
-                // Update compass needle - heading should point to actual direction
-                // No additional rotation needed since we corrected the heading data
-                this.compassNeedle.style.transform = `rotate(${this.heading}deg)`;
+                // Update compass needle - fix rotation direction (clockwise)
+                // Invert rotation to match real device rotation
+                this.compassNeedle.style.transform = `rotate(${-this.heading}deg)`;
                 
-                // Rotate map so current heading direction points UP (top of screen)
+                // Rotate map so current heading direction points UP + 180 degree correction
                 if (!this.isActive && !this.isCountdownActive && this.isMapReady) {
-                    // Rotate map counter-clockwise by heading amount to put direction at top
-                    this.mapElement.style.transform = `rotate(${this.heading}deg)`;
+                    // Add 180 degree correction for map orientation
+                    this.mapElement.style.transform = `rotate(${this.heading + 180}deg)`;
                 }
                 
                 this.updateCoordinatesDisplay();
@@ -1279,7 +1279,7 @@
                 
                 // Reset map rotation to compass direction
                 if (this.isMapReady) {
-                    this.mapElement.style.transform = `rotate(${this.heading}deg)`;
+                    this.mapElement.style.transform = `rotate(${this.heading + 180}deg)`;
                 }
                 
                 // Reset map view
