@@ -832,4 +832,348 @@
                 
                 // 航空写真が完全に読み込まれるまで待機
                 if (!this.isMapFullyLoaded) {
-                    this.updateStatus('地図の読み込み中です...しばらくお待ち
+                    this.updateStatus('地図の読み込み中です...しばらくお待ちください');
+                    setTimeout(() => {
+                        if (this.isMapFullyLoaded) {
+                            this.startThrowWithShake();
+                        }
+                    }, 1000);
+                    return;
+                }
+                
+                this.isDetectingShake = false;
+                this.isActive = true;
+                this.isBallMoving = true;
+                this.ballElement.classList.add('throwing');
+                this.playSound('kick');
+                
+                // 振りの強さに基づいて投球パワーを計算（10km最大）
+                const shakeIntensity = Math.min(this.maxAcceleration / 20, 1);
+                this.throwPower = shakeIntensity * 10000; // 最大10km
+                
+                console.log(`Shake detected! Max acceleration: ${this.maxAcceleration}, Power: ${this.throwPower}m`);
+                
+                this.ballTrailPoints = [];
+                this.clearTrails();
+                
+                // 画面の回転を元に戻す
+                this.mapElement.style.transform = 'rotate(0deg)';
+                
+                this.throwAngle = this.heading || 0;
+                this.animationFrame = 0;
+                
+                this.ballPosition = { ...this.startPosition };
+                
+                this.updateStatus(`ボール投球中... 距離: ${Math.round(this.throwPower)}m`);
+                
+                // アニメーション開始
+                this.animateThrow();
+            }
+            
+            clearTrails() {
+                const trails = document.querySelectorAll('.ball-trail');
+                trails.forEach(trail => trail.remove());
+            }
+            
+            createTrail(x, y) {
+                const trail = document.createElement('div');
+                trail.className = 'ball-trail';
+                trail.style.left = x + 'px';
+                trail.style.top = y + 'px';
+                document.body.appendChild(trail);
+                
+                setTimeout(() => {
+                    if (trail.parentNode) {
+                        trail.parentNode.removeChild(trail);
+                    }
+                }, 3000);
+            }
+            
+            animateThrow() {
+                if (!this.isActive || !this.isMapReady || !this.isMapFullyLoaded) return;
+                
+                this.animationFrame++;
+                // ゆっくりとした移動速度（航空写真の描画に配慮）
+                const progress = this.animationFrame * 0.005; // 非常にゆっくり
+                
+                const currentDistance = this.throwPower * Math.min(progress, 1);
+                
+                // ボールのスケール更新（移動距離の半分まで拡大、その後縮小）
+                this.updateBallScale(progress);
+                
+                // 新しい地理座標の計算
+                const bearing = this.throwAngle * Math.PI / 180;
+                const earthRadius = 6371000;
+                
+                const lat1 = this.startPosition.lat * Math.PI / 180;
+                const lng1 = this.startPosition.lng * Math.PI / 180;
+                
+                const lat2 = Math.asin(
+                    Math.sin(lat1) * Math.cos(currentDistance / earthRadius) +
+                    Math.cos(lat1) * Math.sin(currentDistance / earthRadius) * Math.cos(bearing)
+                );
+                
+                const lng2 = lng1 + Math.atan2(
+                    Math.sin(bearing) * Math.sin(currentDistance / earthRadius) * Math.cos(lat1),
+                    Math.cos(currentDistance / earthRadius) - Math.sin(lat1) * Math.sin(lat2)
+                );
+                
+                this.ballPosition = {
+                    lat: lat2 * 180 / Math.PI,
+                    lng: lng2 * 180 / Math.PI
+                };
+                
+                // 地図の中心をボールの位置に更新
+                if (this.map) {
+                    try {
+                        this.map.setCenter(this.ballPosition);
+                        
+                        // 高度に応じてズームレベルを調整（初期ズーム21から徐々に広域に）
+                        const baseZoom = 21;
+                        const minZoom = 12; // より広域まで引く
+                        const zoomLevel = Math.max(minZoom, baseZoom - progress * 9); // より大きく変化
+                        this.map.setZoom(Math.round(zoomLevel));
+                        
+                        // 地図の向きを投球方向に固定
+                        this.map.setHeading(this.throwAngle);
+                    } catch (e) {
+                        console.warn('Map update failed:', e);
+                    }
+                }
+                
+                // 軌跡の追加
+                if (this.animationFrame % 100 === 0) {
+                    const rect = this.ballElement.getBoundingClientRect();
+                    this.createTrail(rect.left + rect.width/2, rect.top + rect.height/2);
+                }
+                
+                // 距離表示の更新
+                document.getElementById('distance').textContent = Math.round(currentDistance) + 'm';
+                this.updateCoordinatesDisplay();
+                
+                // アニメーション終了判定
+                if (progress >= 1) {
+                    this.landBall(currentDistance, this.ballPosition);
+                    return;
+                }
+                
+                // 次のフレームをリクエスト
+                requestAnimationFrame(() => this.animateThrow());
+            }
+            
+            updateBallScale(progress) {
+                this.ballElement.classList.remove('flying-high', 'landing');
+                
+                if (progress < 0.5) {
+                    // 移動距離の半分まで拡大
+                    const scale = 1 + progress * 4; // 最大3倍まで拡大
+                    this.ballElement.style.transform = `translate(-50%, -50%) scale(${scale})`;
+                } else {
+                    // その後縮小
+                    const scale = 3 - (progress - 0.5) * 4; // 3倍から1倍まで縮小
+                    this.ballElement.style.transform = `translate(-50%, -50%) scale(${Math.max(1, scale)})`;
+                    if (progress > 0.8) {
+                        this.ballElement.classList.add('landing');
+                    }
+                }
+            }
+            
+            landBall(distance, landingPosition) {
+                this.isActive = false;
+                this.ballElement.classList.remove('throwing', 'flying-high');
+                this.ballElement.classList.add('landing');
+                this.playSound('goal');
+                
+                // 着地時に地図を徐々に拡大
+                if (this.map) {
+                    try {
+                        this.map.setCenter(landingPosition);
+                        
+                        // 徐々にズームアップ
+                        let currentZoom = this.map.getZoom();
+                        const targetZoom = 20;
+                        const zoomStep = (targetZoom - currentZoom) / 20;
+                        
+                        const zoomInterval = setInterval(() => {
+                            currentZoom += zoomStep;
+                            if (currentZoom >= targetZoom) {
+                                currentZoom = targetZoom;
+                                clearInterval(zoomInterval);
+                            }
+                            this.map.setZoom(Math.round(currentZoom));
+                        }, 100);
+                        
+                        // 地図の向きをリセット（北向き）
+                        setTimeout(() => {
+                            this.map.setHeading(0);
+                        }, 1000);
+                    } catch (e) {
+                        console.warn('Map landing update failed:', e);
+                    }
+                }
+                
+                // 最終結果の表示
+                const finalDistance = Math.round(distance);
+                document.getElementById('distance').textContent = finalDistance + 'm';
+                
+                // 軌跡をクリア
+                setTimeout(() => {
+                    this.clearTrails();
+                }, 3000);
+                
+                this.updateStatus(`着地完了！距離: ${finalDistance}m 🎯`);
+                
+                // 着地パネルを表示
+                setTimeout(() => {
+                    this.showLandingPanel(finalDistance, landingPosition);
+                }, 2000);
+            }
+            
+            showLandingPanel(distance, position) {
+                document.getElementById('infoPanel').style.display = 'none';
+                
+                const landingPanel = document.getElementById('landingPanel');
+                const results = document.getElementById('results');
+                const googleMapBtn = document.getElementById('googleMapBtn');
+                const resetBtn = document.getElementById('resetBtn');
+                
+                results.textContent = `着地完了！飛距離: ${distance}m`;
+                
+                // GoogleマップのURLを生成
+                const googleMapUrl = `https://www.google.com/maps?q=${position.lat},${position.lng}&z=18&t=k`;
+                googleMapBtn.href = googleMapUrl;
+                
+                resetBtn.onclick = () => this.reset();
+                
+                landingPanel.style.display = 'block';
+            }
+            
+            updateStatus(message) {
+                document.getElementById('status').textContent = message;
+            }
+            
+            reset() {
+                // カウントダウンタイマーをクリア
+                if (this.countdownTimer) {
+                    clearInterval(this.countdownTimer);
+                }
+                this.hideCountdown();
+                
+                // 状態をリセット
+                this.isActive = false;
+                this.isCountdownActive = false;
+                this.isBallMoving = false;
+                this.isDetectingShake = false;
+                
+                // 振り検出用データをリセット
+                this.accelerationData = [];
+                this.maxAcceleration = 0;
+                
+                // ボールの表示をリセット
+                this.ballElement.classList.remove('throwing', 'flying-high', 'landing');
+                this.ballElement.style.transform = 'translate(-50%, -50%)';
+                
+                // 軌跡をクリア
+                this.clearTrails();
+                
+                // ボールの位置を開始位置にリセット
+                this.ballPosition = { ...this.startPosition };
+                
+                // 画面の回転を復活（コンパス方向に合わせる）
+                this.mapElement.style.transform = `rotate(${this.heading}deg)`;
+                
+                // 地図を開始位置に戻す
+                if (this.map && this.startPosition) {
+                    try {
+                        this.map.setCenter(this.startPosition);
+                        this.map.setZoom(21); // 18から21に変更（より拡大）
+                        this.map.setMapTypeId(google.maps.MapTypeId.SATELLITE);
+                        this.map.setHeading(0);
+                    } catch (e) {
+                        console.warn('Map reset failed:', e);
+                    }
+                }
+                
+                // パネルの表示を切り替え
+                document.getElementById('landingPanel').style.display = 'none';
+                document.getElementById('infoPanel').style.display = 'block';
+                
+                // 表示値をリセット
+                document.getElementById('distance').textContent = '0m';
+                document.getElementById('speed').textContent = '---';
+                
+                // 座標表示を更新
+                this.updateCoordinatesDisplay();
+                
+                this.updateStatus('投球準備完了！上のボタンを押してスタート');
+                
+                // ボタンを再設定
+                const startBtn = document.getElementById('startBtn');
+                startBtn.textContent = 'スタート';
+                startBtn.disabled = false;
+                startBtn.classList.add('countdown-ready');
+                startBtn.onclick = () => this.startCountdown();
+            }
+            
+            showError(message) {
+                const errorDiv = document.createElement('div');
+                errorDiv.className = 'error-message';
+                errorDiv.innerHTML = `
+                    <strong>エラー</strong><br>
+                    ${message}<br><br>
+                    <button onclick="location.reload()" style="margin-top: 10px; padding: 8px 16px; background: white; color: red; border: 1px solid red; border-radius: 4px; cursor: pointer;">
+                        再読み込み
+                    </button>
+                `;
+                document.body.appendChild(errorDiv);
+            }
+        }
+        
+        // アプリケーションのインスタンスを作成
+        let app = null;
+        
+        // ページ読み込み完了後にアプリを初期化
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOM loaded, initializing app...');
+            app = new BallThrowMapsApp();
+            console.log('App initialized:', app);
+        });
+        
+        // グローバル関数（HTMLから呼び出し用）
+        function startApp() {
+            console.log('startApp called, app instance:', app);
+            if (app && typeof app.startApp === 'function') {
+                app.startApp();
+            } else {
+                console.error('App not initialized or startApp method not found');
+                if (!app) {
+                    app = new BallThrowMapsApp();
+                    setTimeout(() => app.startApp(), 100);
+                } else {
+                    alert('アプリの初期化に失敗しました。ページを再読み込みしてください。');
+                }
+            }
+        }
+        
+        // ボタンクリックのイベントリスナー設定
+        window.addEventListener('load', function() {
+            const startBtn = document.getElementById('startBtn');
+            if (startBtn) {
+                console.log('Start button found:', startBtn);
+                
+                startBtn.onclick = null;
+                startBtn.removeAttribute('onclick');
+                
+                startBtn.addEventListener('click', function() {
+                    console.log('Button clicked directly');
+                    startApp();
+                });
+                
+                console.log('Button event listener added');
+            } else {
+                console.error('Start button not found');
+            }
+        });
+    </script>
+</body>
+</html>
