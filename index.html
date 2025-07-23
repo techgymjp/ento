@@ -1242,11 +1242,35 @@
                     return;
                 }
                 
+                // Calculate current distance first
+                const currentDistance = this.throwPower * progress;
+                
+                // Update ball position based on current distance using geodesic calculations
+                const bearing = this.throwAngle * Math.PI / 180;
+                const earthRadius = 6371000;
+                
+                const lat1 = this.startPosition.lat * Math.PI / 180;
+                const lng1 = this.startPosition.lng * Math.PI / 180;
+                
+                const lat2 = Math.asin(
+                    Math.sin(lat1) * Math.cos(currentDistance / earthRadius) +
+                    Math.cos(lat1) * Math.sin(currentDistance / earthRadius) * Math.cos(bearing)
+                );
+                
+                const lng2 = lng1 + Math.atan2(
+                    Math.sin(bearing) * Math.sin(currentDistance / earthRadius) * Math.cos(lat1),
+                    Math.cos(currentDistance / earthRadius) - Math.sin(lat1) * Math.sin(lat2)
+                );
+                
+                this.ballPosition = {
+                    lat: lat2 * 180 / Math.PI,
+                    lng: lng2 * 180 / Math.PI
+                };
+                
                 // Clear canvas
                 this.ctx.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
                 
                 // Calculate which aerial image to use
-                const currentDistance = this.throwPower * progress;
                 const imageIndex = Math.min(
                     Math.floor((currentDistance / 1000) * this.aerialImages.length),
                     this.aerialImages.length - 1
@@ -1271,36 +1295,17 @@
                         imgX, imgY,
                         imgWidth, imgHeight
                     );
-                    
-                    // Update ball position based on current distance
-                    const bearing = this.throwAngle * Math.PI / 180;
-                    const earthRadius = 6371000;
-                    
-                    const lat1 = this.startPosition.lat * Math.PI / 180;
-                    const lng1 = this.startPosition.lng * Math.PI / 180;
-                    
-                    const lat2 = Math.asin(
-                        Math.sin(lat1) * Math.cos(currentDistance / earthRadius) +
-                        Math.cos(lat1) * Math.sin(currentDistance / earthRadius) * Math.cos(bearing)
-                    );
-                    
-                    const lng2 = lng1 + Math.atan2(
-                        Math.sin(bearing) * Math.sin(currentDistance / earthRadius) * Math.cos(lat1),
-                        Math.cos(currentDistance / earthRadius) - Math.sin(lat1) * Math.sin(lat2)
-                    );
-                    
-                    this.ballPosition = {
-                        lat: lat2 * 180 / Math.PI,
-                        lng: lng2 * 180 / Math.PI
-                    };
                 }
                 
                 // Draw ball at center with scaling effect
                 this.drawCanvasBall(progress);
                 
-                // Update distance display
-                const realDistance = Math.round(currentDistance);
-                document.getElementById('distance').textContent = realDistance + 'm';
+                // Update distance display with actual calculated distance
+                const realDistance = this.calculateDistance(
+                    this.startPosition.lat, this.startPosition.lng,
+                    this.ballPosition.lat, this.ballPosition.lng
+                );
+                document.getElementById('distance').textContent = Math.round(realDistance) + 'm';
                 this.updateCoordinatesDisplay();
                 
                 // Continue animation
