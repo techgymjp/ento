@@ -170,7 +170,7 @@
         
         .info-panel {
             position: absolute;
-            bottom: 15px;
+            bottom: 80px;
             left: 15px;
             right: 15px;
             background: rgba(255, 255, 255, 0.95);
@@ -244,7 +244,7 @@
 
         .landing-panel {
             position: absolute;
-            bottom: 15px;
+            bottom: 80px;
             left: 15px;
             right: 15px;
             background: rgba(255, 255, 255, 0.95);
@@ -385,7 +385,38 @@
                     start: null,
                     kick: null,
                     goal: null
-                };
+                }
+            
+            waitForMapLoad() {
+                return new Promise((resolve) => {
+                    if (!this.map) {
+                        resolve();
+                        return;
+                    }
+                    
+                    // 地図のタイル読み込み完了を待つ
+                    const checkMapLoad = () => {
+                        if (this.map.getCenter() && this.map.getZoom()) {
+                            // 少し待機してから航空写真の読み込み完了とみなす
+                            setTimeout(resolve, 1000);
+                        } else {
+                            setTimeout(checkMapLoad, 100);
+                        }
+                    };
+                    
+                    // Google Maps の idle イベントを利用
+                    if (window.google && google.maps) {
+                        google.maps.event.addListenerOnce(this.map, 'idle', () => {
+                            setTimeout(resolve, 1000); // 1秒待機
+                        });
+                        
+                        // 地図の更新をトリガー
+                        this.map.setCenter(this.ballPosition);
+                    } else {
+                        setTimeout(resolve, 2000); // フォールバック
+                    }
+                });
+            };
                 this.loadSounds();
                 
                 this.updateStatus('位置情報とデバイスセンサーの許可が必要です');
@@ -509,7 +540,7 @@
                     if (window.google && google.maps) {
                         this.map = new google.maps.Map(this.mapElement, {
                             center: this.currentPosition,
-                            zoom: 18,
+                            zoom: 20, // より拡大した初期ズーム
                             mapTypeId: google.maps.MapTypeId.SATELLITE,
                             disableDefaultUI: true,
                             gestureHandling: 'none',
@@ -839,10 +870,16 @@
                 
                 this.ballPosition = { ...this.startPosition };
                 
-                this.updateStatus(`ボール投球中... 距離: ${Math.round(this.throwPower)}m`);
+                this.updateStatus(`ボール投球準備中... 距離: ${Math.round(this.throwPower)}m`);
                 
-                // アニメーション開始
-                this.animateThrow();
+                // 航空写真の読み込み完了を待つ
+                this.waitForMapLoad().then(() => {
+                    this.updateStatus('航空写真読み込み完了！ボール移動開始...');
+                    setTimeout(() => {
+                        // アニメーション開始
+                        this.animateThrow();
+                    }, 500);
+                });
             }
             
             clearTrails() {
@@ -903,9 +940,9 @@
                     try {
                         this.map.setCenter(this.ballPosition);
                         
-                        // 高度に応じてズームレベルを調整
-                        const baseZoom = 18;
-                        const zoomLevel = Math.max(14, baseZoom - progress * 4);
+                        // 投球後は広域表示に変更
+                        const baseZoom = 15; // より広域な表示
+                        const zoomLevel = Math.max(10, baseZoom - progress * 3);
                         this.map.setZoom(Math.round(zoomLevel));
                         
                         // 地図の向きを投球方向に固定
@@ -1060,7 +1097,7 @@
                 if (this.map && this.startPosition) {
                     try {
                         this.map.setCenter(this.startPosition);
-                        this.map.setZoom(18);
+                        this.map.setZoom(20); // 初期状態の拡大ズーム
                         this.map.setMapTypeId(google.maps.MapTypeId.SATELLITE);
                         this.map.setHeading(0);
                     } catch (e) {
