@@ -842,8 +842,6 @@
                 }
                 
                 this.isDetectingShake = false;
-                this.isActive = true;
-                this.isBallMoving = true;
                 this.ballElement.classList.add('throwing');
                 this.playSound('kick');
                 
@@ -856,13 +854,33 @@
                 this.ballTrailPoints = [];
                 this.clearTrails();
                 
+                // 投球角度を記録
+                this.throwAngle = this.heading || 0;
+                this.ballPosition = { ...this.startPosition };
+                
+                // 3秒間の準備時間
+                this.updateStatus('ボール準備中...航空写真を最適化しています');
+                
+                let countdown = 3;
+                const prepInterval = setInterval(() => {
+                    countdown--;
+                    this.updateStatus(`ボール準備中...${countdown}秒後に投球開始`);
+                    
+                    if (countdown <= 0) {
+                        clearInterval(prepInterval);
+                        this.startBallMovement();
+                    }
+                }, 1000);
+            }
+            
+            startBallMovement() {
+                this.isActive = true;
+                this.isBallMoving = true;
+                
                 // 画面の回転を元に戻す
                 this.mapElement.style.transform = 'rotate(0deg)';
                 
-                this.throwAngle = this.heading || 0;
                 this.animationFrame = 0;
-                
-                this.ballPosition = { ...this.startPosition };
                 
                 this.updateStatus(`ボール投球中... 距離: ${Math.round(this.throwPower)}m`);
                 
