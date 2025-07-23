@@ -1233,42 +1233,25 @@
                 
                 // オーディオの準備状況をチェック
                 const kickAudio = this.sounds.kick;
-                console.log('Kick audio src:', kickAudio.src);
-                console.log('Kick audio readyState:', kickAudio.readyState);
-                console.log('Kick audio networkState:', kickAudio.networkState);
                 
                 if (kickAudio.readyState >= 2) { // HAVE_CURRENT_DATA以上
                     console.log('✅ 効果音準備完了（既に読み込み済み）');
                     this.isAudioReady = true;
                     this.updatePreparationStatus();
                 } else {
-                    const canPlayHandler = () => {
+                    kickAudio.addEventListener('canplaythrough', () => {
                         console.log('✅ 効果音準備完了');
                         this.isAudioReady = true;
                         this.updatePreparationStatus();
-                    };
+                    }, { once: true });
                     
-                    const errorHandler = (error) => {
-                        console.warn('⚠️ 効果音読み込み失敗、フォールバックで続行', error);
+                    kickAudio.addEventListener('error', () => {
+                        console.warn('⚠️ 効果音読み込み失敗、フォールバックで続行');
                         this.isAudioReady = true; // エラーでも続行
                         this.updatePreparationStatus();
-                    };
+                    }, { once: true });
                     
-                    kickAudio.addEventListener('canplaythrough', canPlayHandler, { once: true });
-                    kickAudio.addEventListener('loadeddata', canPlayHandler, { once: true });
-                    kickAudio.addEventListener('error', errorHandler, { once: true });
-                    
-                    // 強制的に再読み込み
-                    kickAudio.load();
-                    
-                    // タイムアウト処理 - 3秒待って読み込まれなければフォールバックで続行
-                    setTimeout(() => {
-                        if (!this.isAudioReady) {
-                            console.warn('⏰ 効果音読み込みタイムアウト、フォールバックで続行');
-                            this.isAudioReady = true;
-                            this.updatePreparationStatus();
-                        }
-                    }, 3000);
+                    kickAudio.load(); // 強制的に再読み込み
                 }
             }
             
@@ -1497,8 +1480,6 @@
                 this.isBallMoving = true;
                 
                 console.log('ボール移動開始 - キャンバスモード');
-                console.log('航空写真数:', this.aerialImages.length);
-                console.log('ボール画像準備状況:', this.isBallImageReady, this.ballImage);
                 
                 // Hide map and show canvas
                 this.mapElement.style.display = 'none';
@@ -1515,10 +1496,6 @@
                 console.log('🔊 Playing kick sound NOW at ball movement start');
                 try {
                     const kickAudio = this.sounds.kick;
-                    console.log('Kick audio object:', kickAudio);
-                    console.log('Kick audio readyState:', kickAudio.readyState);
-                    console.log('Kick audio src:', kickAudio.src);
-                    
                     kickAudio.currentTime = 0;
                     kickAudio.volume = 1.0; // 最大音量
                     
@@ -1528,7 +1505,6 @@
                             console.log('✅ Kick sound played successfully!');
                         }).catch(error => {
                             console.error('❌ Kick sound failed:', error);
-                            console.log('Error details:', error);
                         });
                     }
                 } catch (error) {
@@ -1540,7 +1516,7 @@
             
             animateCanvasThrow() {
                 if (!this.isActive || !this.ctx) {
-                    console.log('キャンバスアニメーション停止 - isActive:', this.isActive, 'ctx:', !!this.ctx);
+                    console.log('キャンバスアニメーション停止');
                     return;
                 }
                 
@@ -1555,7 +1531,6 @@
                 
                 // Calculate current distance first
                 const currentDistance = this.throwPower * progress;
-                console.log(`Animation frame ${this.animationFrame}, progress: ${progress.toFixed(3)}, distance: ${Math.round(currentDistance)}m`);
                 
                 // Update ball position based on current distance using geodesic calculations
                 const bearing = this.throwAngle * Math.PI / 180;
@@ -1563,3 +1538,581 @@
                 
                 const lat1 = this.startPosition.lat * Math.PI / 180;
                 const lng1 = this.startPosition.lng * Math.PI / 180;
+                
+                const lat2 = Math.asin(
+                    Math.sin(lat1) * Math.cos(currentDistance / earthRadius) +
+                    Math.cos(lat1) * Math.sin(currentDistance / earthRadius) * Math.cos(bearing)
+                );
+                
+                const lng2 = lng1 + Math.atan2(
+                    Math.sin(bearing) * Math.sin(currentDistance / earthRadius) * Math.cos(lat1),
+                    Math.cos(currentDistance / earthRadius) - Math.sin(lat1) * Math.sin(lat2)
+                );
+                
+                this.ballPosition = {
+                    lat: lat2 * 180 / Math.PI,
+                    lng: lng2 * 180 / Math.PI
+                };
+                
+                // Clear canvas
+                this.ctx.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
+                
+                // Calculate which aerial image to use
+                const imageIndex = Math.min(
+                    Math.floor((currentDistance / 1000) * this.aerialImages.length),
+                    this.aerialImages.length - 1
+                );
+                
+                // Draw background (aerial image) with error handling
+                if (this.aerialImages.length > 0 && this.aerialImages[imageIndex]) {
+                    const aerialData = this.aerialImages[imageIndex];
+                    
+                    try {
+                        // Move background down based on throw speed
+                        const speedFactor = Math.min(this.maxAcceleration / 15, 3);
+                        this.backgroundOffsetY += speedFactor * 4;
+                        
+                        // Draw the aerial image, moving it downward (上から下へ)
+                        const imgWidth = this.canvasWidth * 2;
+                        const imgHeight = this.canvasHeight * 2;
+                        const imgX = -this.canvasWidth / 2; // Center horizontally
+                        const imgY = -this.canvasHeight / 2 + this.backgroundOffsetY; // 修正: + で下向きに移動
+                        
+                        this.ctx.drawImage(
+                            aerialData.image,
+                            imgX, imgY,
+                            imgWidth, imgHeight
+                        );
+                        
+                        if (aerialData.isFallback) {
+                            console.log(`🟢 Drawing fallback image ${imageIndex + 1}/${this.aerialImages.length} at distance ${Math.round(currentDistance)}m`);
+                        } else {
+                            console.log(`🖼️ Drawing aerial image ${imageIndex + 1}/${this.aerialImages.length} at distance ${Math.round(currentDistance)}m`);
+                        }
+                        
+                    } catch (error) {
+                        console.error('航空写真描画エラー:', error);
+                        // Fallback: draw colored background
+                        this.drawFallbackBackground();
+                    }
+                } else {
+                    console.warn('航空写真が利用できません、フォールバック背景を描画');
+                    this.drawFallbackBackground();
+                }
+                
+                // Draw ball at center with scaling effect
+                this.drawCanvasBall(progress);
+                
+                // Update distance display with actual calculated distance
+                const realDistance = this.calculateDistance(
+                    this.startPosition.lat, this.startPosition.lng,
+                    this.ballPosition.lat, this.ballPosition.lng
+                );
+                document.getElementById('distance').textContent = Math.round(realDistance) + 'm';
+                this.updateCoordinatesDisplay();
+                
+                // Continue animation
+                requestAnimationFrame(() => this.animateCanvasThrow());
+            }
+            
+            drawCanvasBall(progress) {
+                if (!this.ctx) return;
+                
+                // Ball scaling effect
+                let scale;
+                if (progress <= 0.5) {
+                    scale = 1 + progress * 3; // Enlarge to 4x at halfway
+                } else {
+                    scale = 4 - (progress - 0.5) * 3; // Shrink back to 1x
+                }
+                scale = Math.max(0.5, Math.min(4, scale));
+                
+                const ballRadius = 30 * scale;
+                
+                // Draw ball shadow first
+                this.ctx.save();
+                this.ctx.globalAlpha = 0.3;
+                this.ctx.fillStyle = '#000';
+                this.ctx.beginPath();
+                this.ctx.arc(
+                    this.ballCanvasX + 5,
+                    this.ballCanvasY + 5,
+                    ballRadius * 0.8,
+                    0, 2 * Math.PI
+                );
+                this.ctx.fill();
+                this.ctx.restore();
+                
+                // Draw ball image if available
+                if (this.ballImage && this.ballImage.complete) {
+                    // Draw ball.png/ball.gif
+                    const ballSize = ballRadius * 2;
+                    
+                    this.ctx.save();
+                    
+                    // Add rotation effect during flight
+                    this.ctx.translate(this.ballCanvasX, this.ballCanvasY);
+                    this.ctx.rotate((progress * 360 * 4) * Math.PI / 180); // 4 rotations during flight
+                    
+                    this.ctx.drawImage(
+                        this.ballImage,
+                        -ballSize / 2,
+                        -ballSize / 2,
+                        ballSize,
+                        ballSize
+                    );
+                    
+                    this.ctx.restore();
+                    
+                    console.log(`🏀 Drawing ball image at scale ${scale.toFixed(2)}x`);
+                    
+                } else {
+                    // Fallback: draw orange gradient ball if image not available
+                    console.log('🟠 Drawing fallback orange ball');
+                    
+                    const gradient = this.ctx.createRadialGradient(
+                        this.ballCanvasX - ballRadius * 0.3,
+                        this.ballCanvasY - ballRadius * 0.3,
+                        0,
+                        this.ballCanvasX,
+                        this.ballCanvasY,
+                        ballRadius
+                    );
+                    gradient.addColorStop(0, '#ff8a65');
+                    gradient.addColorStop(0.7, '#ff5722');
+                    gradient.addColorStop(1, '#d84315');
+                    
+                    // Draw ball
+                    this.ctx.fillStyle = gradient;
+                    this.ctx.beginPath();
+                    this.ctx.arc(this.ballCanvasX, this.ballCanvasY, ballRadius, 0, 2 * Math.PI);
+                    this.ctx.fill();
+                    
+                    // Ball highlight
+                    this.ctx.fillStyle = '#ffccbc';
+                    this.ctx.beginPath();
+                    this.ctx.arc(
+                        this.ballCanvasX - ballRadius * 0.3,
+                        this.ballCanvasY - ballRadius * 0.3,
+                        ballRadius * 0.2,
+                        0, 2 * Math.PI
+                    );
+                    this.ctx.fill();
+                    
+                    // Ball outline
+                    this.ctx.strokeStyle = '#bf360c';
+                    this.ctx.lineWidth = 2;
+                    this.ctx.beginPath();
+                    this.ctx.arc(this.ballCanvasX, this.ballCanvasY, ballRadius, 0, 2 * Math.PI);
+                    this.ctx.stroke();
+                }
+            }
+            
+            drawFallbackBackground() {
+                // Draw animated gradient background as fallback
+                const gradient = this.ctx.createLinearGradient(
+                    0, 0, 
+                    this.canvasWidth, this.canvasHeight
+                );
+                
+                // Create moving gradient effect based on offset
+                const phase = (this.backgroundOffsetY / 100) % 1;
+                gradient.addColorStop(0, `hsl(${120 + phase * 60}, 60%, 40%)`);
+                gradient.addColorStop(0.5, `hsl(${90 + phase * 60}, 50%, 35%)`);
+                gradient.addColorStop(1, `hsl(${60 + phase * 60}, 40%, 30%)`);
+                
+                this.ctx.fillStyle = gradient;
+                this.ctx.fillRect(0, 0, this.canvasWidth, this.canvasHeight);
+                
+                // Add moving texture that scrolls downward
+                this.ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+                for (let i = 0; i < 20; i++) {
+                    const x = (i * 50) % this.canvasWidth;
+                    const y = (i * 30 + this.backgroundOffsetY) % (this.canvasHeight + 100);
+                    this.ctx.fillRect(x, y, 2, 2);
+                }
+                
+                // Add text that moves down
+                this.ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+                this.ctx.font = '24px Arial';
+                this.ctx.textAlign = 'center';
+                const textY = (this.backgroundOffsetY / 2) % (this.canvasHeight + 100);
+                this.ctx.fillText('航空写真読み込み中...', this.canvasWidth / 2, textY);
+            }
+            
+            clearTrails() {
+                const trails = document.querySelectorAll('.ball-trail');
+                trails.forEach(trail => trail.remove());
+            }
+            
+            createTrail(x, y) {
+                const trail = document.createElement('div');
+                trail.className = 'ball-trail';
+                trail.style.left = x + 'px';
+                trail.style.top = y + 'px';
+                document.body.appendChild(trail);
+                
+                setTimeout(() => {
+                    if (trail.parentNode) {
+                        trail.parentNode.removeChild(trail);
+                    }
+                }, 2000);
+            }
+            
+            async landBall() {
+                this.isActive = false;
+                this.isBallMoving = false;
+                
+                console.log('着地処理開始');
+                
+                // Hide canvas and show map again
+                this.gameCanvas.style.display = 'none';
+                this.mapElement.style.display = 'block';
+                this.ballElement.style.display = 'block';
+                
+                // Play goal sound
+                this.playSound('goal');
+                
+                // Remove ball animations
+                this.ballElement.classList.remove('throwing', 'flying');
+                this.ballElement.style.transform = 'translate(-50%, -50%) scale(1)';
+                
+                // 最終距離を正確に計算
+                const finalDistance = Math.round(this.calculateDistance(
+                    this.startPosition.lat, this.startPosition.lng,
+                    this.ballPosition.lat, this.ballPosition.lng
+                ));
+                
+                console.log('最終距離:', finalDistance + 'm');
+                
+                // Gradually zoom in on landing location
+                if (this.map) {
+                    try {
+                        this.map.setCenter(this.ballPosition);
+                        
+                        let currentZoom = this.map.getZoom() || 10;
+                        const targetZoom = 19;
+                        const zoomSteps = 30;
+                        const zoomIncrement = (targetZoom - currentZoom) / zoomSteps;
+                        
+                        let step = 0;
+                        const zoomInterval = setInterval(() => {
+                            step++;
+                            currentZoom += zoomIncrement;
+                            
+                            if (step >= zoomSteps) {
+                                currentZoom = targetZoom;
+                                clearInterval(zoomInterval);
+                            }
+                            
+                            this.map.setZoom(Math.round(currentZoom));
+                        }, 100);
+                        
+                        // Reset heading after zoom
+                        setTimeout(() => {
+                            this.map.setHeading(0);
+                        }, 3000);
+                        
+                    } catch (e) {
+                        console.warn('Landing map update error:', e);
+                    }
+                }
+                
+                // Update final distance
+                document.getElementById('distance').textContent = finalDistance + 'm';
+                
+                // Clear trails after a delay
+                setTimeout(() => {
+                    this.clearTrails();
+                }, 3000);
+                
+                // Show success message
+                this.updateStatus(`🎯 着地完了！飛距離: ${finalDistance}m 方向: ${this.getCompassDirection(this.throwAngle)}`);
+                
+                // Show landing panel after animation
+                setTimeout(() => {
+                    this.showLandingPanel(finalDistance, this.ballPosition);
+                }, 4000);
+            }
+            
+            showLandingPanel(distance, position) {
+                document.getElementById('infoPanel').style.display = 'none';
+                
+                const landingPanel = document.getElementById('landingPanel');
+                const results = document.getElementById('results');
+                const googleMapBtn = document.getElementById('googleMapBtn');
+                const resetBtn = document.getElementById('resetBtn');
+                
+                results.innerHTML = `🎯 着地完了！<br>飛距離: ${distance}m`;
+                
+                // Create Google Maps URL
+                const googleMapUrl = `https://www.google.com/maps?q=${position.lat},${position.lng}&z=18&t=k`;
+                googleMapBtn.href = googleMapUrl;
+                
+                resetBtn.onclick = () => this.reset();
+                
+                landingPanel.style.display = 'block';
+            }
+            
+            updateStatus(message) {
+                document.getElementById('status').textContent = message;
+            }
+            
+            playSound(soundName) {
+                console.log(`Attempting to play sound: ${soundName}`);
+                if (this.sounds[soundName]) {
+                    try {
+                        const audio = this.sounds[soundName];
+                        
+                        // Reset audio to beginning
+                        audio.currentTime = 0;
+                        
+                        // For debugging - check if audio is ready
+                        console.log(`Audio ${soundName} readyState:`, audio.readyState);
+                        console.log(`Audio ${soundName} networkState:`, audio.networkState);
+                        
+                        // Create a promise-based approach for better error handling
+                        const playPromise = audio.play();
+                        
+                        if (playPromise !== undefined) {
+                            playPromise
+                                .then(() => {
+                                    console.log(`✅ Successfully played ${soundName} sound`);
+                                })
+                                .catch(error => {
+                                    console.error(`❌ Could not play ${soundName} sound:`, error);
+                                    console.log('Error details:', {
+                                        name: error.name,
+                                        message: error.message,
+                                        audioSrc: audio.src,
+                                        audioReadyState: audio.readyState,
+                                        audioNetworkState: audio.networkState
+                                    });
+                                    
+                                    // Try to reload and play again for network issues
+                                    if (error.name === 'NotSupportedError' || audio.networkState === 3) {
+                                        console.log(`Attempting to reload ${soundName} audio file...`);
+                                        audio.load();
+                                        setTimeout(() => {
+                                            audio.play().catch(e => console.log(`Retry failed for ${soundName}:`, e));
+                                        }, 100);
+                                    }
+                                });
+                        }
+                    } catch (e) {
+                        console.error(`Sound error for ${soundName}:`, e);
+                    }
+                } else {
+                    console.warn(`❌ Sound ${soundName} not found in sounds object`);
+                    console.log('Available sounds:', Object.keys(this.sounds));
+                }
+            }
+            
+            reset() {
+                console.log('リセット開始');
+                
+                // Clear all timers
+                if (this.countdownTimer) {
+                    clearInterval(this.countdownTimer);
+                    this.countdownTimer = null;
+                }
+                if (this.preparationTimer) {
+                    clearInterval(this.preparationTimer);
+                    this.preparationTimer = null;
+                }
+                
+                // Remove countdown if present
+                this.hideCountdown();
+                
+                // Hide resource preparation overlay
+                this.hideResourcePreparation();
+                
+                // Reset all state
+                this.isActive = false;
+                this.isCountdownActive = false;
+                this.isBallMoving = false;
+                this.isDetectingShake = false;
+                
+                // Reset sensor data
+                this.accelerationData = [];
+                this.maxAcceleration = 0;
+                this.totalDistance = 0;
+                
+                // Reset canvas state
+                this.backgroundOffsetY = 0;
+                this.aerialImages = [];
+                
+                // Reset preparation state
+                this.isAudioReady = false;
+                this.isAerialImagesReady = false;
+                this.isBallImageReady = false;
+                
+                // Hide canvas and show map
+                if (this.gameCanvas) {
+                    this.gameCanvas.style.display = 'none';
+                }
+                if (this.mapElement) {
+                    this.mapElement.style.display = 'block';
+                }
+                
+                // Reset ball appearance
+                this.ballElement.style.display = 'block';
+                this.ballElement.classList.remove('throwing', 'flying');
+                this.ballElement.style.transform = 'translate(-50%, -50%) scale(1)';
+                
+                // Reload ball image for canvas (in case it failed before)
+                this.loadBallImage();
+                
+                // Hide power meter
+                document.getElementById('powerMeter').style.display = 'none';
+                document.getElementById('powerFill').style.height = '0%';
+                
+                // Clear trails
+                this.clearTrails();
+                
+                // Reset position
+                this.ballPosition = { ...this.startPosition };
+                
+                // Reset map rotation to compass direction
+                if (this.isMapReady) {
+                    this.mapElement.style.transform = `rotate(${-this.heading}deg)`;
+                }
+                
+                // Reset map view
+                if (this.map && this.startPosition) {
+                    try {
+                        this.map.setCenter(this.startPosition);
+                        this.map.setZoom(20);
+                        this.map.setMapTypeId(google.maps.MapTypeId.SATELLITE);
+                        this.map.setHeading(0);
+                    } catch (e) {
+                        console.warn('Map reset error:', e);
+                    }
+                }
+                
+                // Reset UI
+                document.getElementById('landingPanel').style.display = 'none';
+                document.getElementById('infoPanel').style.display = 'block';
+                
+                document.getElementById('distance').textContent = '0m';
+                document.getElementById('speed').textContent = '---';
+                
+                this.updateCoordinatesDisplay();
+                this.updateStatus('🎯 投球準備完了！スタートボタンを押してください');
+                
+                // Reset start button
+                const startBtn = document.getElementById('startBtn');
+                startBtn.textContent = '🚀 スタート';
+                startBtn.disabled = false;
+                startBtn.classList.add('countdown-ready');
+                startBtn.onclick = () => this.startCountdown();
+            }
+            
+            showError(message) {
+                const errorDiv = document.createElement('div');
+                errorDiv.className = 'error-message';
+                errorDiv.innerHTML = `
+                    <div style="font-size: 20px; margin-bottom: 15px;">⚠️</div>
+                    <strong>エラーが発生しました</strong><br><br>
+                    ${message}<br><br>
+                    <button onclick="location.reload()" style="
+                        padding: 12px 20px; 
+                        background: white; 
+                        color: #d32f2f; 
+                        border: 2px solid #d32f2f; 
+                        border-radius: 8px; 
+                        cursor: pointer;
+                        font-weight: bold;
+                    ">
+                        🔄 再読み込み
+                    </button>
+                `;
+                document.body.appendChild(errorDiv);
+                
+                // Auto remove after 10 seconds
+                setTimeout(() => {
+                    if (errorDiv.parentNode) {
+                        errorDiv.parentNode.removeChild(errorDiv);
+                    }
+                }, 10000);
+            }
+        }
+        
+        // Global app instance
+        let app = null;
+        
+        // Initialize app when DOM is ready
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOM loaded, creating app instance...');
+            app = new BallThrowJourneyApp();
+            console.log('App instance created:', app);
+        });
+        
+        // Global function for button clicks
+        function startApp() {
+            console.log('startApp called');
+            if (app && typeof app.startApp === 'function') {
+                app.startApp();
+            } else {
+                console.error('App not ready');
+                // Try to initialize if not ready
+                if (!app) {
+                    app = new BallThrowJourneyApp();
+                    setTimeout(() => {
+                        if (app.startApp) {
+                            app.startApp();
+                        }
+                    }, 500);
+                }
+            }
+        }
+        
+        // Set up button event listener when page loads
+        window.addEventListener('load', function() {
+            const startBtn = document.getElementById('startBtn');
+            if (startBtn) {
+                console.log('Setting up start button...');
+                
+                // Remove any existing handlers
+                startBtn.onclick = null;
+                startBtn.removeAttribute('onclick');
+                
+                // Add new event listener
+                startBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    console.log('Start button clicked');
+                    
+                    // Enable audio context on first user interaction
+                    if (app && app.sounds) {
+                        Object.values(app.sounds).forEach(audio => {
+                            audio.load(); // Reload audio files
+                        });
+                    }
+                    
+                    startApp();
+                });
+                
+                console.log('Start button event listener added');
+            } else {
+                console.error('Start button not found');
+            }
+        });
+        
+        // Prevent zoom on double tap (iOS Safari)
+        document.addEventListener('touchstart', function(event) {
+            if (event.touches.length > 1) {
+                event.preventDefault();
+            }
+        }, { passive: false });
+        
+        let lastTouchEnd = 0;
+        document.addEventListener('touchend', function(event) {
+            const now = (new Date()).getTime();
+            if (now - lastTouchEnd <= 300) {
+                event.preventDefault();
+            }
+            lastTouchEnd = now;
+        }, { passive: false });
+    </script>
+</body>
+</html>
