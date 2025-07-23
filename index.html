@@ -170,7 +170,7 @@
         
         .info-panel {
             position: absolute;
-            bottom: 80px;
+            bottom: 80px; /* 15pxから80pxに変更して上に移動 */
             left: 15px;
             right: 15px;
             background: rgba(255, 255, 255, 0.95);
@@ -244,7 +244,7 @@
 
         .landing-panel {
             position: absolute;
-            bottom: 80px;
+            bottom: 80px; /* 15pxから80pxに変更して上に移動 */
             left: 15px;
             right: 15px;
             background: rgba(255, 255, 255, 0.95);
@@ -349,6 +349,7 @@
                 this.isCountdownActive = false;
                 this.isPermissionGranted = false;
                 this.isMapReady = false;
+                this.isMapFullyLoaded = false; // 航空写真の完全読み込み確認用
                 this.isBallMoving = false;
                 this.ballElement = document.getElementById('ball');
                 this.compassNeedle = document.getElementById('compassNeedle');
@@ -385,38 +386,7 @@
                     start: null,
                     kick: null,
                     goal: null
-                }
-            
-            waitForMapLoad() {
-                return new Promise((resolve) => {
-                    if (!this.map) {
-                        resolve();
-                        return;
-                    }
-                    
-                    // 地図のタイル読み込み完了を待つ
-                    const checkMapLoad = () => {
-                        if (this.map.getCenter() && this.map.getZoom()) {
-                            // 少し待機してから航空写真の読み込み完了とみなす
-                            setTimeout(resolve, 1000);
-                        } else {
-                            setTimeout(checkMapLoad, 100);
-                        }
-                    };
-                    
-                    // Google Maps の idle イベントを利用
-                    if (window.google && google.maps) {
-                        google.maps.event.addListenerOnce(this.map, 'idle', () => {
-                            setTimeout(resolve, 1000); // 1秒待機
-                        });
-                        
-                        // 地図の更新をトリガー
-                        this.map.setCenter(this.ballPosition);
-                    } else {
-                        setTimeout(resolve, 2000); // フォールバック
-                    }
-                });
-            };
+                };
                 this.loadSounds();
                 
                 this.updateStatus('位置情報とデバイスセンサーの許可が必要です');
@@ -451,12 +421,6 @@
                 const startBtn = document.getElementById('startBtn');
                 if (!startBtn) {
                     console.error('Start button not found in startApp');
-                    return;
-                }
-                
-                // 既にボタンが無効化されている場合はスキップ
-                if (startBtn.disabled && startBtn.textContent.includes('許可を取得中')) {
-                    console.log('App initialization already in progress');
                     return;
                 }
                 
@@ -546,7 +510,7 @@
                     if (window.google && google.maps) {
                         this.map = new google.maps.Map(this.mapElement, {
                             center: this.currentPosition,
-                            zoom: 20, // より拡大した初期ズーム
+                            zoom: 21, // 18から21に変更（より拡大）
                             mapTypeId: google.maps.MapTypeId.SATELLITE,
                             disableDefaultUI: true,
                             gestureHandling: 'none',
@@ -554,11 +518,24 @@
                             tilt: 0
                         });
                         
+                        // 地図が完全に読み込まれるまで待機
                         google.maps.event.addListenerOnce(this.map, 'idle', () => {
                             console.log('Google Map is ready');
                             this.isMapReady = true;
                             google.maps.event.trigger(this.map, 'resize');
                             this.map.setCenter(this.currentPosition);
+                            
+                            // タイルが完全に読み込まれるまで待機
+                            setTimeout(() => {
+                                this.isMapFullyLoaded = true;
+                                console.log('Map fully loaded');
+                            }, 2000);
+                        });
+                        
+                        // タイルの読み込み完了を監視
+                        google.maps.event.addListener(this.map, 'tilesloaded', () => {
+                            console.log('Tiles loaded');
+                            this.isMapFullyLoaded = true;
                         });
                         
                         setTimeout(() => {
@@ -853,6 +830,17 @@
             startThrowWithShake() {
                 if (this.isActive || !this.isDetectingShake) return;
                 
+                // 航空写真が完全に読み込まれるまで待機
+                if (!this.isMapFullyLoaded) {
+                    this.updateStatus('地図の読み込み中です...しばらくお待ちください');
+                    setTimeout(() => {
+                        if (this.isMapFullyLoaded) {
+                            this.startThrowWithShake();
+                        }
+                    }, 1000);
+                    return;
+                }
+                
                 this.isDetectingShake = false;
                 this.isActive = true;
                 this.isBallMoving = true;
@@ -876,16 +864,10 @@
                 
                 this.ballPosition = { ...this.startPosition };
                 
-                this.updateStatus(`ボール投球準備中... 距離: ${Math.round(this.throwPower)}m`);
+                this.updateStatus(`ボール投球中... 距離: ${Math.round(this.throwPower)}m`);
                 
-                // 航空写真の読み込み完了を待つ
-                this.waitForMapLoad().then(() => {
-                    this.updateStatus('航空写真読み込み完了！ボール移動開始...');
-                    setTimeout(() => {
-                        // アニメーション開始
-                        this.animateThrow();
-                    }, 500);
-                });
+                // アニメーション開始
+                this.animateThrow();
             }
             
             clearTrails() {
@@ -908,7 +890,7 @@
             }
             
             animateThrow() {
-                if (!this.isActive || !this.isMapReady) return;
+                if (!this.isActive || !this.isMapReady || !this.isMapFullyLoaded) return;
                 
                 this.animationFrame++;
                 // ゆっくりとした移動速度（航空写真の描画に配慮）
@@ -946,9 +928,10 @@
                     try {
                         this.map.setCenter(this.ballPosition);
                         
-                        // 投球後は広域表示に変更
-                        const baseZoom = 15; // より広域な表示
-                        const zoomLevel = Math.max(10, baseZoom - progress * 3);
+                        // 高度に応じてズームレベルを調整（初期ズーム21から徐々に広域に）
+                        const baseZoom = 21;
+                        const minZoom = 12; // より広域まで引く
+                        const zoomLevel = Math.max(minZoom, baseZoom - progress * 9); // より大きく変化
                         this.map.setZoom(Math.round(zoomLevel));
                         
                         // 地図の向きを投球方向に固定
@@ -1103,7 +1086,7 @@
                 if (this.map && this.startPosition) {
                     try {
                         this.map.setCenter(this.startPosition);
-                        this.map.setZoom(20); // 初期状態の拡大ズーム
+                        this.map.setZoom(21); // 18から21に変更（より拡大）
                         this.map.setMapTypeId(google.maps.MapTypeId.SATELLITE);
                         this.map.setHeading(0);
                     } catch (e) {
@@ -1152,46 +1135,21 @@
         // ページ読み込み完了後にアプリを初期化
         document.addEventListener('DOMContentLoaded', function() {
             console.log('DOM loaded, initializing app...');
-            try {
-                app = new BallThrowMapsApp();
-                console.log('App initialized successfully:', app);
-                
-                // ボタンのイベントリスナーを設定
-                const startBtn = document.getElementById('startBtn');
-                if (startBtn) {
-                    startBtn.addEventListener('click', function() {
-                        console.log('Start button clicked');
-                        if (app && typeof app.startApp === 'function') {
-                            app.startApp();
-                        } else {
-                            console.error('App or startApp method not available');
-                        }
-                    });
-                }
-            } catch (error) {
-                console.error('App initialization failed:', error);
-            }
+            app = new BallThrowMapsApp();
+            console.log('App initialized:', app);
         });
         
-        // グローバル関数（HTMLから呼び出し用） - デバッグ用に残す
+        // グローバル関数（HTMLから呼び出し用）
         function startApp() {
             console.log('startApp called, app instance:', app);
             if (app && typeof app.startApp === 'function') {
                 app.startApp();
             } else {
                 console.error('App not initialized or startApp method not found');
-                // 緊急時の再初期化
-                try {
-                    if (!app) {
-                        app = new BallThrowMapsApp();
-                    }
-                    setTimeout(() => {
-                        if (app && app.startApp) {
-                            app.startApp();
-                        }
-                    }, 100);
-                } catch (error) {
-                    console.error('Emergency app initialization failed:', error);
+                if (!app) {
+                    app = new BallThrowMapsApp();
+                    setTimeout(() => app.startApp(), 100);
+                } else {
                     alert('アプリの初期化に失敗しました。ページを再読み込みしてください。');
                 }
             }
@@ -1203,26 +1161,12 @@
             if (startBtn) {
                 console.log('Start button found:', startBtn);
                 
-                // 既存のイベントをクリア
                 startBtn.onclick = null;
                 startBtn.removeAttribute('onclick');
                 
-                // 新しいイベントリスナーを追加
                 startBtn.addEventListener('click', function() {
                     console.log('Button clicked directly');
-                    if (app && typeof app.startApp === 'function') {
-                        app.startApp();
-                    } else {
-                        console.error('App not ready, initializing...');
-                        if (!app) {
-                            app = new BallThrowMapsApp();
-                        }
-                        setTimeout(() => {
-                            if (app.startApp) {
-                                app.startApp();
-                            }
-                        }, 100);
-                    }
+                    startApp();
                 });
                 
                 console.log('Button event listener added');
