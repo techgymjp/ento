@@ -750,18 +750,69 @@ class BallThrowJourneyApp {
         console.log('🔊 効果音準備開始');
         
         const kickAudio = this.sounds.kick;
+        // まず現在の状態をチェック
+        if (kickAudio.readyState >= 2) {
+            console.log('✅ 効果音は既に準備済み');
+            this.isAudioReady = true;
+            this.updatePreparationStatus();
+            return;
+        }
+
+        const onCanPlay = () => {
+            console.log('✅ 効果音準備完了（イベント）');
+            this.isAudioReady = true;
+            this.updatePreparationStatus();
+            cleanup();
+        };
+            const onError = (e) => {
+                console.warn('⚠️ 効果音読み込み失敗、新しいインスタンスで再試行', e);
+                // 新しいAudioインスタンスを作成
+                const newAudio = new Audio('kich.mp3');
+                newAudio.volume = 0.8;
+                newAudio.preload = 'auto';
+                this.sounds.kick = newAudio;
         
-        const checkAudioReady = () => {
-            if (kickAudio.readyState >= 2) {
-                console.log('✅ 効果音準備完了');
+                newAudio.onload = () => {
+                    console.log('✅ 新しい効果音インスタンス準備完了');
+                    this.isAudioReady = true;
+                    this.updatePreparationStatus();
+                };
+        
+                newAudio.onerror = () => {
+                    console.log('⚠️ 効果音準備失敗、フォールバックで続行');
+                    this.isAudioReady = true;
+                    this.updatePreparationStatus();
+                };
+        
+                cleanup();
+                };
+
+            const cleanup = () => {
+            kickAudio.removeEventListener('canplaythrough', onCanPlay);
+            kickAudio.removeEventListener('error', onError);
+            };
+    
+            kickAudio.addEventListener('canplaythrough', onCanPlay, { once: true });
+            kickAudio.addEventListener('error', onError, { once: true });
+    
+            try {
+                kickAudio.load();
+            } catch (e) {
+            console.warn('Audio load failed:', e);
+            onError(e);
+        }
+
+
+        // タイムアウト設定を短縮
+        setTimeout(() => {
+            if (!this.isAudioReady) {
+                console.warn('⚠️ 効果音準備タイムアウト、強制的に準備完了とする');
                 this.isAudioReady = true;
                 this.updatePreparationStatus();
-                return true;
+                cleanup();
             }
-            return false;
-        };
-        
-        if (checkAudioReady()) return;
+        }, 2000);
+    }
         
         const onCanPlay = () => {
             console.log('✅ 効果音準備完了（イベント）');
