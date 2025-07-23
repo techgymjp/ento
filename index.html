@@ -823,7 +823,10 @@
                 // Update compass needle
                 this.compassNeedle.style.transform = `rotate(${this.heading}deg)`;
                 
-            
+                // Rotate map to show throw direction at top
+                if (!this.isActive && !this.isCountdownActive && this.isMapReady) {
+                    this.mapElement.style.transform = `rotate(${-this.heading}deg)`;
+                }
                 
                 this.updateCoordinatesDisplay();
             }
