@@ -350,7 +350,6 @@
                 this.isPermissionGranted = false;
                 this.isMapReady = false;
                 this.isMapFullyLoaded = false; // 航空写真の完全読み込み確認用
-                this.isRoutePreloaded = false; // 投球ルートの事前読み込み確認用
                 this.isBallMoving = false;
                 this.ballElement = document.getElementById('ball');
                 this.compassNeedle = document.getElementById('compassNeedle');
@@ -789,9 +788,6 @@
                 
                 let newHeading = event.alpha || 0;
                 
-                // コンパスの方向を修正（東西が逆になっていたため）
-                newHeading = 360 - newHeading;
-                
                 if (newHeading < 0) newHeading += 360;
                 if (newHeading >= 360) newHeading -= 360;
                 
@@ -834,8 +830,20 @@
             startThrowWithShake() {
                 if (this.isActive || !this.isDetectingShake) return;
                 
+                // 航空写真が完全に読み込まれるまで待機
+                if (!this.isMapFullyLoaded) {
+                    this.updateStatus('地図の読み込み中です...しばらくお待ちください');
+                    setTimeout(() => {
+                        if (this.isMapFullyLoaded) {
+                            this.startThrowWithShake();
+                        }
+                    }, 1000);
+                    return;
+                }
+                
                 this.isDetectingShake = false;
                 this.ballElement.classList.add('throwing');
+                // kick.mp3はボール移動開始時に移動
                 
                 // 振りの強さに基づいて投球パワーを計算（10km最大）
                 const shakeIntensity = Math.min(this.maxAcceleration / 20, 1);
@@ -850,98 +858,19 @@
                 this.throwAngle = this.heading || 0;
                 this.ballPosition = { ...this.startPosition };
                 
-                // 投球ルートの航空写真を事前読み込み
-                this.updateStatus('投球ルートの航空写真を読み込み中...');
-                this.preloadFlightPath(() => {
-                    // 読み込み完了後にカウントダウン開始
-                    let countdown = 3;
-                    const prepInterval = setInterval(() => {
-                        countdown--;
-                        this.updateStatus(`投球準備完了！${countdown}秒後に投球開始`);
-                        
-                        if (countdown <= 0) {
-                            clearInterval(prepInterval);
-                            this.startBallMovement();
-                        }
-                    }, 1000);
-                });
-            }
-            
-            preloadFlightPath(callback) {
-                if (!this.map || !window.google || !google.maps) {
-                    if (callback) callback();
-                    return;
-                }
+                // 10秒間の準備時間
+                this.updateStatus('ボール準備中...航空写真を最適化しています');
                 
-                this.isRoutePreloaded = false;
-                
-                // 投球ルートに沿った地点を計算（10-20個の中間地点）
-                const waypoints = [];
-                const numWaypoints = 15;
-                const bearing = this.throwAngle * Math.PI / 180;
-                const earthRadius = 6371000;
-                
-                const lat1 = this.startPosition.lat * Math.PI / 180;
-                const lng1 = this.startPosition.lng * Math.PI / 180;
-                
-                for (let i = 0; i <= numWaypoints; i++) {
-                    const distance = (this.throwPower / numWaypoints) * i;
+                let countdown = 3;
+                const prepInterval = setInterval(() => {
+                    countdown--;
+                    this.updateStatus(`ボール準備中...${countdown}秒後に投球開始`);
                     
-                    const lat2 = Math.asin(
-                        Math.sin(lat1) * Math.cos(distance / earthRadius) +
-                        Math.cos(lat1) * Math.sin(distance / earthRadius) * Math.cos(bearing)
-                    );
-                    
-                    const lng2 = lng1 + Math.atan2(
-                        Math.sin(bearing) * Math.sin(distance / earthRadius) * Math.cos(lat1),
-                        Math.cos(distance / earthRadius) - Math.sin(lat1) * Math.sin(lat2)
-                    );
-                    
-                    waypoints.push({
-                        lat: lat2 * 180 / Math.PI,
-                        lng: lng2 * 180 / Math.PI
-                    });
-                }
-                
-                console.log(`Preloading ${waypoints.length} waypoints along flight path`);
-                
-                let loadedCount = 0;
-                let totalLoaded = 0;
-                
-                // 各地点の航空写真を段階的に読み込み
-                const loadWaypoint = (index) => {
-                    if (index >= waypoints.length) {
-                        this.isRoutePreloaded = true;
-                        console.log('Flight path preloading completed');
-                        if (callback) callback();
-                        return;
+                    if (countdown <= 0) {
+                        clearInterval(prepInterval);
+                        this.startBallMovement();
                     }
-                    
-                    const waypoint = waypoints[index];
-                    const progress = Math.round((index / waypoints.length) * 100);
-                    this.updateStatus(`航空写真読み込み中... ${progress}% (地点 ${index + 1}/${waypoints.length})`);
-                    
-                    // 地図の中心を移動してタイルを読み込ませる
-                    this.map.setCenter(waypoint);
-                    
-                    // 距離に応じてズームレベルを設定
-                    const distanceProgress = index / numWaypoints;
-                    const baseZoom = 21;
-                    const minZoom = 12;
-                    const zoomLevel = Math.max(minZoom, baseZoom - distanceProgress * 9);
-                    this.map.setZoom(Math.round(zoomLevel));
-                    
-                    // 投球方向に地図を向ける
-                    this.map.setHeading(this.throwAngle);
-                    
-                    // 一定時間待機してから次の地点へ
-                    setTimeout(() => {
-                        loadWaypoint(index + 1);
-                    }, 300); // 各地点300ms待機
-                };
-                
-                // 読み込み開始
-                loadWaypoint(0);
+                }, 1000);
             }
             
             startBallMovement() {
@@ -953,13 +882,6 @@
                 
                 // 画面の回転を元に戻す
                 this.mapElement.style.transform = 'rotate(0deg)';
-                
-                // 開始位置に地図を戻す
-                if (this.map) {
-                    this.map.setCenter(this.startPosition);
-                    this.map.setZoom(21);
-                    this.map.setHeading(this.throwAngle);
-                }
                 
                 this.animationFrame = 0;
                 
@@ -989,11 +911,11 @@
             }
             
             animateThrow() {
-                if (!this.isActive || !this.isMapReady) return;
+                if (!this.isActive || !this.isMapReady || !this.isMapFullyLoaded) return;
                 
                 this.animationFrame++;
-                // 事前読み込み済みなので、スムーズな移動速度
-                const progress = this.animationFrame * 0.02; // より速い移動
+                // ゆっくりとした移動速度（航空写真の描画に配慮）
+                const progress = this.animationFrame * 0.005; // 非常にゆっくり
                 
                 const currentDistance = this.throwPower * Math.min(progress, 1);
                 
@@ -1022,15 +944,15 @@
                     lng: lng2 * 180 / Math.PI
                 };
                 
-                // 地図の中心をボールの位置に更新（事前読み込み済みなのでスムーズ）
+                // 地図の中心をボールの位置に更新
                 if (this.map) {
                     try {
                         this.map.setCenter(this.ballPosition);
                         
-                        // 高度に応じてズームレベルを調整
+                        // 高度に応じてズームレベルを調整（初期ズーム21から徐々に広域に）
                         const baseZoom = 21;
-                        const minZoom = 12;
-                        const zoomLevel = Math.max(minZoom, baseZoom - progress * 9);
+                        const minZoom = 12; // より広域まで引く
+                        const zoomLevel = Math.max(minZoom, baseZoom - progress * 9); // より大きく変化
                         this.map.setZoom(Math.round(zoomLevel));
                         
                         // 地図の向きを投球方向に固定
@@ -1041,7 +963,7 @@
                 }
                 
                 // 軌跡の追加
-                if (this.animationFrame % 50 === 0) { // より頻繁に軌跡を追加
+                if (this.animationFrame % 100 === 0) {
                     const rect = this.ballElement.getBoundingClientRect();
                     this.createTrail(rect.left + rect.width/2, rect.top + rect.height/2);
                 }
@@ -1166,7 +1088,6 @@
                 this.isCountdownActive = false;
                 this.isBallMoving = false;
                 this.isDetectingShake = false;
-                this.isRoutePreloaded = false;
                 
                 // 振り検出用データをリセット
                 this.accelerationData = [];
