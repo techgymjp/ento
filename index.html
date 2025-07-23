@@ -716,13 +716,16 @@
                 
                 // iOS
                 if (event.webkitCompassHeading !== undefined) {
-                    newHeading = (360 - event.alpha + 360) % 360; // ここを修正
+                    newHeading = event.webkitCompassHeading;
                 }
                 // Android
                 else if (event.alpha !== null) {
                     newHeading = 360 - event.alpha;
-                    if (newHeading >= 360) newHeading -= 360;
-                    if (newHeading < 0) newHeading += 360;
+                    if (newHeading > 359.5 && newHeading <= 360) { // 359.5度から360度を359度とみなす
+                        newHeading = 359;
+                    } else if (newHeading >= 0 && newHeading < 0.5) { // 0度から0.5度を1度とみなす
+                        newHeading = 1;
+                    }
                 }
                 
                 this.heading = newHeading;
