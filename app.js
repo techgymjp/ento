@@ -684,7 +684,7 @@ class BallThrowJourneyApp {
         if (this.isActive || !this.isDetectingShake) return;
         
         console.log('🎯 投球準備処理開始');
-        // 重要：ここではまだボール移動を開始しない
+        // 重要：ここではまだボール移動を開始しない（状態フラグは設定しない）
         // リソース準備画面を表示（ボール移動はまだ開始しない）
         this.isDetectingShake = false;
         document.getElementById('powerMeter').style.display = 'none';
@@ -1002,6 +1002,7 @@ class BallThrowJourneyApp {
     
     // ボール移動開始（改善版）
     async startBallMovement() {
+        // ここで初めて状態フラグを設定
         this.isActive = true;
         this.isBallMoving = true;
         
@@ -1078,7 +1079,8 @@ class BallThrowJourneyApp {
     
     // Canvas描画アニメーション（改善版）
     animateCanvasThrow() {
-        if (!this.isActive || !this.ctx) {
+        // 状態チェックを追加
+        if (!this.isActive || !this.isBallMoving || !this.ctx) {
             console.log('❌ キャンバスアニメーション停止 - 状態異常');
             return;
         }
