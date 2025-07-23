@@ -854,16 +854,9 @@
                 document.getElementById('compass').textContent = this.getCompassDirection(this.heading);
                 document.getElementById('tilt').textContent = Math.round(this.tilt) + '°';
                 
-                // Compass needle logic:
-                // Map rotates by +heading degrees
-                // Needle needs to rotate by -heading degrees to compensate
-                // So needle always points UP (North) on the rotated screen
-                //
-                // North (0°): map rotates 0°, needle rotates 0° → needle points UP
-                // East (90°): map rotates 90°, needle rotates -90° → needle points UP (relative to rotated screen)
-                // South (180°): map rotates 180°, needle rotates -180° → needle points UP
-                // West (270°): map rotates 270°, needle rotates -270° → needle points UP
-                this.compassNeedle.style.transform = `rotate(${this.heading}deg)`;
+                // Compass needle points to current heading direction
+                // Map rotates +heading, needle rotates +2*heading to point to current direction
+                this.compassNeedle.style.transform = `rotate(${this.heading * 2}deg)`;
                 
                 // Rotate map so current heading direction points UP
                 if (!this.isActive && !this.isCountdownActive && this.isMapReady) {
