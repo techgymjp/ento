@@ -386,7 +386,82 @@
                     start: null,
                     kick: null,
                     goal: null
-                };
+                }
+            
+            preloadMapsAndStart() {
+                this.updateStatus('10km四方の航空写真を読み込み中...');
+                
+                // 投球方向と距離に基づいて複数地点の地図をプリロード
+                const bearing = this.throwAngle * Math.PI / 180;
+                const earthRadius = 6371000;
+                const maxDistance = this.throwPower;
+                
+                // プリロード地点を計算（開始地点から着地地点まで複数ポイント）
+                const preloadPoints = [];
+                for (let i = 0; i <= 10; i++) {
+                    const distance = (maxDistance / 10) * i;
+                    
+                    const lat1 = this.startPosition.lat * Math.PI / 180;
+                    const lng1 = this.startPosition.lng * Math.PI / 180;
+                    
+                    const lat2 = Math.asin(
+                        Math.sin(lat1) * Math.cos(distance / earthRadius) +
+                        Math.cos(lat1) * Math.sin(distance / earthRadius) * Math.cos(bearing)
+                    );
+                    
+                    const lng2 = lng1 + Math.atan2(
+                        Math.sin(bearing) * Math.sin(distance / earthRadius) * Math.cos(lat1),
+                        Math.cos(distance / earthRadius) - Math.sin(lat1) * Math.sin(lat2)
+                    );
+                    
+                    preloadPoints.push({
+                        lat: lat2 * 180 / Math.PI,
+                        lng: lng2 * 180 / Math.PI
+                    });
+                }
+                
+                // 地図のプリロードを実行
+                let loadedCount = 0;
+                const totalPoints = preloadPoints.length;
+                
+                preloadPoints.forEach((point, index) => {
+                    if (this.map) {
+                        // 各地点を順次ロード
+                        setTimeout(() => {
+                            this.map.setCenter(point);
+                            
+                            // ズームレベルも段階的に設定
+                            const baseZoom = 21;
+                            const minZoom = 12;
+                            const progress = index / totalPoints;
+                            const zoomLevel = Math.max(minZoom, baseZoom - progress * 9);
+                            this.map.setZoom(Math.round(zoomLevel));
+                            
+                            loadedCount++;
+                            this.updateStatus(`航空写真読み込み中... ${Math.round((loadedCount/totalPoints)*100)}%`);
+                            
+                            if (loadedCount >= totalPoints) {
+                                // 全ての地点のロードが完了したら開始地点に戻してボール移動開始
+                                setTimeout(() => {
+                                    this.map.setCenter(this.startPosition);
+                                    this.map.setZoom(21);
+                                    this.startBallMovement();
+                                }, 1000);
+                            }
+                        }, index * 200); // 200ms間隔で順次ロード
+                    }
+                });
+                
+                // フォールバック：10秒経っても完了しない場合は強制開始
+                setTimeout(() => {
+                    if (loadedCount < totalPoints) {
+                        console.warn('Map preload timeout, starting anyway');
+                        this.map.setCenter(this.startPosition);
+                        this.map.setZoom(21);
+                        this.startBallMovement();
+                    }
+                }, 10000);
+            };
                 this.loadSounds();
                 
                 this.updateStatus('位置情報とデバイスセンサーの許可が必要です');
@@ -811,11 +886,11 @@
                 document.getElementById('heading').textContent = Math.round(this.heading) + '°';
                 document.getElementById('tilt').textContent = Math.round(this.tilt) + '°';
                 
-                this.compassNeedle.style.transform = `rotate(${this.heading}deg)`;
+                this.compassNeedle.style.transform = `rotate(${-this.heading}deg)`;
                 
-                // 航空写真をコンパス方向に回転
+                // 航空写真をコンパス方向に回転（東西逆転修正）
                 if (!this.isActive && !this.isCountdownActive && this.isMapReady) {
-                    this.mapElement.style.transform = `rotate(${this.heading}deg)`;
+                    this.mapElement.style.transform = `rotate(${-this.heading}deg)`;
                 }
                 
                 this.updateCoordinatesDisplay();
@@ -858,17 +933,17 @@
                 this.throwAngle = this.heading || 0;
                 this.ballPosition = { ...this.startPosition };
                 
-                // 10秒間の準備時間
+                // 3秒間の準備時間
                 this.updateStatus('ボール準備中...航空写真を最適化しています');
                 
-                let countdown = 10;
+                let countdown = 3;
                 const prepInterval = setInterval(() => {
                     countdown--;
                     this.updateStatus(`ボール準備中...${countdown}秒後に投球開始`);
                     
                     if (countdown <= 0) {
                         clearInterval(prepInterval);
-                        this.startBallMovement();
+                        this.preloadMapsAndStart();
                     }
                 }, 1000);
             }
@@ -1103,8 +1178,8 @@
                 // ボールの位置を開始位置にリセット
                 this.ballPosition = { ...this.startPosition };
                 
-                // 画面の回転を復活（コンパス方向に合わせる）
-                this.mapElement.style.transform = `rotate(${this.heading}deg)`;
+                // 画面の回転を復活（コンパス方向に合わせる）（東西逆転修正）
+                this.mapElement.style.transform = `rotate(${-this.heading}deg)`;
                 
                 // 地図を開始位置に戻す
                 if (this.map && this.startPosition) {
