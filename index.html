@@ -855,16 +855,14 @@
                 document.getElementById('compass').textContent = this.getCompassDirection(this.heading);
                 document.getElementById('tilt').textContent = Math.round(this.tilt) + '°';
                 
-                // Update compass needle - fix the direction completely
-                // heading 0° = North should point UP, heading 180° = South should point DOWN
-                // Add 180 degree correction to fix the inversion
-                const correctedNeedleAngle = (this.heading + 180) % 360;
-                this.compassNeedle.style.transform = `rotate(${correctedNeedleAngle}deg)`;
+                // Compass needle logic: 
+                // Since the map rotates with device, the needle must rotate OPPOSITE to heading
+                // to always point to actual North on the screen
+                this.compassNeedle.style.transform = `rotate(${-this.heading}deg)`;
                 
-                // Rotate map so current heading direction points UP + 180 degree correction
+                // Rotate map so current heading direction points UP
                 if (!this.isActive && !this.isCountdownActive && this.isMapReady) {
-                    // Add 180 degree correction for map orientation
-                    this.mapElement.style.transform = `rotate(${this.heading + 180}deg)`;
+                    this.mapElement.style.transform = `rotate(${this.heading}deg)`;
                 }
                 
                 this.updateCoordinatesDisplay();
@@ -1308,7 +1306,7 @@
                 
                 // Reset map rotation to compass direction
                 if (this.isMapReady) {
-                    this.mapElement.style.transform = `rotate(${this.heading + 180}deg)`;
+                    this.mapElement.style.transform = `rotate(${this.heading}deg)`;
                 }
                 
                 // Reset map view
