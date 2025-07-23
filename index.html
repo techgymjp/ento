@@ -843,7 +843,7 @@
                 
                 this.isDetectingShake = false;
                 this.ballElement.classList.add('throwing');
-                this.playSound('kick');
+                // kick.mp3はボール移動開始時に移動
                 
                 // 振りの強さに基づいて投球パワーを計算（10km最大）
                 const shakeIntensity = Math.min(this.maxAcceleration / 20, 1);
@@ -858,10 +858,10 @@
                 this.throwAngle = this.heading || 0;
                 this.ballPosition = { ...this.startPosition };
                 
-                // 3秒間の準備時間
+                // 10秒間の準備時間
                 this.updateStatus('ボール準備中...航空写真を最適化しています');
                 
-                let countdown = 3;
+                let countdown = 10;
                 const prepInterval = setInterval(() => {
                     countdown--;
                     this.updateStatus(`ボール準備中...${countdown}秒後に投球開始`);
@@ -876,6 +876,9 @@
             startBallMovement() {
                 this.isActive = true;
                 this.isBallMoving = true;
+                
+                // ボール移動開始時に音を鳴らす
+                this.playSound('kick');
                 
                 // 画面の回転を元に戻す
                 this.mapElement.style.transform = 'rotate(0deg)';
@@ -1002,7 +1005,7 @@
                 this.ballElement.classList.add('landing');
                 this.playSound('goal');
                 
-                // 着地時に地図を徐々に拡大
+                // 着地時に地図を徐々に拡大（着地地点で停止）
                 if (this.map) {
                     try {
                         this.map.setCenter(landingPosition);
@@ -1025,6 +1028,9 @@
                         setTimeout(() => {
                             this.map.setHeading(0);
                         }, 1000);
+                        
+                        // 着地地点で地図を固定（元の位置に戻さない）
+                        
                     } catch (e) {
                         console.warn('Map landing update failed:', e);
                     }
