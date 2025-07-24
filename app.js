@@ -720,8 +720,8 @@ resizeCanvasForPower() {
     
     // キャンバスの表示サイズも調整（コンテナからはみ出ないよう）
     const displayScale = Math.min(1.0, baseWidth / this.canvasWidth, baseHeight / this.canvasHeight);
-    this.gameCanvas.style.width = Math.round(this.baseWidth * displayScale) + 'px';
-    this.gameCanvas.style.height = Math.round(this.baseHeight * displayScale) + 'px';
+    this.gameCanvas.style.width = Math.round(this.canvasWidth * displayScale) + 'px';
+    this.gameCanvas.style.height = Math.round(this.canvasHeight * displayScale) + 'px';
     
     // ボール位置を新しいキャンバスサイズに合わせて調整
     this.ballCanvasX = this.canvasWidth / 2;
