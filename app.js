@@ -1722,49 +1722,49 @@ document.addEventListener('DOMContentLoaded', function() {
 // Global function for button clicks
 function startApp() {
     console.log('🚀 startApp called');
+    
+    const startBtn = document.getElementById('startBtn');
+    if (!startBtn) {
+        console.error('❌ Start button not found');
+        return;
+    }
+    
+    // ボタンを無効化して重複実行を防止
+    startBtn.disabled = true;
+    startBtn.textContent = '初期化中...';
+    
+    // アプリが準備できていない場合は作成
+    if (!app) {
+        console.log('🔄 Creating app instance...');
+        app = new BallThrowJourneyApp();
+    }
+    
+    // 音声コンテキスト有効化
+    if (app && app.sounds) {
+        Object.values(app.sounds).forEach(audio => {
+            try {
+                audio.load();
+            } catch (error) {
+                console.warn('Audio load warning:', error);
+            }
+        });
+    }
+    
+    // アプリ開始
     if (app && typeof app.startApp === 'function') {
         app.startApp();
     } else {
         console.error('❌ App not ready');
-        if (!app) {
-            app = new BallThrowJourneyApp();
-            setTimeout(() => {
-                if (app.startApp) {
-                    app.startApp();
-                }
-            }, 500);
-        }
+        // エラー時はボタンを復旧
+        setTimeout(() => {
+            startBtn.disabled = false;
+            startBtn.textContent = 'センサーを有効にする';
+            alert('アプリの初期化に失敗しました。ページを再読み込みしてください。');
+        }, 2000);
     }
 }
 
-// Set up button event listener when page loads
-window.addEventListener('load', function() {
-    const startBtn = document.getElementById('startBtn');
-    if (startBtn) {
-        console.log('🎮 Setting up start button...');
-        
-        startBtn.onclick = null;
-        startBtn.removeAttribute('onclick');
-        
-        startBtn.addEventListener('click', function(e) {
-            e.preventDefault();
-            console.log('🎯 Start button clicked');
-            
-            // Enable audio context on first user interaction
-            if (app && app.sounds) {
-                Object.values(app.sounds).forEach(audio => {
-                    audio.load();
-                });
-            }
-            
-            startApp();
-        });
-        
-        console.log('✅ Start button event listener added');
-    } else {
-        console.error('❌ Start button not found');
-    }
-});
+
 
 // Prevent zoom on double tap (iOS Safari)
 document.addEventListener('touchstart', function(event) {
