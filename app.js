@@ -908,77 +908,159 @@ showDebug(message) {
     }
     
 
-    // 航空写真準備（改善版）
+    // 航空写真準備（1キロ四方版）
 async prepareAerialImages() {
-    console.log('🛰️ 航空写真準備開始');
+    console.log('🛰️ 航空写真準備開始（1キロ四方版）');
     
-    const bearing = this.throwAngle * Math.PI / 180;
-    const earthRadius = 6371000;
-    const maxDistance = this.throwPower; 
-    const imageCount = 12;
+    try {
+        // Static Maps APIのURL構築
+        const staticMapUrl = `https://maps.googleapis.com/maps/api/staticmap?` +
+            `center=${this.startPosition.lat},${this.startPosition.lng}&` +
+            `zoom=16&size=1024x1024&maptype=satellite&` +
+            `key=AIzaSyDbZWtPobAYr04A8da3OUOjtNNdjfvkbXA`;
+        
+        // 実際の航空写真を取得
+        const originalImage = await this.loadImageWithCORS(staticMapUrl);
+        
+        // 投球方向に回転
+        const rotatedImage = this.rotateImageForThrow(originalImage, this.throwAngle);
+        
+        // 1枚の画像として保存
+        this.aerialImages = [{
+            image: rotatedImage,
+            position: this.startPosition,
+            distance: 0,
+            index: 0
+        }];
+
+        // 【追加】成功時の処理
+        console.log('🎯 1キロ四方航空写真準備完了！');
+        this.isAerialImagesReady = true;
+        this.updatePreparationStatus();
+
+    } catch (error) {
+    console.warn('⚠️ Static Maps API失敗、フォールバック画像を使用:', error);
     
-    this.aerialImages = [];
+    // フォールバック：方向性のある生成画像
+    const fallbackImage = this.createDirectionalAerialImage(this.throwAngle);
     
-    // シンプルな同期処理に変更
-    for (let i = 0; i < imageCount; i++) {
-        const distance = (maxDistance / imageCount) * i;
-        
-        // 座標計算
-        const lat1 = this.startPosition.lat * Math.PI / 180;
-        const lng1 = this.startPosition.lng * Math.PI / 180;
-        
-        const lat2 = Math.asin(
-            Math.sin(lat1) * Math.cos(distance / earthRadius) +
-            Math.cos(lat1) * Math.sin(distance / earthRadius) * Math.cos(bearing)
-        );
-        
-        const lng2 = lng1 + Math.atan2(
-            Math.sin(bearing) * Math.sin(distance / earthRadius) * Math.cos(lat1),
-            Math.cos(distance / earthRadius) - Math.sin(lat1) * Math.sin(lat2)
-        );
-        
-        const position = {
-            lat: lat2 * 180 / Math.PI,
-            lng: lng2 * 180 / Math.PI
-        };
-        
-        // 画像を直接生成して配列に追加
-        const aerialImage = this.createDetailedAerialImage(i, position, distance);
-        
-        this.aerialImages.push({
-            image: aerialImage,
-            position: position,
-            distance: distance,
-            index: i
-        });
-        
-        console.log(`📸 航空写真 ${i + 1}/${imageCount} 生成完了`);
-    }
+    this.aerialImages = [{
+        image: fallbackImage,
+        position: this.startPosition,
+        distance: 0,
+        index: 0
+    }];
     
-    console.log('🎯 航空写真準備完了！');
+    console.log('🎯 フォールバック航空写真準備完了！');
     this.isAerialImagesReady = true;
     this.updatePreparationStatus();
+    }
 }
     
+    loadImageWithCORS(url) {
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => {
+            console.log('✅ Static Maps API画像読み込み成功');
+            resolve(img);
+        };
+        img.onerror = (error) => {
+            console.error('❌ Static Maps API画像読み込み失敗:', error);
+            reject(error);
+        };
+        img.src = url;
+    });
+}
 
-// シンプルな航空写真風画像を生成（回転要素完全削除）
-createDetailedAerialImage(index, position, distance) {
+
+rotateImageForThrow(originalImg, throwAngle) {
+    console.log(`🔄 画像を${throwAngle}度回転中...`);
+    
     const canvas = document.createElement('canvas');
-    canvas.width = this.canvasWidth;
-    canvas.height = this.canvasHeight;
+    const diagonal = Math.sqrt(originalImg.width * originalImg.width + originalImg.height * originalImg.height);
+    canvas.width = Math.ceil(diagonal);
+    canvas.height = Math.ceil(diagonal);
+    
+    const ctx = canvas.getContext('2d');
+    const centerX = canvas.width / 2;
+    const centerY = canvas.height / 2;
+    
+    ctx.translate(centerX, centerY);
+    ctx.rotate((throwAngle * Math.PI) / 180);
+    ctx.drawImage(originalImg, -originalImg.width / 2, -originalImg.height / 2, originalImg.width, originalImg.height);
+    ctx.resetTransform();
+    
+    const rotatedImg = new Image();
+    rotatedImg.src = canvas.toDataURL();
+    
+    console.log('✅ 画像回転完了');
+    return rotatedImg;
+}
+
+createDirectionalAerialImage(throwAngle) {
+    console.log(`🎨 方向性フォールバック画像生成（${throwAngle}度）`);
+    
+    const canvas = document.createElement('canvas');
+    canvas.width = 1024;
+    canvas.height = 1024;
     const ctx = canvas.getContext('2d');
     
-    // シンプルな地形色
-    const colors = [
-        '#3e7b3e', '#6b8e3d', '#8b4513', '#87ceeb', '#708090', '#daa520'
-    ];
-    const color = colors[index % colors.length];
+    const directionRad = (throwAngle * Math.PI) / 180;
     
-    // 単純な塗りつぶし
-    ctx.fillStyle = color;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    // 基本背景グラデーション
+    const gradient = ctx.createLinearGradient(0, 0, Math.cos(directionRad) * 1024, Math.sin(directionRad) * 1024);
+    gradient.addColorStop(0, '#2d5016');
+    gradient.addColorStop(0.3, '#4a7c3a');
+    gradient.addColorStop(0.6, '#8FBC8F');
+    gradient.addColorStop(1, '#6b8e23');
+    
+    ctx.fillStyle = gradient;
+
+    ctx.fillRect(0, 0, 1024, 1024);
+    
+    // 【追加】投球方向に沿った道路風パターン
+ctx.strokeStyle = 'rgba(139, 69, 19, 0.4)';
+ctx.lineWidth = 8;
+for (let i = 0; i < 15; i++) {
+    const offsetAngle = directionRad + (i - 7) * 0.3;  // 投球方向を基準に放射状
+    const startX = 512 + Math.cos(offsetAngle + Math.PI) * 400;  // 中心から外側へ
+    const startY = 512 + Math.sin(offsetAngle + Math.PI) * 400;
+    const endX = 512 + Math.cos(offsetAngle) * 400;
+    const endY = 512 + Math.sin(offsetAngle) * 400;
+    
+    ctx.beginPath();
+    ctx.moveTo(startX, startY);
+    ctx.lineTo(endX, endY);
+    ctx.stroke();
+}
+
+// 【追加】建物風の矩形
+ctx.fillStyle = 'rgba(128, 128, 128, 0.6)';
+for (let i = 0; i < 30; i++) {
+    const x = Math.random() * 1024;           // ランダムX座標
+    const y = Math.random() * 1024;           // ランダムY座標
+    const w = Math.random() * 50 + 20;        // 幅20-70px
+    const h = Math.random() * 50 + 20;        // 高さ20-70px
+    ctx.fillRect(x, y, w, h);
+}
+
+// 【追加】水域風の青いエリア  
+ctx.fillStyle = 'rgba(64, 164, 223, 0.3)';
+for (let i = 0; i < 5; i++) {
+    const x = Math.random() * 800 + 100;     // 中央寄りのX座標
+    const y = Math.random() * 800 + 100;     // 中央寄りのY座標
+    const radius = Math.random() * 80 + 40;  // 半径40-120px
+    
+    ctx.beginPath();
+    ctx.arc(x, y, radius, 0, 2 * Math.PI);
+    ctx.fill();
+}
+
     
     const img = new Image();
+
+
     img.src = canvas.toDataURL();
     return img;
 }
@@ -1107,7 +1189,7 @@ createDetailedAerialImage(index, position, distance) {
         }
     }
     
-    // Canvas描画アニメーション（改善版）
+    // Canvas描画アニメーション（1キロ四方版）
     animateCanvasThrow() {
         // 状態チェックを追加
         if (!this.isActive || !this.isBallMoving || !this.ctx) {
@@ -1116,17 +1198,18 @@ createDetailedAerialImage(index, position, distance) {
         }
         
         this.animationFrame++;
-        const progress = this.animationFrame * 0.002;
-        
-        if (progress >= 1 || this.backgroundOffsetY >= this.canvasHeight * 4) {
-            console.log('✅ キャンバスアニメーション完了、着地処理開始');
-            this.landBall();
-            return;
-        }
-        
+        const progress = this.animationFrame * 0.005; // スクロール速度を調整
+
+if (progress >= 1) {
+    console.log('✅ キャンバスアニメーション完了、着地処理開始');
+    this.landBall();
+
+    return;
+}
+        // 投球距離の更新
         const currentDistance = this.throwPower * progress;
         
-        // ボール位置更新
+        // ボール位置更新（実際の地理的移動）
         const bearing = this.throwAngle * Math.PI / 180;
         const earthRadius = 6371000;
         
@@ -1157,6 +1240,7 @@ createDetailedAerialImage(index, position, distance) {
             return;
         }
         
+        // 1キロ四方の背景を下方向にスクロール
         this.drawBackground(currentDistance, progress);
         this.drawCanvasBall(progress);
         
@@ -1172,48 +1256,50 @@ createDetailedAerialImage(index, position, distance) {
     }
     
 
-// 背景描画（12枚画像回転なし版）
+// 修正後（完全版）
 drawBackground(currentDistance, progress) {
-    if (!this.ctx) return;
+    if (!this.ctx || !this.aerialImages.length || !this.aerialImages[0].image) return;
     
     try {
-        // 【重要】Canvas変換を完全にリセット
         this.ctx.save();
         this.ctx.setTransform(1, 0, 0, 1, 0, 0);
         
-        // 進行度に応じたY座標オフセット
-        const totalHeight = this.canvasHeight * 12;
-        const currentY = -totalHeight + (progress * totalHeight);
+        const aerialImage = this.aerialImages[0].image;
         
-        // 12枚の画像を縦に描画（回転なし）
-        for (let i = 0; i < this.aerialImages.length; i++) {
-            const aerialData = this.aerialImages[i];
-            
-            if (aerialData && aerialData.image && aerialData.image.complete) {
-                const imgWidth = this.canvasWidth;
-                const imgHeight = this.canvasHeight;
-                const imgX = 0;
-                const imgY = currentY + (i * imgHeight);
-                
-                // 画面内にある画像のみ描画
-                if (imgY > -imgHeight && imgY < this.canvasHeight) {
-                    this.ctx.drawImage(
-                        aerialData.image,
-                        imgX, imgY,
-                        imgWidth, imgHeight
-                    );
-                }
-            }
-        }
-        
-        // 【重要】変換状態を復元
-        this.ctx.restore();
-        
-        this.showDebug(`📸 直列描画: progress=${Math.round(progress*100)}%, Y=${Math.round(currentY)}`);
+        // 画像読み込み状態チェック
+
+        // 修正後
+if (!aerialImage.complete || aerialImage.naturalWidth === 0) {
+    this.showDebug('⚠️ 航空写真未読み込み、フォールバック描画');
+    this.drawFallbackBackground();
+    this.ctx.restore();
+    return;  
+}
+
+// 【追加】投球進行度に応じたスクロールオフセット計算
+const maxScroll = aerialImage.height - this.canvasHeight;
+const scrollY = progress * maxScroll;
+
+// 【追加】画像サイズをキャンバスに合わせて調整
+const scale = Math.max(
+    this.canvasWidth / aerialImage.width,
+    this.canvasHeight / aerialImage.height
+);
+
+// 【追加】実際の描画処理
+this.ctx.drawImage(aerialImage, offsetX, offsetY, scaledWidth, scaledHeight);
+
+// 【追加】進行度表示
+this.ctx.fillText(`投球進行度: ${Math.round(progress * 100)}%`, ...);
+
+this.ctx.restore();
+
+
         
     } catch (error) {
-        this.showDebug(`❌ 描画エラー: ${error.message}`);
+        this.showDebug(`❌ 背景描画エラー: ${error.message}`);
         this.drawFallbackBackground();
+        this.ctx.restore();
     }
 }
     
@@ -1531,10 +1617,11 @@ drawBackground(currentDistance, progress) {
         this.maxAcceleration = 0;
         this.totalDistance = 0;
         
+        // 修正後
         this.backgroundOffsetY = 0;
-        this.aerialImages = [];
+        
 
-        // 修正: リセット時に準備状態もリセット（追加）
+       // 修正: リセット時に準備状態もリセット
         this.isAudioReady = false;
         this.isAerialImagesReady = false;
         this.isBallImageReady = false;
@@ -1554,11 +1641,12 @@ drawBackground(currentDistance, progress) {
         document.getElementById('powerMeter').style.display = 'none';
         document.getElementById('powerFill').style.height = '0%';
         
+        // 航空写真データもクリア
         this.clearTrails();
         
         this.ballPosition = { ...this.startPosition };
 
-        // ボール画像を再読み込み（リセット時）（新しい位置に追加）
+        // ボール画像を再読み込み（リセット時）
         this.loadBallImage();
         
         if (this.isMapReady) {
