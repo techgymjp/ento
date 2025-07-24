@@ -1204,18 +1204,20 @@ createDetailedAerialImage(index, position, distance) {
     }
     
 
- 
-
-// 背景描画（シンプル直列版）
+// 背景描画（12枚画像回転なし版）
 drawBackground(currentDistance, progress) {
     if (!this.ctx) return;
     
     try {
-        // 進行度に応じたY座標オフセット
-        const totalHeight = this.canvasHeight * 12; // 12枚分の高さ
-        const currentY = -totalHeight + (progress * totalHeight); // -12倍から0まで移動
+        // 【重要】Canvas変換を完全にリセット
+        this.ctx.save();
+        this.ctx.setTransform(1, 0, 0, 1, 0, 0);
         
-        // 12枚の画像を縦に描画
+        // 進行度に応じたY座標オフセット
+        const totalHeight = this.canvasHeight * 12;
+        const currentY = -totalHeight + (progress * totalHeight);
+        
+        // 12枚の画像を縦に描画（回転なし）
         for (let i = 0; i < this.aerialImages.length; i++) {
             const aerialData = this.aerialImages[i];
             
@@ -1223,9 +1225,9 @@ drawBackground(currentDistance, progress) {
                 const imgWidth = this.canvasWidth;
                 const imgHeight = this.canvasHeight;
                 const imgX = 0;
-                const imgY = currentY + (i * imgHeight); // i番目の画像位置
+                const imgY = currentY + (i * imgHeight);
                 
-                // 画面内にある画像のみ描画（最適化）
+                // 画面内にある画像のみ描画
                 if (imgY > -imgHeight && imgY < this.canvasHeight) {
                     this.ctx.drawImage(
                         aerialData.image,
@@ -1235,6 +1237,9 @@ drawBackground(currentDistance, progress) {
                 }
             }
         }
+        
+        // 【重要】変換状態を復元
+        this.ctx.restore();
         
         this.showDebug(`📸 直列描画: progress=${Math.round(progress*100)}%, Y=${Math.round(currentY)}`);
         
