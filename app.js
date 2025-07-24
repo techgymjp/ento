@@ -22,7 +22,7 @@ class BallThrowJourneyApp {
         // Audio elements
         this.sounds = {
             start: new Audio('start.mp3'),
-            kick: new Audio('kich.mp3'),
+            kick: new Audio('kick.mp3'),
             goal: new Audio('goal.mp3')
         };
         
@@ -767,7 +767,7 @@ class BallThrowJourneyApp {
             const onError = (e) => {
                 console.warn('⚠️ 効果音読み込み失敗、新しいインスタンスで再試行', e);
                 // 新しいAudioインスタンスを作成
-                const newAudio = new Audio('kich.mp3');
+                const newAudio = new Audio('kick.mp3');
                 newAudio.volume = 0.8;
                 newAudio.preload = 'auto';
                 this.sounds.kick = newAudio;
@@ -1149,7 +1149,7 @@ async prepareAerialImages() {
         console.log('🔄 フォールバック音声再生を試行');
         
         try {
-            const fallbackAudio = new Audio('kich.mp3');
+            const fallbackAudio = new Audio('kick.mp3');
             fallbackAudio.volume = 1.0;
             fallbackAudio.play()
                 .then(() => console.log('✅ フォールバック音声再生成功'))
