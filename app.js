@@ -1256,7 +1256,7 @@ if (progress >= 1) {
     }
     
 
-// 修正後（完全版）
+// 修正版 drawBackground メソッド
 drawBackground(currentDistance, progress) {
     if (!this.ctx || !this.aerialImages.length || !this.aerialImages[0].image) return;
     
@@ -1267,13 +1267,59 @@ drawBackground(currentDistance, progress) {
         const aerialImage = this.aerialImages[0].image;
         
         // 画像読み込み状態チェック
+        if (!aerialImage.complete || aerialImage.naturalWidth === 0) {
+            this.showDebug('⚠️ 航空写真未読み込み、フォールバック描画');
+            this.drawFallbackBackground();
+            this.ctx.restore();
+            return;  
+        }
 
-        // 修正後
-if (!aerialImage.complete || aerialImage.naturalWidth === 0) {
-    this.showDebug('⚠️ 航空写真未読み込み、フォールバック描画');
-    this.drawFallbackBackground();
-    this.ctx.restore();
-    return;  
+        // 投球進行度に応じたスクロールオフセット計算
+        const maxScroll = Math.max(0, aerialImage.height - this.canvasHeight);
+        const scrollY = progress * maxScroll;
+
+        // 画像サイズをキャンバスに合わせて調整
+        const scale = Math.max(
+            this.canvasWidth / aerialImage.width,
+            this.canvasHeight / aerialImage.height
+        );
+
+        const scaledWidth = aerialImage.width * scale;
+        const scaledHeight = aerialImage.height * scale;
+        
+        // 中央寄せのためのオフセット計算
+        const offsetX = (this.canvasWidth - scaledWidth) / 2;
+        const offsetY = -scrollY; // スクロール効果
+
+        // 実際の描画処理
+        this.ctx.drawImage(
+            aerialImage, 
+            offsetX, 
+            offsetY, 
+            scaledWidth, 
+            scaledHeight
+        );
+
+        // 進行度表示（オプション）
+        this.ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+        this.ctx.font = '16px Arial';
+        this.ctx.textAlign = 'center';
+        this.ctx.fillText(
+            `投球進行度: ${Math.round(progress * 100)}%`, 
+            this.canvasWidth / 2, 
+            30
+        );
+
+        // デバッグ情報
+        this.showDebug(`背景描画成功 - 進行度: ${Math.round(progress * 100)}%, スクロール: ${Math.round(scrollY)}px`);
+
+        this.ctx.restore();
+        
+    } catch (error) {
+        this.showDebug(`❌ 背景描画エラー: ${error.message}`);
+        this.drawFallbackBackground();
+        this.ctx.restore();
+    }
 }
 
 // 【追加】投球進行度に応じたスクロールオフセット計算
