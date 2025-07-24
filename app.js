@@ -1234,8 +1234,8 @@ createDetailedAerialImage(index, position, distance) {
                 const scrollProgress = (progress * 2) % 1;
                 const scrollOffset = scrollProgress * this.canvasHeight;
                 
-                const imgWidth = this.canvasWidth * 1.5;
-                const imgHeight = this.canvasHeight * 1.5;
+                const imgWidth = this.canvasWidth * 3;
+                const imgHeight = this.canvasHeight * 3;
                 const imgX = (this.canvasWidth - imgWidth) / 2;
                 
                 const imgY1 = scrollOffset;
