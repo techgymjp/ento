@@ -84,6 +84,53 @@
         </div>
     </div>
 
+    <script>
+        // デバッグ用: ボタンクリック確認
+        function startApp() {
+            console.log('🎯 startApp function called');
+            alert('startApp関数が呼ばれました！'); // デバッグ用アラート
+            
+            if (typeof app !== 'undefined' && app && typeof app.startApp === 'function') {
+                console.log('✅ App instance found, calling startApp');
+                app.startApp();
+            } else {
+                console.error('❌ App instance not ready');
+                alert('App instance not ready'); // デバッグ用
+                
+                // フォールバック: 新しいインスタンスを作成
+                if (typeof BallThrowJourneyApp !== 'undefined') {
+                    console.log('🔄 Creating new app instance');
+                    window.app = new BallThrowJourneyApp();
+                    setTimeout(() => {
+                        if (window.app && window.app.startApp) {
+                            window.app.startApp();
+                        }
+                    }, 1000);
+                } else {
+                    alert('BallThrowJourneyApp class not found!');
+                }
+            }
+        }
+        
+        // ページ読み込み確認
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('🚀 DOM loaded');
+            
+            const startBtn = document.getElementById('startBtn');
+            if (startBtn) {
+                console.log('✅ Start button found');
+                
+                // 追加のイベントリスナーも設定
+                startBtn.addEventListener('click', function(e) {
+                    console.log('📱 Button clicked via addEventListener');
+                });
+                
+            } else {
+                console.error('❌ Start button not found');
+                alert('Start button not found!');
+            }
+        });
+    </script>
     <script src="app.js"></script>
 </body>
 </html>
