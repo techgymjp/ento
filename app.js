@@ -63,7 +63,7 @@ class BallThrowJourneyApp {
         // Shake detection
         this.accelerationData = [];
         this.maxAcceleration = 0;
-        this.shakeThreshold = 12;
+        this.shakeThreshold = 24;
         this.totalDistance = 0;
         
         // Animation
