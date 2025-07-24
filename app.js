@@ -1014,6 +1014,39 @@ showDetailedError(context, error) {
             this.preparationOverlay = null;
         }
     }
+
+    // 【重要修正】投球パワーに応じたズームレベルと画像サイズを計算
+calculateOptimalImageParams() {
+    const powerMeters = this.throwPower;
+    this.showDebug(`🎯 投球パワー: ${powerMeters}m`);
+    
+    let zoom, imageSize;
+    
+    // パワーに応じて適切なズームレベルを設定
+    if (powerMeters <= 200) {
+        zoom = 17;  // 近距離用：建物詳細レベル
+        imageSize = 512;
+    } else if (powerMeters <= 500) {
+        zoom = 16;  // 中距離用：街区レベル
+        imageSize = 768;
+    } else if (powerMeters <= 1000) {
+        zoom = 15;  // 長距離用：地区レベル
+        imageSize = 1024;
+    } else if (powerMeters <= 2000) {
+        zoom = 14;  // 超長距離用：市区レベル
+        imageSize = 1536;
+    } else {
+        zoom = 13;  // 極長距離用：広域レベル
+        imageSize = 2048;
+    }
+    
+    this.showDebug(`📐 選択パラメータ: zoom=${zoom}, imageSize=${imageSize}px`);
+    
+    return { zoom, imageSize };
+}
+
+
+
     
 
 // 航空写真準備エラー詳細調査版（prepareAerialImagesメソッドを置き換え）
@@ -1027,12 +1060,16 @@ async prepareAerialImages() {
         this.showDebug(`📍 位置: ${this.startPosition.lat.toFixed(6)}, ${this.startPosition.lng.toFixed(6)}`);
         this.showDebug(`🧭 投球角度: ${this.throwAngle}度`);
         
+        // 【重要】投球パワーに応じて最適なパラメータを計算
+        const { zoom, imageSize } = this.calculateOptimalImageParams();
+
         // 地理院地図の航空写真を使用
         const aerialImage = await this.createGSIAerialImage(
             this.startPosition.lat, 
             this.startPosition.lng, 
-            16, // ズームレベル
-            1024 // 画像サイズ
+            zoom,     // ← 動的な値
+            imageSize // ← 動的な値
+            
         );
         
         this.showDebug(`✅ 地理院地図航空写真取得成功: ${aerialImage.naturalWidth}x${aerialImage.naturalHeight}`);
@@ -1068,6 +1105,8 @@ async prepareAerialImages() {
             position: this.startPosition,
             distance: 0,
             index: 0
+            zoom: zoom,
+            imageSize: imageSize
         }];
 
         this.showDebug('✅ 地理院地図航空写真準備完了！');
@@ -1350,6 +1389,43 @@ for (let i = 0; i < 5; i++) {
     return img;
 }
     
+// 基本フォールバック画像生成
+createBasicFallbackImage() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 1024;
+    canvas.height = 1024;
+    const ctx = canvas.getContext('2d');
+    
+    // シンプルな緑色の背景
+    ctx.fillStyle = '#228B22';
+    ctx.fillRect(0, 0, 1024, 1024);
+    
+    // 格子パターン
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+    ctx.lineWidth = 2;
+    for (let i = 0; i <= 1024; i += 64) {
+        ctx.beginPath();
+        ctx.moveTo(i, 0);
+        ctx.lineTo(i, 1024);
+        ctx.stroke();
+        
+        ctx.beginPath();
+        ctx.moveTo(0, i);
+        ctx.lineTo(1024, i);
+        ctx.stroke();
+    }
+    
+    // 中央にメッセージ
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+    ctx.font = 'bold 48px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText('フォールバック画像', 512, 512);
+    
+    const img = new Image();
+    img.src = canvas.toDataURL();
+    return img;
+}
+
 
  // 【強化版】startBallMovement
 async startBallMovement() {
