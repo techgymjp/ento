@@ -867,17 +867,16 @@ async prepareAerialImages() {
     
     const bearing = this.throwAngle * Math.PI / 180;
     const earthRadius = 6371000;
-    const maxDistance = 1000;
-    const imageCount = 8;
+    const maxDistance = this.throwPower; 
+    const imageCount = 12;
     
     this.aerialImages = [];
     
-    // まず全ての画像を同期的に生成
-    const imagePromises = [];
-    
+    // シンプルな同期処理に変更
     for (let i = 0; i < imageCount; i++) {
         const distance = (maxDistance / imageCount) * i;
         
+        // 座標計算
         const lat1 = this.startPosition.lat * Math.PI / 180;
         const lng1 = this.startPosition.lng * Math.PI / 180;
         
@@ -896,146 +895,100 @@ async prepareAerialImages() {
             lng: lng2 * 180 / Math.PI
         };
         
-        // 画像生成を Promise として作成
-        const imagePromise = new Promise((resolve) => {
-            try {
-                const aerialImage = this.createFallbackAerialImage(i, position);
-                
-                // 画像の読み込み完了を待つ
-                if (aerialImage.complete) {
-                    resolve({
-                        image: aerialImage,
-                        position: position,
-                        distance: distance,
-                        isFallback: true
-                    });
-                } else {
-                    aerialImage.onload = () => {
-                        resolve({
-                            image: aerialImage,
-                            position: position,
-                            distance: distance,
-                            isFallback: true
-                        });
-                    };
-                    aerialImage.onerror = () => {
-                        // エラー時はフォールバック画像を作成
-                        const fallbackImage = this.createFallbackAerialImage(i, position);
-                        resolve({
-                            image: fallbackImage,
-                            position: position,
-                            distance: distance,
-                            isFallback: true
-                        });
-                    };
-                }
-            } catch (error) {
-                console.error(`❌ 航空写真 ${i + 1} 生成失敗:`, error);
-                const basicImage = this.createBasicFallbackImage();
-                resolve({
-                    image: basicImage,
-                    position: position,
-                    distance: distance,
-                    isFallback: true
-                });
-            }
+        // 画像を直接生成して配列に追加
+        const aerialImage = this.createDetailedAerialImage(i, position, distance);
+        
+        this.aerialImages.push({
+            image: aerialImage,
+            position: position,
+            distance: distance,
+            index: i
         });
         
-        imagePromises.push(imagePromise);
+        console.log(`📸 航空写真 ${i + 1}/${imageCount} 生成完了`);
     }
     
-    // すべての画像の準備完了を待つ
-    try {
-        this.aerialImages = await Promise.all(imagePromises);
-        console.log(`🎯 航空写真準備完了！画像数: ${this.aerialImages.length}`);
-    } catch (error) {
-        console.error('❌ 航空写真準備中にエラー:', error);
-        // エラー時は基本的なフォールバック画像で埋める
-        this.aerialImages = Array.from({ length: imageCount }, (_, i) => ({
-            image: this.createBasicFallbackImage(),
-            position: { lat: 0, lng: 0 },
-            distance: i * 125,
-            isFallback: true
-        }));
-    }
-    
+    console.log('🎯 航空写真準備完了！');
     this.isAerialImagesReady = true;
     this.updatePreparationStatus();
 }
     
-         
-    // より詳細な航空写真風画像を生成
-    createDetailedAerialImage(index, position) {
-        return this.createFallbackAerialImage(index, position);
-    }
-    
-    // フォールバック航空写真生成
-    createFallbackAerialImage(index, position) {
+
+// より詳細な航空写真風画像を生成（完全修正版）
+    createDetailedAerialImage(index, position, distance) {
         const canvas = document.createElement('canvas');
-        canvas.width = this.canvasWidth * 2;
-        canvas.height = this.canvasHeight * 2;
+        canvas.width = this.canvasWidth * 3; // より大きなサイズで生成
+        canvas.height = this.canvasHeight * 3;
         const ctx = canvas.getContext('2d');
-        
-        const landscapes = [
-            { colors: ['#4CAF50', '#2E7D32'], name: '森林' },
-            { colors: ['#81C784', '#388E3C'], name: '草原' },
-            { colors: ['#A5D6A7', '#4CAF50'], name: '公園' },
-            { colors: ['#FFEB3B', '#FBC02D'], name: '砂浜' },
-            { colors: ['#607D8B', '#455A64'], name: '市街地' },
-            { colors: ['#795548', '#5D4037'], name: '山地' },
-            { colors: ['#2196F3', '#1565C0'], name: '水域' },
-            { colors: ['#FF9800', '#F57C00'], name: '農地' }
+    
+    // 距離に応じた地形パターンを決定
+        const terrainTypes = [
+            { colors: ['#4CAF50', '#2E7D32'], name: '森林地帯', pattern: 'forest' },
+            { colors: ['#81C784', '#388E3C'], name: '草原地帯', pattern: 'grass' },
+            { colors: ['#A5D6A7', '#4CAF50'], name: '公園エリア', pattern: 'park' },
+            { colors: ['#FFEB3B', '#FBC02D'], name: '開発地区', pattern: 'urban' },
+            { colors: ['#607D8B', '#455A64'], name: '市街地', pattern: 'city' },
+            { colors: ['#795548', '#5D4037'], name: '丘陵地帯', pattern: 'hills' },
+            { colors: ['#2196F3', '#1565C0'], name: '河川エリア', pattern: 'water' },
+            { colors: ['#FF9800', '#F57C00'], name: '農業地区', pattern: 'farm' }
         ];
-        
-        const landscape = landscapes[index % landscapes.length];
-        
-        const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
-        gradient.addColorStop(0, landscape.colors[0]);
-        gradient.addColorStop(1, landscape.colors[1]);
-        
+    
+        const terrain = terrainTypes[index % terrainTypes.length];  // ← terrain変数
+    
+    // 背景グラデーション（修正）
+        const gradient = ctx.createRadialGradient(
+            canvas.width / 2, canvas.height / 2, 0,
+            canvas.width / 2, canvas.height / 2, canvas.width / 2
+        );
+        gradient.addColorStop(0, terrain.colors[0]);  // ← 修正: terrain.colors
+        gradient.addColorStop(1, terrain.colors[1]);  // ← 修正: terrain.colors
+    
         ctx.fillStyle = gradient;
         ctx.fillRect(0, 0, canvas.width, canvas.height);
-        
-        // パターン追加
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
-        for (let i = 0; i < 100; i++) {
-            const x = Math.random() * canvas.width;
-            const y = Math.random() * canvas.height;
-            const size = Math.random() * 8 + 2;
-            ctx.fillRect(x, y, size, size);
-        }
-        
-        // グリッドパターン
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
-        ctx.lineWidth = 2;
-        const gridSize = 100;
-        for (let x = 0; x < canvas.width; x += gridSize) {
-            ctx.beginPath();
-            ctx.moveTo(x, 0);
-            ctx.lineTo(x, canvas.height);
-            ctx.stroke();
-        }
-        for (let y = 0; y < canvas.height; y += gridSize) {
-            ctx.beginPath();
-            ctx.moveTo(0, y);
-            ctx.lineTo(canvas.width, y);
-            ctx.stroke();
-        }
-        
-        // テキスト情報
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
-        ctx.font = 'bold 24px Arial';
-        ctx.textAlign = 'center';
-        ctx.fillText(`${landscape.name} 区間`, canvas.width / 2, canvas.height / 2 - 30);
-        
-        ctx.font = '18px Arial';
-        ctx.fillText(`距離: ${Math.round(index * 125)}m`, canvas.width / 2, canvas.height / 2);
-        ctx.fillText(`座標: ${position.lat.toFixed(4)}, ${position.lng.toFixed(4)}`, canvas.width / 2, canvas.height / 2 + 30);
-        
-        const img = new Image();
-        img.src = canvas.toDataURL();
-        return img;
+    
+    // パターン追加
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+    for (let i = 0; i < 100; i++) {
+        const x = Math.random() * canvas.width;
+        const y = Math.random() * canvas.height;
+        const size = Math.random() * 8 + 2;
+        ctx.fillRect(x, y, size, size);
     }
+    
+    // グリッドパターン
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+    ctx.lineWidth = 2;
+    const gridSize = 100;
+    for (let x = 0; x < canvas.width; x += gridSize) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, canvas.height);
+        ctx.stroke();
+    }
+    for (let y = 0; y < canvas.height; y += gridSize) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(canvas.width, y);
+        ctx.stroke();
+    }
+    
+    // 情報テキストオーバーレイ
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+    ctx.fillRect(10, 10, canvas.width - 20, 120);
+    
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 28px Arial';
+    ctx.textAlign = 'left';
+    ctx.fillText(`${terrain.name}`, 30, 50);  // ← 修正: terrain.name
+    
+    ctx.font = '22px Arial';
+    ctx.fillText(`距離: ${Math.round(distance)}m`, 30, 80);  // ← 修正: distance
+    ctx.fillText(`座標: ${position.lat.toFixed(5)}, ${position.lng.toFixed(5)}`, 30, 110);
+    
+    const img = new Image();
+    img.src = canvas.toDataURL();
+    return img;
+}
     
     // 基本フォールバック画像
     createBasicFallbackImage() {
@@ -1211,7 +1164,7 @@ async prepareAerialImages() {
             return;
         }
         
-        this.drawBackground(currentDistance);
+        this.drawBackground(currentDistance, progress);
         this.drawCanvasBall(progress);
         
         // 距離表示更新
@@ -1226,49 +1179,75 @@ async prepareAerialImages() {
     }
     
     // 背景描画（改善版）
-    drawBackground(currentDistance) {
-        if (!this.ctx) return;
+    // 背景描画（修正版）
+    drawBackground(currentDistance, progress) {
+    if (!this.ctx) return;
+    
+    try {
+        const imageIndex = Math.min(
+            Math.floor((currentDistance / this.throwPower) * this.aerialImages.length),
+            this.aerialImages.length - 1
+        );
         
-        try {
-            const imageIndex = Math.min(
-                Math.floor((currentDistance / 1000) * this.aerialImages.length),
-                this.aerialImages.length - 1
-            );
+        // 【修正1】プログレスベースのスクロール
+        const scrollProgress = (progress * 2) % 1; // 0-1の範囲でループ
+        const scrollOffset = scrollProgress * this.canvasHeight;
+        
+        if (this.aerialImages.length > 0 && this.aerialImages[imageIndex]) {
+            const aerialData = this.aerialImages[imageIndex];
             
-            const speedFactor = Math.min(this.maxAcceleration / 15, 3);
-            this.backgroundOffsetY += speedFactor * 2;
-            
-            if (this.aerialImages.length > 0 && this.aerialImages[imageIndex]) {
-                const aerialData = this.aerialImages[imageIndex];
+            try {
+                const imgWidth = this.canvasWidth * 2.5;
+                const imgHeight = this.canvasHeight * 2.5;
+                const imgX = (this.canvasWidth - imgWidth) / 2;
                 
-                try {
-                    const imgWidth = this.canvasWidth * 2;
-                    const imgHeight = this.canvasHeight * 2;
-                    const imgX = -this.canvasWidth / 2;
-                    const imgY = -this.canvasHeight / 2 + this.backgroundOffsetY;
-                    
-                    this.ctx.drawImage(
-                        aerialData.image,
-                        imgX, imgY,
-                        imgWidth, imgHeight
-                    );
-                    
-                    console.log(`🖼️ 航空写真描画成功 ${imageIndex + 1}/${this.aerialImages.length} (距離: ${Math.round(currentDistance)}m)`);
-                    
-                } catch (error) {
-                    console.error('❌ 航空写真描画エラー:', error);
-                    this.drawFallbackBackground();
+                // 【修正2】シームレススクロール - メイン画像
+                const imgY1 = -scrollOffset;
+                this.ctx.drawImage(
+                    aerialData.image,
+                    imgX, imgY1,
+                    imgWidth, imgHeight
+                );
+                
+                // 【修正3】シームレススクロール - 上の画像
+                const imgY2 = imgY1 - imgHeight;
+                this.ctx.drawImage(
+                    aerialData.image,
+                    imgX, imgY2,
+                    imgWidth, imgHeight
+                );
+                
+                // 【修正4】次の画像とのブレンド効果
+                const nextIndex = Math.min(imageIndex + 1, this.aerialImages.length - 1);
+                if (nextIndex !== imageIndex && this.aerialImages[nextIndex]) {
+                    const blendFactor = (progress * this.aerialImages.length) % 1;
+                    if (blendFactor > 0.7) { // 画像切り替え時のみブレンド
+                        this.ctx.globalAlpha = (blendFactor - 0.7) / 0.3;
+                        this.ctx.drawImage(
+                            this.aerialImages[nextIndex].image,
+                            imgX, imgY1,
+                            imgWidth, imgHeight
+                        );
+                        this.ctx.globalAlpha = 1.0;
+                    }
                 }
-            } else {
-                console.warn('⚠️ 航空写真が利用できません、フォールバック背景を描画');
+                
+                console.log(`🖼️ 航空写真描画成功 ${imageIndex + 1}/${this.aerialImages.length} (進行: ${Math.round(progress * 100)}%)`);
+                
+            } catch (error) {
+                console.error('❌ 航空写真描画エラー:', error);
                 this.drawFallbackBackground();
             }
-            
-        } catch (error) {
-            console.error('❌ 背景描画全般エラー:', error);
+        } else {
+            console.warn('⚠️ 航空写真が利用できません、フォールバック背景を描画');
             this.drawFallbackBackground();
         }
+        
+    } catch (error) {
+        console.error('❌ 背景描画全般エラー:', error);
+        this.drawFallbackBackground();
     }
+}
     
     // Canvas上でのボール描画（改善版）
     drawCanvasBall(progress) {
