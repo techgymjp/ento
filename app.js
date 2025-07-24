@@ -1290,7 +1290,7 @@ const scale = Math.max(
 this.ctx.drawImage(aerialImage, offsetX, offsetY, scaledWidth, scaledHeight);
 
 // 【追加】進行度表示
-this.ctx.fillText(`投球進行度: ${Math.round(progress * 100)}%`, ...);
+this.ctx.fillText(`投球進行度: ${Math.round(progress * 100)}%`, this.canvasWidth / 2, 30);
 
 this.ctx.restore();
 
@@ -1712,14 +1712,8 @@ this.ctx.restore();
 // Global app instance
 let app = null;
 
-// Initialize app when DOM is ready
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('🚀 DOM loaded, creating app instance...');
-    app = new BallThrowJourneyApp();
-    console.log('✅ App instance created:', app);
-});
 
-// Global function for button clicks
+// グローバル関数として startApp を定義
 function startApp() {
     console.log('🚀 startApp called');
     
@@ -1729,55 +1723,38 @@ function startApp() {
         return;
     }
     
-    // ボタンを無効化して重複実行を防止
+
+    // 重複実行防止
+    if (startBtn.disabled) {
+        console.log('⚠️ Button already disabled');
+        return;
+    }
+
     startBtn.disabled = true;
     startBtn.textContent = '初期化中...';
-    
-    // アプリが準備できていない場合は作成
+
+    // アプリインスタンス作成
     if (!app) {
-        console.log('🔄 Creating app instance...');
         app = new BallThrowJourneyApp();
     }
     
-    // 音声コンテキスト有効化
-    if (app && app.sounds) {
-        Object.values(app.sounds).forEach(audio => {
-            try {
-                audio.load();
-            } catch (error) {
-                console.warn('Audio load warning:', error);
-            }
-        });
-    }
-    
+    // 音声準備
+    Object.values(app.sounds).forEach(audio => {
+        try { audio.load(); } catch (e) { console.warn('Audio load failed'); }
+    });
+
     // アプリ開始
-    if (app && typeof app.startApp === 'function') {
-        app.startApp();
-    } else {
-        console.error('❌ App not ready');
-        // エラー時はボタンを復旧
-        setTimeout(() => {
-            startBtn.disabled = false;
-            startBtn.textContent = 'センサーを有効にする';
-            alert('アプリの初期化に失敗しました。ページを再読み込みしてください。');
-        }, 2000);
-    }
+    app.startApp();
 }
 
 
-
-// Prevent zoom on double tap (iOS Safari)
-document.addEventListener('touchstart', function(event) {
-    if (event.touches.length > 1) {
-        event.preventDefault();
+// DOM読み込み完了時の処理
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('🚀 DOM loaded');
+    
+    // HTMLにonclick属性がない場合は、ここでイベントリスナーを設定
+    const startBtn = document.getElementById('startBtn');
+    if (startBtn) {
+        startBtn.addEventListener('click', startApp);
     }
-}, { passive: false });
-
-let lastTouchEnd = 0;
-document.addEventListener('touchend', function(event) {
-    const now = (new Date()).getTime();
-    if (now - lastTouchEnd <= 300) {
-        event.preventDefault();
-    }
-    lastTouchEnd = now;
-}, { passive: false });
+});
