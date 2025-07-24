@@ -691,22 +691,22 @@ resizeCanvasForPower() {
     const baseHeight = container.clientHeight;
     
     // 【新機能】投球パワーに応じてキャンバスサイズを動的計算
-    let sizeMultiplier = 1.0;
+    let sizeMultiplier = 2.0;
     
     if (this.throwPower <= 200) {
         sizeMultiplier = 2.0;  // 近距離：小さめキャンバス
         this.showDebug('📏 近距離投球 - キャンバス80%サイズ');
     } else if (this.throwPower <= 500) {
-        sizeMultiplier = 2.0;  // 中距離：標準サイズ
+        sizeMultiplier = 3.0;  // 中距離：標準サイズ
         this.showDebug('📏 中距離投球 - キャンバス標準サイズ');
     } else if (this.throwPower <= 1000) {
-        sizeMultiplier = 2.0;  // 長距離：大きめキャンバス
+        sizeMultiplier = 4.0;  // 長距離：大きめキャンバス
         this.showDebug('📏 長距離投球 - キャンバス130%サイズ');
     } else if (this.throwPower <= 2000) {
-        sizeMultiplier = 2.0;  // 超長距離：かなり大きめ
+        sizeMultiplier = 5.0;  // 超長距離：かなり大きめ
         this.showDebug('📏 超長距離投球 - キャンバス160%サイズ');
     } else {
-        sizeMultiplier = 2.0;  // 極長距離：最大サイズ
+        sizeMultiplier = 6.0;  // 極長距離：最大サイズ
         this.showDebug('📏 極長距離投球 - キャンバス200%サイズ');
     }
     
