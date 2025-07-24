@@ -524,7 +524,9 @@ class BallThrowJourneyApp {
 
     // ボール画像読み込み（改善版）
     loadBallImage() {
+        console.log('🏀 ボール画像読み込み開始');
         this.ballImage = new Image();
+
         this.ballImage.onload = () => {
             console.log('✅ Ball image loaded successfully');
             this.isBallImageReady = true;
@@ -533,20 +535,17 @@ class BallThrowJourneyApp {
         this.ballImage.onerror = () => {
             console.warn('⚠️ Ball image failed to load, creating fallback');
             this.createFallbackBallImage();
-        };
+            this.ballImage.src = 'ball.png';// フォールバック
         
-        // Try ball.png first
-        this.ballImage.src = 'ball.png';
-        
-        // Fallback to ball.gif if png fails
-        this.ballImage.addEventListener('error', () => {
-            if (this.ballImage.src.includes('ball.png')) {
-                console.log('🔄 Trying ball.gif as fallback...');
-                this.ballImage.src = 'ball.gif';
-            } else {
+        // ball.pngも失敗した場合のフォールバック
+            this.ballImage.onerror = () => {
+                console.warn('⚠️ ball.png also failed, creating fallback');
                 this.createFallbackBallImage();
-            }
-        }, { once: true });
+            };
+        };
+
+        // 修正: ball.gif を最初に試行（この行を変更）
+        this.ballImage.src = 'ball.gif';  // 元: 'ball.png'
     }
     
     // フォールバックボール画像生成
@@ -735,11 +734,14 @@ class BallThrowJourneyApp {
     
     async prepareResources() {
         console.log('🚀 リソース準備開始');
-        
+
+        // 修正: 状態をリセット（この3行を追加）
         this.isAudioReady = false;
         this.isAerialImagesReady = false;
         this.isBallImageReady = false;
+    
         
+        // 並行してリソースを準備
         this.prepareAudio();
         this.prepareAerialImages();
         this.loadBallImage();
@@ -949,7 +951,7 @@ async prepareAerialImages() {
     } catch (error) {
         console.error('❌ 航空写真準備中にエラー:', error);
         // エラー時は基本的なフォールバック画像で埋める
-        this.aerialImages = imagePromises.map((_, i) => ({
+        this.aerialImages = Array.from({ length: imageCount }, (_, i) => ({
             image: this.createBasicFallbackImage(),
             position: { lat: 0, lng: 0 },
             distance: i * 125,
@@ -1584,7 +1586,8 @@ async prepareAerialImages() {
         
         this.backgroundOffsetY = 0;
         this.aerialImages = [];
-        
+
+        // 修正: リセット時に準備状態もリセット（追加）
         this.isAudioReady = false;
         this.isAerialImagesReady = false;
         this.isBallImageReady = false;
@@ -1600,7 +1603,6 @@ async prepareAerialImages() {
         this.ballElement.classList.remove('throwing', 'flying');
         this.ballElement.style.transform = 'translate(-50%, -50%) scale(1)';
         
-        this.loadBallImage();
         
         document.getElementById('powerMeter').style.display = 'none';
         document.getElementById('powerFill').style.height = '0%';
@@ -1608,6 +1610,9 @@ async prepareAerialImages() {
         this.clearTrails();
         
         this.ballPosition = { ...this.startPosition };
+
+        / ボール画像を再読み込み（リセット時）（新しい位置に追加）
+        this.loadBallImage();
         
         if (this.isMapReady) {
             this.mapElement.style.transform = `rotate(${-this.heading}deg)`;
