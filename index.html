@@ -3,254 +3,87 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Google Static Maps API テスト</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            padding: 20px;
-            background: #f5f5f5;
-        }
-        .container {
-            max-width: 800px;
-            margin: 0 auto;
-            background: white;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }
-        .test-section {
-            margin: 20px 0;
-            padding: 15px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-        }
-        .test-image {
-            max-width: 100%;
-            height: auto;
-            border: 2px solid #333;
-            margin: 10px 0;
-        }
-        .status {
-            padding: 10px;
-            margin: 10px 0;
-            border-radius: 4px;
-        }
-        .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
-        .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
-        .loading { background: #fff3cd; color: #856404; border: 1px solid #ffeaa7; }
-        button {
-            background: #007bff;
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 4px;
-            cursor: pointer;
-            margin: 5px;
-        }
-        button:hover { background: #0056b3; }
-        .info {
-            background: #e7f3ff;
-            padding: 15px;
-            border-radius: 5px;
-            margin: 15px 0;
-        }
-        .url-display {
-            background: #f8f9fa;
-            padding: 10px;
-            border-radius: 4px;
-            font-family: monospace;
-            font-size: 12px;
-            word-break: break-all;
-            margin: 10px 0;
-        }
-    </style>
+    <title>遠投の旅 - Google Maps版</title>
+    <link rel="stylesheet" href="styles.css">
 </head>
 <body>
     <div class="container">
-        <h1>🛰️ Google Static Maps API テスト</h1>
+        <div class="header">
+            <h1 class="title">🏀 遠投の旅 - Google Maps版</h1>
+            <button class="header-btn" id="startBtn" >
+                位置情報とセンサーを有効にする
+            </button>
+        </div>
         
-        <div class="info">
-            <strong>📋 テスト目的:</strong><br>
-            • Google Static Maps APIが正常に動作するかの確認<br>
-            • APIキーの有効性チェック<br>
-            • 航空写真の取得可能性確認<br>
-            • CORS問題の有無確認
+        <div id="loading" class="loading" style="display: none;">
+            <div>地図を読み込み中...</div>
+            <div style="margin-top: 10px; font-size: 14px;">少々お待ちください</div>
+        </div>
+        
+        <div class="map-container">
+            <div id="map"></div>
+            <canvas id="gameCanvas"></canvas>
+        </div>
+        
+        <div class="ball" id="ball"></div>
+        
+        <div class="power-meter" id="powerMeter">
+            <div class="power-fill" id="powerFill"></div>
+        </div>
+        
+        <div class="compass">
+            <div class="compass-inner">
+                <div class="compass-labels">
+                    <div class="compass-n">N</div>
+                    <div class="compass-e">E</div>
+                    <div class="compass-s">S</div>
+                    <div class="compass-w">W</div>
+                </div>
+                <div class="compass-needle" id="compassNeedle"></div>
+                <div class="compass-center"></div>
+            </div>
+        </div>
+        
+        <div class="info-panel" id="infoPanel">
+            <div class="status" id="status">位置情報とデバイスセンサーの許可が必要です</div>
+            
+            <div class="info-row">
+                <span>🧭 方角:</span>
+                <span id="heading">---°</span>
+            </div>
+            <div class="info-row">
+                <span>📍 方位:</span>
+                <span id="compass">---</span>
+            </div>
+            <div class="info-row">
+                <span>📐 傾き:</span>
+                <span id="tilt">---°</span>
+            </div>
+            <div class="info-row">
+                <span>💨 振り:</span>
+                <span id="speed">---</span>
+            </div>
+            <div class="info-row">
+                <span>📏 距離:</span>
+                <span id="distance">0m</span>
+            </div>
+            <div class="info-row">
+                <span>🌐 座標:</span>
+                <span id="coordinates">---</span>
+            </div>
         </div>
 
-        <!-- テスト1: 基本的な地図 -->
-        <div class="test-section">
-            <h3>🧪 テスト1: 基本的な航空写真</h3>
-            <button onclick="testBasicMap()">基本テスト実行</button>
-            <div id="status1" class="status loading">待機中...</div>
-            <div id="url1" class="url-display"></div>
-            <img id="image1" class="test-image" style="display:none;" alt="基本地図">
-        </div>
-
-        <!-- テスト2: 東京の航空写真 -->
-        <div class="test-section">
-            <h3>🧪 テスト2: 東京駅周辺の航空写真</h3>
-            <button onclick="testTokyoMap()">東京テスト実行</button>
-            <div id="status2" class="status loading">待機中...</div>
-            <div id="url2" class="url-display"></div>
-            <img id="image2" class="test-image" style="display:none;" alt="東京地図">
-        </div>
-
-        <!-- テスト3: アプリと同じ設定 -->
-        <div class="test-section">
-            <h3>🧪 テスト3: アプリと同じ設定（1024x1024）</h3>
-            <button onclick="testAppSettings()">アプリ設定テスト実行</button>
-            <div id="status3" class="status loading">待機中...</div>
-            <div id="url3" class="url-display"></div>
-            <img id="image3" class="test-image" style="display:none;" alt="アプリ設定地図">
-        </div>
-
-        <!-- テスト4: 異なるサイズ -->
-        <div class="test-section">
-            <h3>🧪 テスト4: 小さいサイズ（640x640）</h3>
-            <button onclick="testSmallSize()">小サイズテスト実行</button>
-            <div id="status4" class="status loading">待機中...</div>
-            <div id="url4" class="url-display"></div>
-            <img id="image4" class="test-image" style="display:none;" alt="小サイズ地図">
-        </div>
-
-        <!-- 全テスト実行 -->
-        <div class="test-section">
-            <h3>🚀 一括テスト</h3>
-            <button onclick="runAllTests()" style="background: #28a745;">全テスト実行</button>
-            <button onclick="clearAllTests()" style="background: #dc3545;">結果クリア</button>
-        </div>
-
-        <!-- 結果サマリー -->
-        <div class="test-section">
-            <h3>📊 テスト結果サマリー</h3>
-            <div id="summary" class="status loading">テスト未実行</div>
+        <div class="landing-panel" id="landingPanel">
+            <div class="results" id="results">🎯 着地完了！</div>
+            <a href="#" class="google-map-btn" id="googleMapBtn" target="_blank">
+                📍 Googleマップで開く
+            </a>
+            <button class="header-btn" id="resetBtn" style="margin-top: 15px;">
+                🔄 もう一度投球する
+            </button>
         </div>
     </div>
 
-    <script>
-        const API_KEY = 'AIzaSyDbZWtPobAYr04A8da3OUOjtNNdjfvkbXA';
-        let testResults = {};
-
-        function updateStatus(testId, status, message, className = 'loading') {
-            const statusElement = document.getElementById(`status${testId}`);
-            statusElement.className = `status ${className}`;
-            statusElement.textContent = `${status}: ${message}`;
-        }
-
-        function showUrl(testId, url) {
-            document.getElementById(`url${testId}`).textContent = url;
-        }
-
-        function testImage(testId, url, testName) {
-            return new Promise((resolve) => {
-                updateStatus(testId, '⏳', 'テスト実行中...', 'loading');
-                showUrl(testId, url);
-
-                const img = document.getElementById(`image${testId}`);
-                const startTime = Date.now();
-                
-                img.onload = () => {
-                    const loadTime = Date.now() - startTime;
-                    updateStatus(testId, '✅', `成功 (${loadTime}ms, ${img.naturalWidth}x${img.naturalHeight})`, 'success');
-                    img.style.display = 'block';
-                    testResults[testName] = { success: true, loadTime, size: `${img.naturalWidth}x${img.naturalHeight}` };
-                    resolve(true);
-                };
-
-                img.onerror = (error) => {
-                    const loadTime = Date.now() - startTime;
-                    updateStatus(testId, '❌', `失敗 (${loadTime}ms) - 画像読み込みエラー`, 'error');
-                    img.style.display = 'none';
-                    testResults[testName] = { success: false, loadTime, error: 'Image load failed' };
-                    resolve(false);
-                };
-
-                // タイムアウト設定（10秒）
-                setTimeout(() => {
-                    if (!testResults[testName]) {
-                        updateStatus(testId, '⏰', 'タイムアウト (10秒)', 'error');
-                        testResults[testName] = { success: false, error: 'Timeout' };
-                        resolve(false);
-                    }
-                }, 10000);
-
-                img.src = url;
-            });
-        }
-
-        function testBasicMap() {
-            const url = `https://maps.googleapis.com/maps/api/staticmap?center=35.6762,139.6503&zoom=15&size=512x512&maptype=satellite&key=${API_KEY}`;
-            testImage(1, url, 'basic');
-        }
-
-        function testTokyoMap() {
-            const url = `https://maps.googleapis.com/maps/api/staticmap?center=35.6812,139.7671&zoom=16&size=640x640&maptype=satellite&key=${API_KEY}`;
-            testImage(2, url, 'tokyo');
-        }
-
-        function testAppSettings() {
-            const url = `https://maps.googleapis.com/maps/api/staticmap?center=35.4476,139.6425&zoom=16&size=1024x1024&maptype=satellite&key=${API_KEY}`;
-            testImage(3, url, 'app_settings');
-        }
-
-        function testSmallSize() {
-            const url = `https://maps.googleapis.com/maps/api/staticmap?center=35.4476,139.6425&zoom=16&size=640x640&maptype=satellite&key=${API_KEY}`;
-            testImage(4, url, 'small_size');
-        }
-
-        async function runAllTests() {
-            testResults = {};
-            console.log('🚀 全テスト開始');
-            
-            await testBasicMap();
-            await new Promise(resolve => setTimeout(resolve, 1000)); // 1秒待機
-            
-            await testTokyoMap();
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            
-            await testAppSettings();
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            
-            await testSmallSize();
-            
-            updateSummary();
-        }
-
-        function clearAllTests() {
-            testResults = {};
-            for (let i = 1; i <= 4; i++) {
-                updateStatus(i, '🔄', '待機中...', 'loading');
-                document.getElementById(`url${i}`).textContent = '';
-                document.getElementById(`image${i}`).style.display = 'none';
-            }
-            document.getElementById('summary').className = 'status loading';
-            document.getElementById('summary').textContent = 'テスト未実行';
-        }
-
-        function updateSummary() {
-            const total = Object.keys(testResults).length;
-            const successful = Object.values(testResults).filter(r => r.success).length;
-            const failed = total - successful;
-
-            const summaryElement = document.getElementById('summary');
-            
-            if (successful === total && total > 0) {
-                summaryElement.className = 'status success';
-                summaryElement.innerHTML = `✅ 全テスト成功！ (${successful}/${total})<br>Static Maps API は正常に動作しています。`;
-            } else if (successful > 0) {
-                summaryElement.className = 'status error';
-                summaryElement.innerHTML = `⚠️ 一部成功 (${successful}/${total})<br>成功: ${successful}件, 失敗: ${failed}件`;
-            } else if (total > 0) {
-                summaryElement.className = 'status error';
-                summaryElement.innerHTML = `❌ 全テスト失敗 (${failed}/${total})<br>APIキーまたはネットワークに問題がある可能性があります。`;
-            }
-        }
-
-        // ページ読み込み時の初期化
-        document.addEventListener('DOMContentLoaded', function() {
-            console.log('📋 Google Static Maps API テストページ読み込み完了');
-            console.log('🔑 使用APIキー:', API_KEY.substring(0, 10) + '...');
-        });
-    </script>
+    <script src="app.js"></script>
 </body>
 </html>

@@ -1018,39 +1018,28 @@ showDetailedError(context, error) {
 
 // 航空写真準備エラー詳細調査版（prepareAerialImagesメソッドを置き換え）
 
+// 手順1: 既存のprepareAerialImagesメソッドを以下に完全置き換えしてください
+
 async prepareAerialImages() {
-    this.showDebug('🛰️ 航空写真準備開始');
+    this.showDebug('🛰️ 地理院地図航空写真準備開始');
     
     try {
-        // 位置情報の確認
-        this.showDebug(`📍 開始位置: ${this.startPosition.lat}, ${this.startPosition.lng}`);
-        this.showDebug(`📍 投球角度: ${this.throwAngle}度`);
+        this.showDebug(`📍 位置: ${this.startPosition.lat.toFixed(6)}, ${this.startPosition.lng.toFixed(6)}`);
+        this.showDebug(`🧭 投球角度: ${this.throwAngle}度`);
         
-        // Static Maps APIのURL構築
-        const baseUrl = 'https://maps.googleapis.com/maps/api/staticmap';
-        const params = [
-            `center=${this.startPosition.lat},${this.startPosition.lng}`,
-            `zoom=16`,
-            `size=1024x1024`,
-            `maptype=satellite`,
-            `key=AIzaSyDbZWtPobAYr04A8da3OUOjtNNdjfvkbXA`
-        ];
-        const staticMapUrl = baseUrl + '?' + params.join('&');
+        // 地理院地図の航空写真を使用
+        const aerialImage = await this.createGSIAerialImage(
+            this.startPosition.lat, 
+            this.startPosition.lng, 
+            16, // ズームレベル
+            1024 // 画像サイズ
+        );
         
-        this.showDebug(`📡 API URL構築完了`);
-        this.showDebug(`URL長: ${staticMapUrl.length}文字`);
-        
-        // 実際の航空写真を取得
-        this.showDebug('📥 画像ダウンロード開始...');
-        
-        const originalImage = await this.loadImageWithCORS(staticMapUrl);
-        
-        this.showDebug(`✅ Static Maps API成功`);
-        this.showDebug(`画像サイズ: ${originalImage.naturalWidth}x${originalImage.naturalHeight}`);
+        this.showDebug(`✅ 地理院地図航空写真取得成功: ${aerialImage.naturalWidth}x${aerialImage.naturalHeight}`);
         
         // 投球方向に回転
         this.showDebug(`🔄 画像回転開始: ${this.throwAngle}度`);
-        const rotatedImage = this.rotateImageForThrow(originalImage, this.throwAngle);
+        const rotatedImage = this.rotateImageForThrow(aerialImage, this.throwAngle);
         
         // 回転完了を待つ
         await new Promise((resolve) => {
@@ -1074,7 +1063,6 @@ async prepareAerialImages() {
             }
         });
         
-        // 1枚の画像として保存
         this.aerialImages = [{
             image: rotatedImage,
             position: this.startPosition,
@@ -1082,114 +1070,164 @@ async prepareAerialImages() {
             index: 0
         }];
 
-        this.showDebug(`✅ 航空写真準備完了!`);
+        this.showDebug('✅ 地理院地図航空写真準備完了！');
         this.debugAerialImageState();
         
         this.isAerialImagesReady = true;
         this.updatePreparationStatus();
 
     } catch (error) {
-        this.showDetailedError('航空写真準備', error);
+        this.showDetailedError('地理院地図航空写真準備', error);
         
-        // より詳細なエラー情報
-        this.showDebug(`エラータイプ: ${error.name}`);
-        this.showDebug(`エラーメッセージ: ${error.message}`);
+        // エラー時は基本フォールバック画像を使用
+        this.showDebug('🎨 基本フォールバック画像生成');
+        const fallbackImage = this.createBasicFallbackImage();
         
-        // フォールバック：方向性のある生成画像
-        this.showDebug('🎨 フォールバック画像生成開始');
+        this.aerialImages = [{
+            image: fallbackImage,
+            position: this.startPosition,
+            distance: 0,
+            index: 0
+        }];
         
-        try {
-            const fallbackImage = this.createDirectionalAerialImage(this.throwAngle);
-            
-            // フォールバック画像の完了を待つ
-            await new Promise((resolve) => {
-                if (fallbackImage.complete) {
-                    resolve();
-                } else {
-                    fallbackImage.onload = resolve;
-                    fallbackImage.onerror = resolve;
-                    setTimeout(resolve, 1000);
-                }
-            });
-            
-            this.aerialImages = [{
-                image: fallbackImage,
-                position: this.startPosition,
-                distance: 0,
-                index: 0
-            }];
-            
-            this.showDebug('✅ フォールバック画像準備完了');
-            this.debugAerialImageState();
-            
-        } catch (fallbackError) {
-            this.showDetailedError('フォールバック画像生成', fallbackError);
-            
-            // 最終フォールバック：シンプルな画像
-            this.showDebug('🎨 最終フォールバック画像生成');
-            const simpleImage = this.createBasicFallbackImage();
-            this.aerialImages = [{
-                image: simpleImage,
-                position: this.startPosition,
-                distance: 0,
-                index: 0
-            }];
-            this.showDebug('✅ 最終フォールバック完了');
-        }
-        
+        this.showDebug('✅ フォールバック画像準備完了');
         this.isAerialImagesReady = true;
         this.updatePreparationStatus();
     }
 }
 
-    
-// loadImageWithCORSメソッドを以下に置き換え
 
-loadImageWithCORS(url) {
+// 手順2: prepareAerialImagesメソッドの直後に以下のメソッドを追加してください
+
+// 地理院地図航空写真作成メソッド
+async createGSIAerialImage(lat, lng, zoom, size) {
+    this.showDebug(`🗾 地理院地図タイル計算中: lat=${lat.toFixed(6)}, lng=${lng.toFixed(6)}, zoom=${zoom}`);
+    
+    // タイル座標計算
+    const centerX = this.lonToTileX(lng, zoom);
+    const centerY = this.latToTileY(lat, zoom);
+    
+    this.showDebug(`📐 タイル中心座標: X=${centerX.toFixed(3)}, Y=${centerY.toFixed(3)}`);
+    
+    // 必要なタイル数計算 (size=1024なら4x4タイル)
+    const tilesNeeded = Math.ceil(size / 256);
+    const startX = Math.floor(centerX - tilesNeeded / 2);
+    const startY = Math.floor(centerY - tilesNeeded / 2);
+    
+    this.showDebug(`📦 タイル範囲: X=${startX}~${startX + tilesNeeded}, Y=${startY}~${startY + tilesNeeded} (${tilesNeeded}x${tilesNeeded})`);
+    
+    // Canvas作成
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d');
+    
+    if (!ctx) {
+        throw new Error('Canvas context作成失敗');
+    }
+    
+    // 背景を薄いグレーで塗りつぶし（タイル境界確認用）
+    ctx.fillStyle = '#f0f0f0';
+    ctx.fillRect(0, 0, size, size);
+    
+    const promises = [];
+    let loadedTiles = 0;
+    let totalTiles = (tilesNeeded + 1) * (tilesNeeded + 1);
+    
+    this.showDebug(`📥 ${totalTiles}個のタイル読み込み開始...`);
+    
+    // 複数タイルを並行ダウンロード
+    for (let x = 0; x < tilesNeeded + 1; x++) {
+        for (let y = 0; y < tilesNeeded + 1; y++) {
+            const tileX = startX + x;
+            const tileY = startY + y;
+            
+            const promise = this.loadGSITile(tileX, tileY, zoom).then(tileImg => {
+                if (tileImg) {
+                    const drawX = x * 256 - ((centerX - startX) * 256 - size / 2);
+                    const drawY = y * 256 - ((centerY - startY) * 256 - size / 2);
+                    ctx.drawImage(tileImg, drawX, drawY, 256, 256);
+                    loadedTiles++;
+                    this.showDebug(`✅ タイル${loadedTiles}/${totalTiles}: (${tileX},${tileY}) → (${Math.round(drawX)},${Math.round(drawY)})`);
+                } else {
+                    this.showDebug(`⚠️ タイル読み込み失敗: (${tileX},${tileY})`);
+                }
+            }).catch(e => {
+                this.showDebug(`❌ タイル(${tileX},${tileY})エラー: ${e.message}`);
+            });
+            
+            promises.push(promise);
+        }
+    }
+    
+    // 全タイル読み込み完了を待つ
+    await Promise.all(promises);
+    
+    this.showDebug(`🎯 タイル読み込み完了: ${loadedTiles}/${totalTiles}個成功`);
+    
+    // Canvasから画像を作成
+    const finalImage = new Image();
+    finalImage.src = canvas.toDataURL('image/jpeg', 0.9);
+    
     return new Promise((resolve, reject) => {
-        this.showDebug('🌐 画像読み込み開始');
-        this.showDebug(`URL: ${url.substring(0, 100)}...`);
+        finalImage.onload = () => {
+            this.showDebug(`✅ 地理院地図合成画像作成完了: ${finalImage.naturalWidth}x${finalImage.naturalHeight}`);
+            resolve(finalImage);
+        };
+        finalImage.onerror = (e) => {
+            this.showDebug(`❌ 合成画像作成失敗: ${e}`);
+            reject(new Error('合成画像作成失敗'));
+        };
+        
+        // タイムアウト
+        setTimeout(() => {
+            this.showDebug('⏰ 合成画像作成タイムアウト');
+            reject(new Error('合成画像作成タイムアウト'));
+        }, 5000);
+    });
+}
+
+// 手順3: createGSIAerialImageメソッドの直後に以下のメソッドを追加してください
+
+// 地理院地図タイル読み込み
+loadGSITile(x, y, z) {
+    return new Promise((resolve) => {
+        const url = `https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/${z}/${x}/${y}.jpg`;
         
         const img = new Image();
-        
-        // CORSヘッダーを試す
+        // CORS設定（地理院地図は許可されている）
         img.crossOrigin = 'anonymous';
         
         img.onload = () => {
-            this.showDebug(`✅ 画像読み込み成功: ${img.naturalWidth}x${img.naturalHeight}`);
+            // 画像が正常に読み込まれた場合
             resolve(img);
         };
         
-        img.onerror = (error) => {
-            this.showDebug(`❌ 画像読み込み失敗`);
-            this.showDebug(`エラー詳細: ${JSON.stringify(error)}`);
-            
-            // CORSなしで再試行
-            this.showDebug('🔄 CORS無しで再試行');
-            const img2 = new Image();
-            
-            img2.onload = () => {
-                this.showDebug(`✅ CORS無し再試行成功: ${img2.naturalWidth}x${img2.naturalHeight}`);
-                resolve(img2);
-            };
-            
-            img2.onerror = (error2) => {
-                this.showDebug(`❌ CORS無し再試行も失敗`);
-                this.showDebug(`最終エラー: ${JSON.stringify(error2)}`);
-                reject(new Error(`画像読み込み失敗: ${url}`));
-            };
-            
-            img2.src = url;
+        img.onerror = (e) => {
+            // 海域など画像が存在しない場合はnullを返す
+            resolve(null);
         };
         
-        // タイムアウト設定
+        // タイムアウト設定（3秒）
         setTimeout(() => {
-            this.showDebug('⏰ 画像読み込みタイムアウト(10秒)');
-            reject(new Error('画像読み込みタイムアウト'));
-        }, 10000);
+            resolve(null);
+        }, 3000);
         
         img.src = url;
     });
+}
+
+
+// 手順4: loadGSITileメソッドの直後に以下の2つのメソッドを追加してください
+
+// 経度→タイルX座標変換
+lonToTileX(lon, zoom) {
+    return (lon + 180) / 360 * Math.pow(2, zoom);
+}
+
+// 緯度→タイルY座標変換  
+latToTileY(lat, zoom) {
+    return (1 - Math.log(Math.tan(lat * Math.PI / 180) + 1 / Math.cos(lat * Math.PI / 180)) / Math.PI) / 2 * Math.pow(2, zoom);
 }
 
 
@@ -1311,31 +1349,6 @@ for (let i = 0; i < 5; i++) {
     img.src = canvas.toDataURL();
     return img;
 }
-    
-    // 基本フォールバック画像
-    createBasicFallbackImage() {
-        const canvas = document.createElement('canvas');
-        canvas.width = 640;
-        canvas.height = 640;
-        const ctx = canvas.getContext('2d');
-        
-        const gradient = ctx.createLinearGradient(0, 0, 640, 640);
-        gradient.addColorStop(0, '#4CAF50');
-        gradient.addColorStop(1, '#2E7D32');
-        ctx.fillStyle = gradient;
-        ctx.fillRect(0, 0, 640, 640);
-        
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
-        for (let i = 0; i < 20; i++) {
-            const x = Math.random() * 640;
-            const y = Math.random() * 640;
-            ctx.fillRect(x, y, 4, 4);
-        }
-        
-        const img = new Image();
-        img.src = canvas.toDataURL();
-        return img;
-    }
     
 
  // 【強化版】startBallMovement
