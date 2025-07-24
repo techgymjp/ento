@@ -694,19 +694,19 @@ resizeCanvasForPower() {
     let sizeMultiplier = 1.0;
     
     if (this.throwPower <= 200) {
-        sizeMultiplier = 1.1;  // 近距離：小さめキャンバス
+        sizeMultiplier = 1.0;  // 近距離：小さめキャンバス
         this.showDebug('📏 近距離投球 - キャンバス80%サイズ');
     } else if (this.throwPower <= 500) {
-        sizeMultiplier = 1.2;  // 中距離：標準サイズ
+        sizeMultiplier = 1.0;  // 中距離：標準サイズ
         this.showDebug('📏 中距離投球 - キャンバス標準サイズ');
     } else if (this.throwPower <= 1000) {
-        sizeMultiplier = 1.3;  // 長距離：大きめキャンバス
+        sizeMultiplier = 1.0;  // 長距離：大きめキャンバス
         this.showDebug('📏 長距離投球 - キャンバス130%サイズ');
     } else if (this.throwPower <= 2000) {
-        sizeMultiplier = 1.3;  // 超長距離：かなり大きめ
+        sizeMultiplier = 1.0;  // 超長距離：かなり大きめ
         this.showDebug('📏 超長距離投球 - キャンバス160%サイズ');
     } else {
-        sizeMultiplier = 1.4;  // 極長距離：最大サイズ
+        sizeMultiplier = 1.0;  // 極長距離：最大サイズ
         this.showDebug('📏 極長距離投球 - キャンバス200%サイズ');
     }
     
