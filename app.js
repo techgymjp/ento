@@ -1596,15 +1596,16 @@ if (progress >= 1) {
     
 
 // 【強化版】drawBackground
+// 【簡略化版】drawBackground - 1つの航空写真をスクロールするだけ
 drawBackground(currentDistance, progress) {
     if (!this.ctx || !this.aerialImages.length || !this.aerialImages[0].image) {
         this.showDebug(`❌ 描画前チェック失敗 - ctx:${!!this.ctx}, 画像数:${this.aerialImages.length}`);
+        this.drawFallbackBackground(progress);
         return;
     }
     
     try {
         this.ctx.save();
-        this.ctx.setTransform(1, 0, 0, 1, 0, 0);
         
         const aerialImage = this.aerialImages[0].image;
         
@@ -1616,49 +1617,43 @@ drawBackground(currentDistance, progress) {
             return;  
         }
 
-        // 画像サイズをキャンバスに合わせて調整
-        const scale = Math.max(
-            this.canvasWidth / aerialImage.naturalWidth,
-            this.canvasHeight / aerialImage.naturalHeight
-        );
-
+        // 【シンプルなスクロール計算】
+        // 画像をキャンバス幅に合わせつつ、高さを2倍にしてスクロール余地を作る
+        const scale = this.canvasWidth / aerialImage.naturalWidth;
         const scaledWidth = aerialImage.naturalWidth * scale;
-        const scaledHeight = aerialImage.naturalHeight * scale;
+        const scaledHeight = aerialImage.naturalHeight * scale * 2; // 高さ2倍
         
-        // 下スクロール用のオフセット計算
-        const offsetX = (this.canvasWidth - scaledWidth) / 2;
-        const maxScroll = Math.max(0, scaledHeight - this.canvasHeight);
-        const offsetY = -(progress * maxScroll);
+        // 中央配置のX座標
+        const centerX = (this.canvasWidth - scaledWidth) / 2;
         
-        // 5フレームに1回だけ詳細ログを出力（スパム防止）
-        if (this.animationFrame % 5 === 0) {
-            this.showDebug(`📊 描画: 進行${Math.round(progress*100)}%, Y位置${Math.round(offsetY)}`);
+        // スクロール計算：上から下へ移動
+        const totalScrollDistance = scaledHeight - this.canvasHeight;
+        const scrollY = -(progress * totalScrollDistance);
+        
+        // デバッグ情報（10フレームに1回のみ）
+        if (this.animationFrame % 10 === 0) {
+            this.showDebug(`📊 スクロール: ${Math.round(progress*100)}% Y=${Math.round(scrollY)}px`);
         }
 
-        // 背景を黒でクリア（デバッグ用）
+        // 背景クリア
         this.ctx.fillStyle = '#000000';
         this.ctx.fillRect(0, 0, this.canvasWidth, this.canvasHeight);
 
-        // 実際の描画処理
+        // 航空写真を描画（スクロール位置で）
         this.ctx.drawImage(
             aerialImage, 
-            offsetX, 
-            offsetY, 
-            scaledWidth, 
-            scaledHeight
+            centerX,      // X位置（中央）
+            scrollY,      // Y位置（スクロール）
+            scaledWidth,  // 幅
+            scaledHeight  // 高さ（2倍）
         );
-
-        // デバッグ用の境界線
-        this.ctx.strokeStyle = '#ff0000';
-        this.ctx.lineWidth = 2;
-        this.ctx.strokeRect(offsetX, offsetY, scaledWidth, scaledHeight);
 
         // 進行度表示
         this.ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
         this.ctx.font = 'bold 18px Arial';
         this.ctx.textAlign = 'center';
         this.ctx.fillText(
-            `📸 航空写真表示中 ${Math.round(progress * 100)}%`, 
+            `🛰️ 航空写真 ${Math.round(progress * 100)}%`, 
             this.canvasWidth / 2, 
             40
         );
