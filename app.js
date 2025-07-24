@@ -90,30 +90,74 @@ class BallThrowJourneyApp {
         console.log('✅ BallThrowJourneyApp initialized');
     }
 
-    // 【新規メソッド】デバッグ表示を作成
-    createDebugDisplay() {
+    // 【強化版】デバッグ表示を作成
+createDebugDisplay() {
     this.debugElement = document.createElement('div');
     this.debugElement.id = 'debugDisplay';
     this.debugElement.style.cssText = `
         position: fixed;
-        top: 10px;
+        top: 50px;
         left: 10px;
-        background: rgba(0, 0, 0, 0.8);
+        right: 10px;
+        background: rgba(0, 0, 0, 0.9);
         color: white;
-        padding: 10px;
-        border-radius: 5px;
+        padding: 15px;
+        border-radius: 8px;
         font-family: monospace;
-        font-size: 12px;
+        font-size: 11px;
         z-index: 10000;
-        max-width: calc(100vw - 20px);
+        max-height: 300px;
+        overflow-y: auto;
         white-space: pre-wrap;
-        display: none;
+        display: block;
+        border: 2px solid #00ff00;
     `;
     document.body.appendChild(this.debugElement);
+    
+    // デバッグ表示の切り替えボタン
+    this.debugToggle = document.createElement('button');
+    this.debugToggle.textContent = 'DEBUG';
+    this.debugToggle.style.cssText = `
+        position: fixed;
+        top: 10px;
+        right: 10px;
+        background: #ff4444;
+        color: white;
+        border: none;
+        padding: 8px 12px;
+        border-radius: 4px;
+        font-size: 12px;
+        z-index: 10001;
+        font-weight: bold;
+    `;
+    this.debugToggle.onclick = () => this.toggleDebug();
+    document.body.appendChild(this.debugToggle);
+    
+    // クリアボタン
+    this.debugClear = document.createElement('button');
+    this.debugClear.textContent = 'CLEAR';
+    this.debugClear.style.cssText = `
+        position: fixed;
+        top: 10px;
+        right: 70px;
+        background: #4444ff;
+        color: white;
+        border: none;
+        padding: 8px 12px;
+        border-radius: 4px;
+        font-size: 12px;
+        z-index: 10001;
+        font-weight: bold;
+    `;
+    this.debugClear.onclick = () => this.clearDebug();
+    document.body.appendChild(this.debugClear);
+
+    this.debugVisible = true;
+    this.showDebug('🚀 スマホ対応デバッグシステム開始');
 }
 
 
-// 【修正】デバッグメッセージを累積表示
+/// 【強化版】デバッグメッセージ表示
 showDebug(message) {
     if (this.debugElement) {
         const timestamp = new Date().toLocaleTimeString();
@@ -121,19 +165,83 @@ showDebug(message) {
         
         // 既存のメッセージに追加（最新を上に）
         this.debugElement.textContent = newMessage + '\n' + this.debugElement.textContent;
-        this.debugElement.style.display = 'block';
         
-        // 10行を超えたら古いメッセージを削除
+        // 20行を超えたら古いメッセージを削除
         const lines = this.debugElement.textContent.split('\n');
-        if (lines.length > 10) {
-            this.debugElement.textContent = lines.slice(0, 10).join('\n');
+        if (lines.length > 20) {
+            this.debugElement.textContent = lines.slice(0, 20).join('\n');
         }
         
-        // タイマーは削除（常に表示）
+        // 自動スクロール（最新メッセージが見えるように）
+        this.debugElement.scrollTop = 0;
     }
+    
+    // コンソールにも出力（PC用）
+    console.log(message);
 }
 
     
+// デバッグ表示切り替え
+toggleDebug() {
+    this.debugVisible = !this.debugVisible;
+    this.debugElement.style.display = this.debugVisible ? 'block' : 'none';
+    this.debugToggle.style.background = this.debugVisible ? '#ff4444' : '#888888';
+    console.log('Debug表示切り替え:', this.debugVisible);
+}
+
+// デバッグクリア
+clearDebug() {
+    if (this.debugElement) {
+        this.debugElement.textContent = '';
+        this.showDebug('🧹 デバッグログクリア');
+        console.log('Debug log cleared');
+    }
+}
+
+// 航空写真の詳細状態をデバッグ表示
+debugAerialImageState() {
+    if (this.aerialImages.length > 0 && this.aerialImages[0].image) {
+        const img = this.aerialImages[0].image;
+        this.showDebug(`📸 航空写真状態:`);
+        this.showDebug(`  - complete: ${img.complete}`);
+        this.showDebug(`  - naturalWidth: ${img.naturalWidth}`);
+        this.showDebug(`  - naturalHeight: ${img.naturalHeight}`);
+        this.showDebug(`  - width: ${img.width}`);
+        this.showDebug(`  - height: ${img.height}`);
+        this.showDebug(`  - src先頭: ${img.src.substring(0, 60)}...`);
+    } else {
+        this.showDebug('❌ 航空写真が存在しない');
+    }
+}
+
+
+// キャンバス状態をデバッグ表示
+debugCanvasState() {
+    this.showDebug(`🖼️ キャンバス状態:`);
+    this.showDebug(`  - canvasWidth: ${this.canvasWidth}`);
+    this.showDebug(`  - canvasHeight: ${this.canvasHeight}`);
+    this.showDebug(`  - ctx存在: ${!!this.ctx}`);
+    this.showDebug(`  - gameCanvas存在: ${!!this.gameCanvas}`);
+    if (this.gameCanvas) {
+        this.showDebug(`  - canvas表示: ${this.gameCanvas.style.display}`);
+    }
+}
+
+// エラー詳細表示
+showDetailedError(context, error) {
+    this.showDebug(`❌ ${context}でエラー発生:`);
+    this.showDebug(`  - メッセージ: ${error.message}`);
+    if (error.stack) {
+        const stackLines = error.stack.split('\n').slice(0, 3); // 最初の3行のみ
+        stackLines.forEach(line => {
+            this.showDebug(`  - ${line.trim()}`);
+        });
+    }
+    console.error(`${context}エラー:`, error);
+}
+
+
+
     // 2点間の距離を計算（メートル単位）
     calculateDistance(lat1, lng1, lat2, lng2) {
         const R = 6371000; // 地球の半径（メートル）
@@ -908,9 +1016,8 @@ showDebug(message) {
     }
     
 
-// デバッグ強化版 prepareAerialImages メソッド
+/// 【強化版】prepareAerialImages
 async prepareAerialImages() {
-    console.log('🛰️ 航空写真準備開始（1キロ四方版）');
     this.showDebug('🛰️ 航空写真準備開始');
     
     try {
@@ -920,15 +1027,28 @@ async prepareAerialImages() {
             `zoom=16&size=1024x1024&maptype=satellite&` +
             `key=AIzaSyDbZWtPobAYr04A8da3OUOjtNNdjfvkbXA`;
         
-        this.showDebug(`Static Maps URL: ${staticMapUrl.substring(0, 100)}...`);
+        this.showDebug(`📡 API URL作成完了`);
+        this.showDebug(`位置: ${this.startPosition.lat.toFixed(4)}, ${this.startPosition.lng.toFixed(4)}`);
         
         // 実際の航空写真を取得
+        this.showDebug('📥 画像ダウンロード開始...');
         const originalImage = await this.loadImageWithCORS(staticMapUrl);
-        this.showDebug(`✅ 元画像読み込み成功 - ${originalImage.width}x${originalImage.height}`);
+        this.showDebug(`✅ 元画像取得成功: ${originalImage.naturalWidth}x${originalImage.naturalHeight}`);
         
         // 投球方向に回転
+        this.showDebug(`🔄 画像回転開始: ${this.throwAngle}度`);
         const rotatedImage = this.rotateImageForThrow(originalImage, this.throwAngle);
-        this.showDebug(`✅ 画像回転完了 - 角度:${this.throwAngle}度`);
+        
+        // 回転完了を待つ
+        await new Promise((resolve) => {
+            if (rotatedImage.complete) {
+                resolve();
+            } else {
+                rotatedImage.onload = resolve;
+                rotatedImage.onerror = resolve;
+                setTimeout(resolve, 2000); // タイムアウト
+            }
+        });
         
         // 1枚の画像として保存
         this.aerialImages = [{
@@ -938,20 +1058,18 @@ async prepareAerialImages() {
             index: 0
         }];
 
-        // 【追加】回転後画像の詳細情報
-        this.showDebug(`回転後画像詳細 - complete:${rotatedImage.complete}, naturalWidth:${rotatedImage.naturalWidth}, src:${rotatedImage.src.substring(0, 30)}...`);
-
-        console.log('🎯 1キロ四方航空写真準備完了！');
+        this.showDebug(`✅ 航空写真準備完了!`);
+        this.debugAerialImageState();
+        
         this.isAerialImagesReady = true;
         this.updatePreparationStatus();
 
     } catch (error) {
-        console.warn('⚠️ Static Maps API失敗、フォールバック画像を使用:', error);
-        this.showDebug(`⚠️ API失敗: ${error.message}`);
+        this.showDetailedError('航空写真準備', error);
         
         // フォールバック：方向性のある生成画像
+        this.showDebug('🎨 フォールバック画像生成開始');
         const fallbackImage = this.createDirectionalAerialImage(this.throwAngle);
-        this.showDebug(`フォールバック画像作成 - ${fallbackImage.width}x${fallbackImage.height}`);
         
         this.aerialImages = [{
             image: fallbackImage,
@@ -960,11 +1078,12 @@ async prepareAerialImages() {
             index: 0
         }];
         
-        console.log('🎯 フォールバック航空写真準備完了！');
+        this.showDebug('✅ フォールバック画像準備完了');
         this.isAerialImagesReady = true;
         this.updatePreparationStatus();
     }
 }
+
     
     loadImageWithCORS(url) {
     return new Promise((resolve, reject) => {
@@ -1127,38 +1246,41 @@ for (let i = 0; i < 5; i++) {
         return img;
     }
     
-    // ボール移動開始（改善版）
-    async startBallMovement() {
-        // ここで初めて状態フラグを設定
-        this.isActive = true;
-        this.isBallMoving = true;
-        
-        console.log('🚀 ボール移動開始 - キャンバスモード');
-        
-        if (!this.ctx) {
-            console.warn('⚠️ Canvas context not ready, reinitializing...');
-            if (!this.initCanvas()) {
-                console.error('❌ Canvas initialization failed, aborting animation');
-                this.landBall();
-                return;
-            }
+
+ // 【強化版】startBallMovement
+async startBallMovement() {
+    // ここで初めて状態フラグを設定
+    this.isActive = true;
+    this.isBallMoving = true;
+    
+    this.showDebug('🚀 ボール移動開始');
+    this.debugCanvasState();
+    this.debugAerialImageState();
+    
+    if (!this.ctx) {
+        this.showDebug('⚠️ Canvas再初期化中...');
+        if (!this.initCanvas()) {
+            this.showDebug('❌ Canvas初期化失敗→着地処理');
+            this.landBall();
+            return;
         }
-        
-        this.mapElement.style.display = 'none';
-        this.gameCanvas.style.display = 'block';
-        this.ballElement.style.display = 'none';
-        
-        this.animationFrame = 0;
-        this.backgroundOffsetY = 0;
-        
-        this.updateStatus(`🏀 ボール投球中... 方向: ${this.getCompassDirection(this.throwAngle)} (${Math.round(this.throwAngle)}°)`);
-        
-        // 音声再生
-        console.log('🔊 音声再生開始');
-        this.playKickSound();
-        
-        this.animateCanvasThrow();
     }
+    
+    this.mapElement.style.display = 'none';
+    this.gameCanvas.style.display = 'block';
+    this.ballElement.style.display = 'none';
+    
+    this.animationFrame = 0;
+    this.backgroundOffsetY = 0;
+    
+    this.updateStatus(`🏀 ボール投球中... 方向: ${this.getCompassDirection(this.throwAngle)} (${Math.round(this.throwAngle)}°)`);
+    
+    // 音声再生
+    this.showDebug('🔊 音声再生開始');
+    this.playKickSound();
+    
+    this.animateCanvasThrow();
+}
     
     // キック音再生（専用メソッド）
     playKickSound() {
@@ -1293,10 +1415,10 @@ if (progress >= 1) {
     }
     
 
-// デバッグ強化版 drawBackground メソッド
+// 【強化版】drawBackground
 drawBackground(currentDistance, progress) {
     if (!this.ctx || !this.aerialImages.length || !this.aerialImages[0].image) {
-        this.showDebug('❌ Canvas/画像が見つからない - ctx:' + !!this.ctx + ', 画像数:' + this.aerialImages.length);
+        this.showDebug(`❌ 描画前チェック失敗 - ctx:${!!this.ctx}, 画像数:${this.aerialImages.length}`);
         return;
     }
     
@@ -1306,12 +1428,9 @@ drawBackground(currentDistance, progress) {
         
         const aerialImage = this.aerialImages[0].image;
         
-        // 詳細な画像状態チェック
-        this.showDebug(`画像状態詳細 - complete:${aerialImage.complete}, naturalWidth:${aerialImage.naturalWidth}, naturalHeight:${aerialImage.naturalHeight}, src:${aerialImage.src.substring(0, 50)}...`);
-        
         // 画像読み込み状態チェック
         if (!aerialImage.complete || aerialImage.naturalWidth === 0) {
-            this.showDebug('⚠️ 航空写真未読み込み、フォールバック描画');
+            this.showDebug('⚠️ 画像未読み込み→フォールバック');
             this.drawFallbackBackground();
             this.ctx.restore();
             return;  
@@ -1319,20 +1438,26 @@ drawBackground(currentDistance, progress) {
 
         // 画像サイズをキャンバスに合わせて調整
         const scale = Math.max(
-            this.canvasWidth / aerialImage.width,
-            this.canvasHeight / aerialImage.height
+            this.canvasWidth / aerialImage.naturalWidth,
+            this.canvasHeight / aerialImage.naturalHeight
         );
 
-        const scaledWidth = aerialImage.width * scale;
-        const scaledHeight = aerialImage.height * scale;
+        const scaledWidth = aerialImage.naturalWidth * scale;
+        const scaledHeight = aerialImage.naturalHeight * scale;
         
         // 下スクロール用のオフセット計算
         const offsetX = (this.canvasWidth - scaledWidth) / 2;
         const maxScroll = Math.max(0, scaledHeight - this.canvasHeight);
         const offsetY = -(progress * maxScroll);
         
-        // 描画前の詳細ログ
-        this.showDebug(`描画パラメータ - scale:${scale.toFixed(2)}, scaledW:${Math.round(scaledWidth)}, scaledH:${Math.round(scaledHeight)}, offsetX:${Math.round(offsetX)}, offsetY:${Math.round(offsetY)}`);
+        // 5フレームに1回だけ詳細ログを出力（スパム防止）
+        if (this.animationFrame % 5 === 0) {
+            this.showDebug(`📊 描画: 進行${Math.round(progress*100)}%, Y位置${Math.round(offsetY)}`);
+        }
+
+        // 背景を黒でクリア（デバッグ用）
+        this.ctx.fillStyle = '#000000';
+        this.ctx.fillRect(0, 0, this.canvasWidth, this.canvasHeight);
 
         // 実際の描画処理
         this.ctx.drawImage(
@@ -1343,34 +1468,30 @@ drawBackground(currentDistance, progress) {
             scaledHeight
         );
 
-        // 描画後の確認
-        this.showDebug(`✅ drawImage実行完了 - 画像描画成功`);
+        // デバッグ用の境界線
+        this.ctx.strokeStyle = '#ff0000';
+        this.ctx.lineWidth = 2;
+        this.ctx.strokeRect(offsetX, offsetY, scaledWidth, scaledHeight);
 
         // 進行度表示
-        this.ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
-        this.ctx.font = '16px Arial';
+        this.ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+        this.ctx.font = 'bold 18px Arial';
         this.ctx.textAlign = 'center';
         this.ctx.fillText(
-            `投球進行度: ${Math.round(progress * 100)}% ↓`, 
+            `📸 航空写真表示中 ${Math.round(progress * 100)}%`, 
             this.canvasWidth / 2, 
-            30
+            40
         );
-
-        // 画像の四隅に赤い点を描画（デバッグ用）
-        this.ctx.fillStyle = 'red';
-        this.ctx.fillRect(offsetX, offsetY, 10, 10); // 左上
-        this.ctx.fillRect(offsetX + scaledWidth - 10, offsetY, 10, 10); // 右上
-        this.ctx.fillRect(offsetX, offsetY + scaledHeight - 10, 10, 10); // 左下
-        this.ctx.fillRect(offsetX + scaledWidth - 10, offsetY + scaledHeight - 10, 10, 10); // 右下
 
         this.ctx.restore();
         
     } catch (error) {
-        this.showDebug(`❌ 背景描画エラー: ${error.message}`);
+        this.showDetailedError('背景描画', error);
         this.drawFallbackBackground();
         this.ctx.restore();
     }
 }
+
 
     
     // Canvas上でのボール描画（改善版）
