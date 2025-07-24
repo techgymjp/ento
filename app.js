@@ -1627,7 +1627,9 @@ drawBackground(currentDistance, progress) {
         
         // スクロール計算：上から下へ移動
         const totalScrollDistance = scaledHeight - this.canvasHeight;
-        const scrollY = progress * totalScrollDistance;
+        const startY = progress * totalScrollDistance;
+        const scrollY = -startY; // 描画位置は負の値
+
         
         // デバッグ情報（10フレームに1回のみ）
         if (this.animationFrame % 10 === 0) {
