@@ -1629,7 +1629,7 @@ drawBackground(currentDistance, progress) {
         // progress=0: 画像の上部から開始（scrollY = 0）
         // progress=1: 画像の下部で終了（scrollY = -(scaledHeight - canvasHeight)）
         const maxScroll = scaledHeight - this.canvasHeight;
-        const scrollY = -(progress * maxScroll);
+        const scrollY = progress * maxScroll;
         
         // デバッグ情報（10フレームに1回のみ）
         if (this.animationFrame % 10 === 0) {
