@@ -112,19 +112,24 @@ class BallThrowJourneyApp {
     document.body.appendChild(this.debugElement);
 }
 
-// 【新規メソッド】デバッグメッセージを画面に表示
+
+// 【修正】デバッグメッセージを累積表示
 showDebug(message) {
     if (this.debugElement) {
         const timestamp = new Date().toLocaleTimeString();
-        this.debugElement.textContent = `[${timestamp}] ${message}`;
+        const newMessage = `[${timestamp}] ${message}`;
+        
+        // 既存のメッセージに追加（最新を上に）
+        this.debugElement.textContent = newMessage + '\n' + this.debugElement.textContent;
         this.debugElement.style.display = 'block';
         
-        // 5秒後に自動で非表示
-        setTimeout(() => {
-            if (this.debugElement) {
-                this.debugElement.style.display = 'none';
-            }
-        }, 5000);
+        // 10行を超えたら古いメッセージを削除
+        const lines = this.debugElement.textContent.split('\n');
+        if (lines.length > 10) {
+            this.debugElement.textContent = lines.slice(0, 10).join('\n');
+        }
+        
+        // タイマーは削除（常に表示）
     }
 }
 
