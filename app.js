@@ -694,19 +694,19 @@ resizeCanvasForPower() {
     let sizeMultiplier = 1.0;
     
     if (this.throwPower <= 200) {
-        sizeMultiplier = 0.8;  // 近距離：小さめキャンバス
+        sizeMultiplier = 1.0;  // 近距離：小さめキャンバス
         this.showDebug('📏 近距離投球 - キャンバス80%サイズ');
     } else if (this.throwPower <= 500) {
         sizeMultiplier = 1.0;  // 中距離：標準サイズ
         this.showDebug('📏 中距離投球 - キャンバス標準サイズ');
     } else if (this.throwPower <= 1000) {
-        sizeMultiplier = 1.3;  // 長距離：大きめキャンバス
+        sizeMultiplier = 1.0;  // 長距離：大きめキャンバス
         this.showDebug('📏 長距離投球 - キャンバス130%サイズ');
     } else if (this.throwPower <= 2000) {
-        sizeMultiplier = 1.6;  // 超長距離：かなり大きめ
+        sizeMultiplier = 1.0;  // 超長距離：かなり大きめ
         this.showDebug('📏 超長距離投球 - キャンバス160%サイズ');
     } else {
-        sizeMultiplier = 2.0;  // 極長距離：最大サイズ
+        sizeMultiplier = 1.0;  // 極長距離：最大サイズ
         this.showDebug('📏 極長距離投球 - キャンバス200%サイズ');
     }
     
@@ -1672,9 +1672,7 @@ if (progress >= 1) {
     }
     
 
-// 【簡略化版】drawBackground - 1つの航空写真をスクロールするだけ
-// 【画像縮小なし版】drawBackground - 元サイズで下方向スクロール
-// 【imageSize基準版】drawBackground - imageSizeで決まったサイズで描画
+// 【imageSize基準版】imageSizeで決まったサイズで描画
 drawBackground(currentDistance, progress) {
     if (!this.ctx || !this.aerialImages.length || !this.aerialImages[0].image) {
         this.showDebug(`❌ 描画前チェック失敗 - ctx:${!!this.ctx}, 画像数:${this.aerialImages.length}`);
