@@ -634,48 +634,117 @@ showDetailedError(context, error) {
         startBtn.onclick = () => this.startCountdown();
     }
     
-    // Canvas初期化（エラーハンドリング強化）
-    initCanvas() {
-        if (!this.gameCanvas) {
-            console.error('❌ Game canvas element not found');
-            return false;
-        }
-        
-        const container = this.gameCanvas.parentElement;
-        if (!container) {
-            console.error('❌ Canvas container not found');
-            return false;
-        }
-        
-        this.canvasWidth = container.clientWidth;
-        this.canvasHeight = container.clientHeight;
-        
-        if (this.canvasWidth <= 0 || this.canvasHeight <= 0) {
-            console.error('❌ Invalid canvas dimensions:', this.canvasWidth, 'x', this.canvasHeight);
-            return false;
-        }
-        
-        this.gameCanvas.width = this.canvasWidth;
-        this.gameCanvas.height = this.canvasHeight;
-        
-        try {
-            this.ctx = this.gameCanvas.getContext('2d');
-            if (!this.ctx) {
-                throw new Error('Canvas context is null');
-            }
-        } catch (error) {
-            console.error('❌ Failed to get canvas context:', error);
-            return false;
-        }
-        
-        this.ballCanvasX = this.canvasWidth / 2;
-        this.ballCanvasY = this.canvasHeight / 2;
-        
-        this.loadBallImage();
-        
-        console.log('✅ Canvas initialized successfully:', this.canvasWidth, 'x', this.canvasHeight);
-        return true;
+// Canvas初期化（エラーハンドリング強化）
+initCanvas() {
+    if (!this.gameCanvas) {
+        console.error('❌ Game canvas element not found');
+        return false;
     }
+    
+    const container = this.gameCanvas.parentElement;
+    if (!container) {
+        console.error('❌ Canvas container not found');
+        return false;
+    }
+    
+    // 【修正】初期サイズは基本サイズで設定
+    this.canvasWidth = container.clientWidth;
+    this.canvasHeight = container.clientHeight;
+    
+    if (this.canvasWidth <= 0 || this.canvasHeight <= 0) {
+        console.error('❌ Invalid canvas dimensions:', this.canvasWidth, 'x', this.canvasHeight);
+        return false;
+    }
+    
+    // 【修正】初期サイズで設定（後でresizeCanvasForPowerで変更）
+    this.gameCanvas.width = this.canvasWidth;
+    this.gameCanvas.height = this.canvasHeight;
+    
+    try {
+        this.ctx = this.gameCanvas.getContext('2d');
+        if (!this.ctx) {
+            throw new Error('Canvas context is null');
+        }
+    } catch (error) {
+        console.error('❌ Failed to get canvas context:', error);
+        return false;
+    }
+    
+    this.ballCanvasX = this.canvasWidth / 2;
+    this.ballCanvasY = this.canvasHeight / 2;
+    
+    this.loadBallImage();
+    
+    console.log('✅ Canvas initialized successfully:', this.canvasWidth, 'x', this.canvasHeight);
+    return true;
+}
+
+// 【新規追加】投球パワーに応じてキャンバスサイズを調整
+resizeCanvasForPower() {
+    if (!this.gameCanvas || !this.throwPower) {
+        this.showDebug('❌ キャンバスまたは投球パワーが無効');
+        return false;
+    }
+    
+    const container = this.gameCanvas.parentElement;
+    const baseWidth = container.clientWidth;
+    const baseHeight = container.clientHeight;
+    
+    // 【新機能】投球パワーに応じてキャンバスサイズを動的計算
+    let sizeMultiplier = 1.0;
+    
+    if (this.throwPower <= 200) {
+        sizeMultiplier = 0.8;  // 近距離：小さめキャンバス
+        this.showDebug('📏 近距離投球 - キャンバス80%サイズ');
+    } else if (this.throwPower <= 500) {
+        sizeMultiplier = 1.0;  // 中距離：標準サイズ
+        this.showDebug('📏 中距離投球 - キャンバス標準サイズ');
+    } else if (this.throwPower <= 1000) {
+        sizeMultiplier = 1.3;  // 長距離：大きめキャンバス
+        this.showDebug('📏 長距離投球 - キャンバス130%サイズ');
+    } else if (this.throwPower <= 2000) {
+        sizeMultiplier = 1.6;  // 超長距離：かなり大きめ
+        this.showDebug('📏 超長距離投球 - キャンバス160%サイズ');
+    } else {
+        sizeMultiplier = 2.0;  // 極長距離：最大サイズ
+        this.showDebug('📏 極長距離投球 - キャンバス200%サイズ');
+    }
+    
+    // 新しいキャンバスサイズを計算
+    this.canvasWidth = Math.round(baseWidth * sizeMultiplier);
+    this.canvasHeight = Math.round(baseHeight * sizeMultiplier);
+    
+    // キャンバスサイズを実際に変更
+    this.gameCanvas.width = this.canvasWidth;
+    this.gameCanvas.height = this.canvasHeight;
+    
+    // キャンバスの表示サイズも調整（コンテナからはみ出ないよう）
+    const displayScale = Math.min(1.0, baseWidth / this.canvasWidth, baseHeight / this.canvasHeight);
+    this.gameCanvas.style.width = Math.round(this.canvasWidth * displayScale) + 'px';
+    this.gameCanvas.style.height = Math.round(this.canvasHeight * displayScale) + 'px';
+    
+    // ボール位置を新しいキャンバスサイズに合わせて調整
+    this.ballCanvasX = this.canvasWidth / 2;
+    this.ballCanvasY = this.canvasHeight / 2;
+    
+    this.showDebug(`📏 キャンバスサイズ調整完了:`);
+    this.showDebug(`  - 論理サイズ: ${this.canvasWidth}x${this.canvasHeight}px`);
+    this.showDebug(`  - 表示サイズ: ${Math.round(this.canvasWidth * displayScale)}x${Math.round(this.canvasHeight * displayScale)}px`);
+    this.showDebug(`  - サイズ倍率: ${sizeMultiplier}x`);
+    this.showDebug(`  - 表示倍率: ${displayScale.toFixed(2)}x`);
+    
+    // コンテキストを再取得（サイズ変更後）
+    try {
+        this.ctx = this.gameCanvas.getContext('2d');
+        return true;
+    } catch (error) {
+        this.showDetailedError('キャンバスコンテキスト再取得', error);
+        return false;
+    }
+}
+
+
+
 
     // ボール画像読み込み（改善版）
     loadBallImage() {
@@ -1427,13 +1496,21 @@ createBasicFallbackImage() {
 }
 
 
- // 【強化版】startBallMovement
+// 【強化版】startBallMovement
 async startBallMovement() {
     // ここで初めて状態フラグを設定
     this.isActive = true;
     this.isBallMoving = true;
     
     this.showDebug('🚀 ボール移動開始');
+    
+    // 【追加】投球パワーに応じてキャンバスサイズを調整
+    if (!this.resizeCanvasForPower()) {
+        this.showDebug('❌ キャンバスサイズ調整失敗→着地処理');
+        this.landBall();
+        return;
+    }
+    
     this.debugCanvasState();
     this.debugAerialImageState();
     
@@ -1622,9 +1699,15 @@ drawBackground(currentDistance, progress) {
         const imageWidth = aerialImage.naturalWidth;
         const imageHeight = aerialImage.naturalHeight;
 
+        // キャンバスサイズに応じて画像サイズを調整（パワーが大きいほど画像も大きく表示）
+        const canvasScale = Math.max(this.canvasWidth / 800, this.canvasHeight / 600); // 基準サイズ比
+        const adjustedImageWidth = imageWidth * canvasScale;
+        const adjustedImageHeight = imageHeight * canvasScale;
+
+
         // キャンバスの中央に画像を配置
-        const centerX = (this.canvasWidth - imageWidth) / 2;
-        const centerY = (this.canvasHeight - imageHeight) / 2;
+        const centerX = (this.canvasWidth - adjustedImageWidth) / 2;
+        const centerY = (this.canvasHeight - adjustedImageHeight) / 2;
         
         // 【修正】下方向スクロール計算
         // 画像がキャンバスより大きい場合のみスクロール可能
@@ -1648,8 +1731,8 @@ drawBackground(currentDistance, progress) {
             aerialImage, 
             centerX,     // X位置（中央寄せ）
             scrollY,     // Y位置（下方向スクロール）
-            imageWidth,  // 元の幅
-            imageHeight  // 元の高さ
+            adjustedImageWidth,   // 調整された幅
+            adjustedImageHeight   // 調整された高さ
         );
 
         // 【追加】スクロール確認用の境界線
@@ -1954,91 +2037,103 @@ drawBackground(currentDistance, progress) {
     }
     
     reset() {
-        console.log('🔄 リセット開始');
-        
-        if (this.countdownTimer) {
-            clearInterval(this.countdownTimer);
-            this.countdownTimer = null;
-        }
-        if (this.preparationTimer) {
-            clearInterval(this.preparationTimer);
-            this.preparationTimer = null;
-        }
-        
-        this.hideCountdown();
-        this.hideResourcePreparation();
-        
-        this.isActive = false;
-        this.isCountdownActive = false;
-        this.isBallMoving = false;
-        this.isDetectingShake = false;
-        
-        this.accelerationData = [];
-        this.maxAcceleration = 0;
-        this.totalDistance = 0;
-        
-        // 修正後
-        this.backgroundOffsetY = 0;
-        
-
-       // 修正: リセット時に準備状態もリセット
-        this.isAudioReady = false;
-        this.isAerialImagesReady = false;
-        this.isBallImageReady = false;
-        
-        if (this.gameCanvas) {
-            this.gameCanvas.style.display = 'none';
-        }
-        if (this.mapElement) {
-            this.mapElement.style.display = 'block';
-        }
-        
-        this.ballElement.style.display = 'block';
-        this.ballElement.classList.remove('throwing', 'flying');
-        this.ballElement.style.transform = 'translate(-50%, -50%) scale(1)';
-        
-        
-        document.getElementById('powerMeter').style.display = 'none';
-        document.getElementById('powerFill').style.height = '0%';
-        
-        // 航空写真データもクリア
-        this.clearTrails();
-        
-        this.ballPosition = { ...this.startPosition };
-
-        // ボール画像を再読み込み（リセット時）
-        this.loadBallImage();
-        
-        if (this.isMapReady) {
-            this.mapElement.style.transform = `rotate(${-this.heading}deg)`;
-        }
-        
-        if (this.map && this.startPosition) {
-            try {
-                this.map.setCenter(this.startPosition);
-                this.map.setZoom(20);
-                this.map.setMapTypeId(google.maps.MapTypeId.SATELLITE);
-                this.map.setHeading(0);
-            } catch (e) {
-                console.warn('❌ 地図リセットエラー:', e);
-            }
-        }
-        
-        document.getElementById('landingPanel').style.display = 'none';
-        document.getElementById('infoPanel').style.display = 'block';
-        
-        document.getElementById('distance').textContent = '0m';
-        document.getElementById('speed').textContent = '---';
-        
-        this.updateCoordinatesDisplay();
-        this.updateStatus('🎯 投球準備完了！スタートボタンを押してください');
-        
-        const startBtn = document.getElementById('startBtn');
-        startBtn.textContent = '🚀 スタート';
-        startBtn.disabled = false;
-        startBtn.classList.add('countdown-ready');
-        startBtn.onclick = () => this.startCountdown();
+    console.log('🔄 リセット開始');
+    
+    if (this.countdownTimer) {
+        clearInterval(this.countdownTimer);
+        this.countdownTimer = null;
     }
+    if (this.preparationTimer) {
+        clearInterval(this.preparationTimer);
+        this.preparationTimer = null;
+    }
+    
+    this.hideCountdown();
+    this.hideResourcePreparation();
+    
+    this.isActive = false;
+    this.isCountdownActive = false;
+    this.isBallMoving = false;
+    this.isDetectingShake = false;
+    
+    this.accelerationData = [];
+    this.maxAcceleration = 0;
+    this.totalDistance = 0;
+    this.backgroundOffsetY = 0;
+    
+    // 修正: リセット時に準備状態もリセット
+    this.isAudioReady = false;
+    this.isAerialImagesReady = false;
+    this.isBallImageReady = false;
+    
+    // 【追加】キャンバスサイズを基本サイズにリセット
+    if (this.gameCanvas) {
+        const container = this.gameCanvas.parentElement;
+        if (container) {
+            this.canvasWidth = container.clientWidth;
+            this.canvasHeight = container.clientHeight;
+            
+            this.gameCanvas.width = this.canvasWidth;
+            this.gameCanvas.height = this.canvasHeight;
+            
+            // 表示サイズもリセット
+            this.gameCanvas.style.width = this.canvasWidth + 'px';
+            this.gameCanvas.style.height = this.canvasHeight + 'px';
+            
+            this.ballCanvasX = this.canvasWidth / 2;
+            this.ballCanvasY = this.canvasHeight / 2;
+            
+            this.showDebug(`🔄 キャンバスサイズリセット: ${this.canvasWidth}x${this.canvasHeight}px`);
+        }
+        
+        this.gameCanvas.style.display = 'none';
+    }
+    
+    if (this.mapElement) {
+        this.mapElement.style.display = 'block';
+    }
+    
+    this.ballElement.style.display = 'block';
+    this.ballElement.classList.remove('throwing', 'flying');
+    this.ballElement.style.transform = 'translate(-50%, -50%) scale(1)';
+    
+    document.getElementById('powerMeter').style.display = 'none';
+    document.getElementById('powerFill').style.height = '0%';
+    
+    this.clearTrails();
+    this.ballPosition = { ...this.startPosition };
+    this.loadBallImage();
+    
+    if (this.isMapReady) {
+        this.mapElement.style.transform = `rotate(${-this.heading}deg)`;
+    }
+    
+    if (this.map && this.startPosition) {
+        try {
+            this.map.setCenter(this.startPosition);
+            this.map.setZoom(20);
+            this.map.setMapTypeId(google.maps.MapTypeId.SATELLITE);
+            this.map.setHeading(0);
+        } catch (e) {
+            console.warn('❌ 地図リセットエラー:', e);
+        }
+    }
+    
+    document.getElementById('landingPanel').style.display = 'none';
+    document.getElementById('infoPanel').style.display = 'block';
+    
+    document.getElementById('distance').textContent = '0m';
+    document.getElementById('speed').textContent = '---';
+    
+    this.updateCoordinatesDisplay();
+    this.updateStatus('🎯 投球準備完了！スタートボタンを押してください');
+    
+    const startBtn = document.getElementById('startBtn');
+    startBtn.textContent = '🚀 スタート';
+    startBtn.disabled = false;
+    startBtn.classList.add('countdown-ready');
+    startBtn.onclick = () => this.startCountdown();
+}
     
     showError(message) {
         const errorDiv = document.createElement('div');
