@@ -1862,24 +1862,49 @@ let app = null;
 // Initialize app when DOM is ready
 document.addEventListener('DOMContentLoaded', function() {
     console.log('🚀 DOM loaded, creating app instance...');
-    app = new BallThrowJourneyApp();
-    console.log('✅ App instance created:', app);
+    try {
+        app = new BallThrowJourneyApp();
+        window.app = app; // グローバルにも設定
+        console.log('✅ App instance created:', app);
+    } catch (error) {
+        console.error('❌ Failed to create app instance:', error);
+        alert('アプリの初期化に失敗しました: ' + error.message);
+    }
 });
 
-// Global function for button clicks
+// Global function for button clicks - 改善版
 function startApp() {
     console.log('🚀 startApp called');
+    
     if (app && typeof app.startApp === 'function') {
+        console.log('✅ App instance ready, calling startApp');
         app.startApp();
     } else {
-        console.error('❌ App not ready');
-        if (!app) {
-            app = new BallThrowJourneyApp();
-            setTimeout(() => {
-                if (app.startApp) {
-                    app.startApp();
-                }
-            }, 500);
+        console.error('❌ App not ready, attempting recovery...');
+        
+        // 復旧試行
+        if (typeof BallThrowJourneyApp !== 'undefined') {
+            console.log('🔄 Creating new app instance...');
+            try {
+                app = new BallThrowJourneyApp();
+                window.app = app;
+                
+                setTimeout(() => {
+                    if (app && app.startApp) {
+                        console.log('✅ Retry: calling startApp');
+                        app.startApp();
+                    } else {
+                        console.error('❌ Retry failed');
+                        alert('アプリの初期化に失敗しました。ページを再読み込みしてください。');
+                    }
+                }, 500);
+            } catch (error) {
+                console.error('❌ Failed to create new app instance:', error);
+                alert('アプリの作成に失敗しました: ' + error.message);
+            }
+        } else {
+            console.error('❌ BallThrowJourneyApp class not found');
+            alert('アプリクラスが見つかりません。app.jsが正しく読み込まれているか確認してください。');
         }
     }
 }
