@@ -1597,6 +1597,7 @@ if (progress >= 1) {
 
 // 【簡略化版】drawBackground - 1つの航空写真をスクロールするだけ
 // 【画像縮小なし版】drawBackground - 元サイズで下方向スクロール
+// 【imageSize基準版】drawBackground - imageSizeで決まったサイズで描画
 drawBackground(currentDistance, progress) {
     if (!this.ctx || !this.aerialImages.length || !this.aerialImages[0].image) {
         this.showDebug(`❌ 描画前チェック失敗 - ctx:${!!this.ctx}, 画像数:${this.aerialImages.length}`);
@@ -1620,14 +1621,15 @@ drawBackground(currentDistance, progress) {
         // 【修正】画像を元のサイズのまま使用（縮小なし）
         const imageWidth = aerialImage.naturalWidth;
         const imageHeight = aerialImage.naturalHeight;
-        
-        // 中央配置のX座標（画像がキャンバスより大きい場合は中央寄せ）
+
+        // キャンバスの中央に画像を配置
         const centerX = (this.canvasWidth - imageWidth) / 2;
+        const centerY = (this.canvasHeight - imageHeight) / 2;
         
         // 【修正】下方向スクロール計算
         // 画像がキャンバスより大きい場合のみスクロール可能
         const maxScroll = Math.max(0, imageHeight - this.canvasHeight);
-        const scrollY = progress * maxScroll;
+        const scrollY = centerY + progress * maxScroll;
         
         // デバッグ情報（10フレームに1回のみ）
         if (this.animationFrame % 10 === 0) {
