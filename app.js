@@ -814,44 +814,6 @@ class BallThrowJourneyApp {
         }, 2000);
     }
         
-        const onCanPlay = () => {
-            console.log('✅ 効果音準備完了（イベント）');
-            this.isAudioReady = true;
-            this.updatePreparationStatus();
-            cleanup();
-        };
-        
-        const onError = (e) => {
-            console.warn('⚠️ 効果音読み込み失敗、フォールバックで続行', e);
-            this.isAudioReady = true;
-            this.updatePreparationStatus();
-            cleanup();
-        };
-        
-        const cleanup = () => {
-            kickAudio.removeEventListener('canplaythrough', onCanPlay);
-            kickAudio.removeEventListener('error', onError);
-        };
-        
-        kickAudio.addEventListener('canplaythrough', onCanPlay, { once: true });
-        kickAudio.addEventListener('error', onError, { once: true });
-        
-        try {
-            kickAudio.load();
-        } catch (e) {
-            console.warn('Audio load failed:', e);
-            onError(e);
-        }
-        
-        setTimeout(() => {
-            if (!this.isAudioReady) {
-                console.warn('⚠️ 効果音準備タイムアウト、続行');
-                this.isAudioReady = true;
-                this.updatePreparationStatus();
-                cleanup();
-            }
-        }, 3000);
-    }
     
     updatePreparationStatus() {
         if (!this.preparationOverlay) return;
@@ -896,67 +858,111 @@ class BallThrowJourneyApp {
         }
     }
     
+
     // 航空写真準備（改善版）
-    async prepareAerialImages() {
-        console.log('🛰️ 航空写真準備開始');
+async prepareAerialImages() {
+    console.log('🛰️ 航空写真準備開始');
+    
+    const bearing = this.throwAngle * Math.PI / 180;
+    const earthRadius = 6371000;
+    const maxDistance = 1000;
+    const imageCount = 8;
+    
+    this.aerialImages = [];
+    
+    // まず全ての画像を同期的に生成
+    const imagePromises = [];
+    
+    for (let i = 0; i < imageCount; i++) {
+        const distance = (maxDistance / imageCount) * i;
         
-        const bearing = this.throwAngle * Math.PI / 180;
-        const earthRadius = 6371000;
-        const maxDistance = 1000;
-        const imageCount = 8;
+        const lat1 = this.startPosition.lat * Math.PI / 180;
+        const lng1 = this.startPosition.lng * Math.PI / 180;
         
-        this.aerialImages = [];
+        const lat2 = Math.asin(
+            Math.sin(lat1) * Math.cos(distance / earthRadius) +
+            Math.cos(lat1) * Math.sin(distance / earthRadius) * Math.cos(bearing)
+        );
         
-        for (let i = 0; i < imageCount; i++) {
-            const distance = (maxDistance / imageCount) * i;
-            
-            const lat1 = this.startPosition.lat * Math.PI / 180;
-            const lng1 = this.startPosition.lng * Math.PI / 180;
-            
-            const lat2 = Math.asin(
-                Math.sin(lat1) * Math.cos(distance / earthRadius) +
-                Math.cos(lat1) * Math.sin(distance / earthRadius) * Math.cos(bearing)
-            );
-            
-            const lng2 = lng1 + Math.atan2(
-                Math.sin(bearing) * Math.sin(distance / earthRadius) * Math.cos(lat1),
-                Math.cos(distance / earthRadius) - Math.sin(lat1) * Math.sin(lat2)
-            );
-            
-            const position = {
-                lat: lat2 * 180 / Math.PI,
-                lng: lng2 * 180 / Math.PI
-            };
-            
+        const lng2 = lng1 + Math.atan2(
+            Math.sin(bearing) * Math.sin(distance / earthRadius) * Math.cos(lat1),
+            Math.cos(distance / earthRadius) - Math.sin(lat1) * Math.sin(lat2)
+        );
+        
+        const position = {
+            lat: lat2 * 180 / Math.PI,
+            lng: lng2 * 180 / Math.PI
+        };
+        
+        // 画像生成を Promise として作成
+        const imagePromise = new Promise((resolve) => {
             try {
-                const fallbackImage = this.createFallbackAerialImage(i, position);
+                const aerialImage = this.createDetailedAerialImage(i, position);
                 
-                this.aerialImages.push({
-                    image: fallbackImage,
-                    position: position,
-                    distance: distance,
-                    isFallback: true
-                });
-                
-                console.log(`✅ フォールバック航空写真 ${i + 1}/${imageCount} 準備完了`);
-                
+                // 画像の読み込み完了を待つ
+                if (aerialImage.complete) {
+                    resolve({
+                        image: aerialImage,
+                        position: position,
+                        distance: distance,
+                        isFallback: true
+                    });
+                } else {
+                    aerialImage.onload = () => {
+                        resolve({
+                            image: aerialImage,
+                            position: position,
+                            distance: distance,
+                            isFallback: true
+                        });
+                    };
+                    aerialImage.onerror = () => {
+                        // エラー時はフォールバック画像を作成
+                        const fallbackImage = this.createFallbackAerialImage(i, position);
+                        resolve({
+                            image: fallbackImage,
+                            position: position,
+                            distance: distance,
+                            isFallback: true
+                        });
+                    };
+                }
             } catch (error) {
-                console.error(`❌ 航空写真 ${i + 1} 準備失敗:`, error);
-                
+                console.error(`❌ 航空写真 ${i + 1} 生成失敗:`, error);
                 const basicImage = this.createBasicFallbackImage();
-                this.aerialImages.push({
+                resolve({
                     image: basicImage,
                     position: position,
                     distance: distance,
                     isFallback: true
                 });
             }
-        }
+        });
         
-        console.log(`🎯 航空写真準備完了！画像数: ${this.aerialImages.length}`);
-        this.isAerialImagesReady = true;
-        this.updatePreparationStatus();
+        imagePromises.push(imagePromise);
     }
+    
+    // すべての画像の準備完了を待つ
+    try {
+        this.aerialImages = await Promise.all(imagePromises);
+        console.log(`🎯 航空写真準備完了！画像数: ${this.aerialImages.length}`);
+    } catch (error) {
+        console.error('❌ 航空写真準備中にエラー:', error);
+        // エラー時は基本的なフォールバック画像で埋める
+        this.aerialImages = imagePromises.map((_, i) => ({
+            image: this.createBasicFallbackImage(),
+            position: { lat: 0, lng: 0 },
+            distance: i * 125,
+            isFallback: true
+        }));
+    }
+    
+    this.isAerialImagesReady = true;
+    this.updatePreparationStatus();
+}
+    
+          
+        
     
     // フォールバック航空写真生成
     createFallbackAerialImage(index, position) {
