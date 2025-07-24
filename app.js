@@ -1596,7 +1596,7 @@ if (progress >= 1) {
     
 
 // 【簡略化版】drawBackground - 1つの航空写真をスクロールするだけ
-// 【正しい下方向スクロール版】drawBackground
+// 【画像縮小なし版】drawBackground - 元サイズで下方向スクロール
 drawBackground(currentDistance, progress) {
     if (!this.ctx || !this.aerialImages.length || !this.aerialImages[0].image) {
         this.showDebug(`❌ 描画前チェック失敗 - ctx:${!!this.ctx}, 画像数:${this.aerialImages.length}`);
@@ -1617,23 +1617,22 @@ drawBackground(currentDistance, progress) {
             return;  
         }
 
-        // 画像をキャンバス幅に合わせつつ、高さを3倍にしてスクロール余地を作る
-        const scale = this.canvasWidth / aerialImage.naturalWidth;
-        const scaledWidth = aerialImage.naturalWidth * scale;
-        const scaledHeight = aerialImage.naturalHeight * scale * 3; // 高さ3倍
+        // 【修正】画像を元のサイズのまま使用（縮小なし）
+        const imageWidth = aerialImage.naturalWidth;
+        const imageHeight = aerialImage.naturalHeight;
         
-        // 中央配置のX座標
-        const centerX = (this.canvasWidth - scaledWidth) / 2;
+        // 中央配置のX座標（画像がキャンバスより大きい場合は中央寄せ）
+        const centerX = (this.canvasWidth - imageWidth) / 2;
         
-        // 【修正】正しい下方向スクロール計算
-        // progress=0: 画像の上部から開始（scrollY = 0）
-        // progress=1: 画像の下部で終了（scrollY = -(scaledHeight - canvasHeight)）
-        const maxScroll = scaledHeight - this.canvasHeight;
+        // 【修正】下方向スクロール計算
+        // 画像がキャンバスより大きい場合のみスクロール可能
+        const maxScroll = Math.max(0, imageHeight - this.canvasHeight);
         const scrollY = progress * maxScroll;
         
         // デバッグ情報（10フレームに1回のみ）
         if (this.animationFrame % 10 === 0) {
             this.showDebug(`📊 下スクロール: ${Math.round(progress*100)}%`);
+            this.showDebug(`  - 画像サイズ: ${imageWidth}x${imageHeight}`);
             this.showDebug(`  - maxScroll: ${Math.round(maxScroll)}px`);
             this.showDebug(`  - scrollY: ${Math.round(scrollY)}px`);
         }
@@ -1642,37 +1641,47 @@ drawBackground(currentDistance, progress) {
         this.ctx.fillStyle = '#000000';
         this.ctx.fillRect(0, 0, this.canvasWidth, this.canvasHeight);
 
-        // 【修正】航空写真を描画（下方向スクロール）
+        // 【修正】航空写真を元サイズで描画（下方向スクロール）
         this.ctx.drawImage(
             aerialImage, 
-            centerX,      // X位置（中央）
-            scrollY,      // Y位置（下方向スクロール）
-            scaledWidth,  // 幅
-            scaledHeight  // 高さ（3倍）
+            centerX,     // X位置（中央寄せ）
+            scrollY,     // Y位置（下方向スクロール）
+            imageWidth,  // 元の幅
+            imageHeight  // 元の高さ
         );
 
         // 【追加】スクロール確認用の境界線
         this.ctx.strokeStyle = '#00ff00';
         this.ctx.lineWidth = 2;
-        this.ctx.strokeRect(centerX, scrollY, scaledWidth, scaledHeight);
+        this.ctx.strokeRect(centerX, scrollY, imageWidth, imageHeight);
 
-        // 進行度と方向表示
+        // 進行度と情報表示
         this.ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
         this.ctx.font = 'bold 18px Arial';
         this.ctx.textAlign = 'center';
         this.ctx.fillText(
-            `🛰️ 下方向スクロール ${Math.round(progress * 100)}%`, 
+            `🛰️ 航空写真 ${Math.round(progress * 100)}%`, 
             this.canvasWidth / 2, 
             40
         );
 
-        // スクロール位置の数値表示
+        // 画像情報とスクロール位置表示
         this.ctx.font = 'bold 14px Arial';
         this.ctx.fillText(
-            `位置: ${Math.round(-scrollY)}/${Math.round(maxScroll)}px`, 
+            `画像: ${imageWidth}x${imageHeight}px スクロール: ${Math.round(-scrollY)}/${Math.round(maxScroll)}px`, 
             this.canvasWidth / 2, 
             70
         );
+
+        // スクロール可能範囲の警告表示
+        if (maxScroll === 0) {
+            this.ctx.fillStyle = 'rgba(255, 255, 0, 0.9)';
+            this.ctx.fillText(
+                '⚠️ 画像が小さすぎてスクロールできません', 
+                this.canvasWidth / 2, 
+                100
+            );
+        }
 
         this.ctx.restore();
         
