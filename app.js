@@ -1170,7 +1170,7 @@ async prepareAerialImages() {
         }
         
         this.animationFrame++;
-        const progress = this.animationFrame * 0.004;
+        const progress = this.animationFrame * 0.002;
         
         if (progress >= 1 || this.backgroundOffsetY >= this.canvasHeight * 4) {
             console.log('✅ キャンバスアニメーション完了、着地処理開始');
@@ -1236,7 +1236,7 @@ async prepareAerialImages() {
             );
             
             const speedFactor = Math.min(this.maxAcceleration / 15, 3);
-            this.backgroundOffsetY += speedFactor * 4;
+            this.backgroundOffsetY += speedFactor * 2;
             
             if (this.aerialImages.length > 0 && this.aerialImages[imageIndex]) {
                 const aerialData = this.aerialImages[imageIndex];
