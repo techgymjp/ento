@@ -1205,63 +1205,38 @@ createDetailedAerialImage(index, position, distance) {
     
 
  
-    // 背景描画（デバッグ表示版）
-    drawBackground(currentDistance, progress) {
+
+// 背景描画（シンプル直列版）
+drawBackground(currentDistance, progress) {
     if (!this.ctx) return;
     
     try {
-        const imageIndex = Math.min(
-            Math.floor((currentDistance / this.throwPower) * this.aerialImages.length),
-            this.aerialImages.length - 1
-        );
+        // 進行度に応じたY座標オフセット
+        const totalHeight = this.canvasHeight * 12; // 12枚分の高さ
+        const currentY = -totalHeight + (progress * totalHeight); // -12倍から0まで移動
         
-        // 【デバッグ表示】基本情報
-        this.showDebug(`描画試行: idx=${imageIndex}, 配列長=${this.aerialImages.length}, 距離=${Math.round(currentDistance)}m`);
-        
-        if (this.aerialImages.length > 0 && this.aerialImages[imageIndex]) {
-            const aerialData = this.aerialImages[imageIndex];
+        // 12枚の画像を縦に描画
+        for (let i = 0; i < this.aerialImages.length; i++) {
+            const aerialData = this.aerialImages[i];
             
-            // 【デバッグ表示】画像状態
-            const imgStatus = aerialData.image ? 
-                `complete=${aerialData.image.complete}, size=${aerialData.image.naturalWidth}x${aerialData.image.naturalHeight}` :
-                'image=null';
-            this.showDebug(`画像状態: ${imgStatus}`);
-            
-            if (aerialData.image && aerialData.image.complete && aerialData.image.naturalWidth > 0) {
-                this.showDebug('✅ 画像有効、描画開始');
+            if (aerialData && aerialData.image && aerialData.image.complete) {
+                const imgWidth = this.canvasWidth;
+                const imgHeight = this.canvasHeight;
+                const imgX = 0;
+                const imgY = currentY + (i * imgHeight); // i番目の画像位置
                 
-                // 既存の描画コード
-                const scrollProgress = (progress * 2) % 1;
-                const scrollOffset = scrollProgress * this.canvasHeight;
-                
-                const imgWidth = this.canvasWidth * 3;
-                const imgHeight = this.canvasHeight * 3;
-                const imgX = (this.canvasWidth - imgWidth) / 2;
-                
-                const imgY1 = scrollOffset;
-                this.ctx.drawImage(
-                    aerialData.image,
-                    imgX, imgY1,
-                    imgWidth, imgHeight
-                );
-                
-                const imgY2 = imgY1 + imgHeight;
-                this.ctx.drawImage(
-                    aerialData.image,
-                    imgX, imgY2,
-                    imgWidth, imgHeight
-                );
-                
-                this.showDebug(`✅ 描画完了: ${imgWidth}x${imgHeight} at (${imgX},${imgY1})`);
-                
-            } else {
-                this.showDebug('⚠️ 画像無効、フォールバック使用');
-                this.drawFallbackBackground();
+                // 画面内にある画像のみ描画（最適化）
+                if (imgY > -imgHeight && imgY < this.canvasHeight) {
+                    this.ctx.drawImage(
+                        aerialData.image,
+                        imgX, imgY,
+                        imgWidth, imgHeight
+                    );
+                }
             }
-        } else {
-            this.showDebug('⚠️ 配列が空またはインデックス範囲外');
-            this.drawFallbackBackground();
         }
+        
+        this.showDebug(`📸 直列描画: progress=${Math.round(progress*100)}%, Y=${Math.round(currentY)}`);
         
     } catch (error) {
         this.showDebug(`❌ 描画エラー: ${error.message}`);
