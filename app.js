@@ -1256,8 +1256,8 @@ async prepareAerialImages() {
                 const scrollProgress = (progress * 2) % 1;
                 const scrollOffset = scrollProgress * this.canvasHeight;
                 
-                const imgWidth = this.canvasWidth * 1.2;
-                const imgHeight = this.canvasHeight * 1.2;
+                const imgWidth = this.canvasWidth * 0.8;
+                const imgHeight = this.canvasHeight * 0.8;
                 const imgX = (this.canvasWidth - imgWidth) / 2;
                 
                 const imgY1 = scrollOffset;
