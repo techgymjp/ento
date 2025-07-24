@@ -1016,24 +1016,37 @@ showDetailedError(context, error) {
     }
     
 
-/// 【強化版】prepareAerialImages
+// 航空写真準備エラー詳細調査版（prepareAerialImagesメソッドを置き換え）
+
 async prepareAerialImages() {
     this.showDebug('🛰️ 航空写真準備開始');
     
     try {
-        // Static Maps APIのURL構築
-        const staticMapUrl = `https://maps.googleapis.com/maps/api/staticmap?` +
-            `center=${this.startPosition.lat},${this.startPosition.lng}&` +
-            `zoom=16&size=1024x1024&maptype=satellite&` +
-            `key=AIzaSyDbZWtPobAYr04A8da3OUOjtNNdjfvkbXA`;
+        // 位置情報の確認
+        this.showDebug(`📍 開始位置: ${this.startPosition.lat}, ${this.startPosition.lng}`);
+        this.showDebug(`📍 投球角度: ${this.throwAngle}度`);
         
-        this.showDebug(`📡 API URL作成完了`);
-        this.showDebug(`位置: ${this.startPosition.lat.toFixed(4)}, ${this.startPosition.lng.toFixed(4)}`);
+        // Static Maps APIのURL構築
+        const baseUrl = 'https://maps.googleapis.com/maps/api/staticmap';
+        const params = [
+            `center=${this.startPosition.lat},${this.startPosition.lng}`,
+            `zoom=16`,
+            `size=1024x1024`,
+            `maptype=satellite`,
+            `key=AIzaSyDbZWtPobAYr04A8da3OUOjtNNdjfvkbXA`
+        ];
+        const staticMapUrl = baseUrl + '?' + params.join('&');
+        
+        this.showDebug(`📡 API URL構築完了`);
+        this.showDebug(`URL長: ${staticMapUrl.length}文字`);
         
         // 実際の航空写真を取得
         this.showDebug('📥 画像ダウンロード開始...');
+        
         const originalImage = await this.loadImageWithCORS(staticMapUrl);
-        this.showDebug(`✅ 元画像取得成功: ${originalImage.naturalWidth}x${originalImage.naturalHeight}`);
+        
+        this.showDebug(`✅ Static Maps API成功`);
+        this.showDebug(`画像サイズ: ${originalImage.naturalWidth}x${originalImage.naturalHeight}`);
         
         // 投球方向に回転
         this.showDebug(`🔄 画像回転開始: ${this.throwAngle}度`);
@@ -1042,11 +1055,22 @@ async prepareAerialImages() {
         // 回転完了を待つ
         await new Promise((resolve) => {
             if (rotatedImage.complete) {
+                this.showDebug('✅ 回転画像即座に完了');
                 resolve();
             } else {
-                rotatedImage.onload = resolve;
-                rotatedImage.onerror = resolve;
-                setTimeout(resolve, 2000); // タイムアウト
+                this.showDebug('⏳ 回転画像読み込み待機中...');
+                rotatedImage.onload = () => {
+                    this.showDebug('✅ 回転画像読み込み完了');
+                    resolve();
+                };
+                rotatedImage.onerror = (e) => {
+                    this.showDebug(`❌ 回転画像読み込み失敗: ${e}`);
+                    resolve();
+                };
+                setTimeout(() => {
+                    this.showDebug('⏰ 回転画像読み込みタイムアウト');
+                    resolve();
+                }, 3000);
             }
         });
         
@@ -1067,36 +1091,103 @@ async prepareAerialImages() {
     } catch (error) {
         this.showDetailedError('航空写真準備', error);
         
+        // より詳細なエラー情報
+        this.showDebug(`エラータイプ: ${error.name}`);
+        this.showDebug(`エラーメッセージ: ${error.message}`);
+        
         // フォールバック：方向性のある生成画像
         this.showDebug('🎨 フォールバック画像生成開始');
-        const fallbackImage = this.createDirectionalAerialImage(this.throwAngle);
         
-        this.aerialImages = [{
-            image: fallbackImage,
-            position: this.startPosition,
-            distance: 0,
-            index: 0
-        }];
+        try {
+            const fallbackImage = this.createDirectionalAerialImage(this.throwAngle);
+            
+            // フォールバック画像の完了を待つ
+            await new Promise((resolve) => {
+                if (fallbackImage.complete) {
+                    resolve();
+                } else {
+                    fallbackImage.onload = resolve;
+                    fallbackImage.onerror = resolve;
+                    setTimeout(resolve, 1000);
+                }
+            });
+            
+            this.aerialImages = [{
+                image: fallbackImage,
+                position: this.startPosition,
+                distance: 0,
+                index: 0
+            }];
+            
+            this.showDebug('✅ フォールバック画像準備完了');
+            this.debugAerialImageState();
+            
+        } catch (fallbackError) {
+            this.showDetailedError('フォールバック画像生成', fallbackError);
+            
+            // 最終フォールバック：シンプルな画像
+            this.showDebug('🎨 最終フォールバック画像生成');
+            const simpleImage = this.createBasicFallbackImage();
+            this.aerialImages = [{
+                image: simpleImage,
+                position: this.startPosition,
+                distance: 0,
+                index: 0
+            }];
+            this.showDebug('✅ 最終フォールバック完了');
+        }
         
-        this.showDebug('✅ フォールバック画像準備完了');
         this.isAerialImagesReady = true;
         this.updatePreparationStatus();
     }
 }
 
     
-    loadImageWithCORS(url) {
+// loadImageWithCORSメソッドを以下に置き換え
+
+loadImageWithCORS(url) {
     return new Promise((resolve, reject) => {
+        this.showDebug('🌐 画像読み込み開始');
+        this.showDebug(`URL: ${url.substring(0, 100)}...`);
+        
         const img = new Image();
+        
+        // CORSヘッダーを試す
         img.crossOrigin = 'anonymous';
+        
         img.onload = () => {
-            console.log('✅ Static Maps API画像読み込み成功');
+            this.showDebug(`✅ 画像読み込み成功: ${img.naturalWidth}x${img.naturalHeight}`);
             resolve(img);
         };
+        
         img.onerror = (error) => {
-            console.error('❌ Static Maps API画像読み込み失敗:', error);
-            reject(error);
+            this.showDebug(`❌ 画像読み込み失敗`);
+            this.showDebug(`エラー詳細: ${JSON.stringify(error)}`);
+            
+            // CORSなしで再試行
+            this.showDebug('🔄 CORS無しで再試行');
+            const img2 = new Image();
+            
+            img2.onload = () => {
+                this.showDebug(`✅ CORS無し再試行成功: ${img2.naturalWidth}x${img2.naturalHeight}`);
+                resolve(img2);
+            };
+            
+            img2.onerror = (error2) => {
+                this.showDebug(`❌ CORS無し再試行も失敗`);
+                this.showDebug(`最終エラー: ${JSON.stringify(error2)}`);
+                reject(new Error(`画像読み込み失敗: ${url}`));
+            };
+            
+            img2.src = url;
         };
+        
+        // タイムアウト設定
+        setTimeout(() => {
+            this.showDebug('⏰ 画像読み込みタイムアウト(10秒)');
+            reject(new Error('画像読み込みタイムアウト'));
+        }, 10000);
+        
         img.src = url;
     });
 }
