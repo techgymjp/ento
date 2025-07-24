@@ -1595,7 +1595,6 @@ if (progress >= 1) {
     }
     
 
-// 【強化版】drawBackground
 // 【簡略化版】drawBackground - 1つの航空写真をスクロールするだけ
 drawBackground(currentDistance, progress) {
     if (!this.ctx || !this.aerialImages.length || !this.aerialImages[0].image) {
@@ -1628,7 +1627,7 @@ drawBackground(currentDistance, progress) {
         
         // スクロール計算：上から下へ移動
         const totalScrollDistance = scaledHeight - this.canvasHeight;
-        const scrollY = -(progress * totalScrollDistance);
+        const scrollY = progress * totalScrollDistance;
         
         // デバッグ情報（10フレームに1回のみ）
         if (this.animationFrame % 10 === 0) {
