@@ -691,7 +691,7 @@ resizeCanvasForPower() {
     const baseHeight = container.clientHeight;
     
     // 【新機能】投球パワーに応じてキャンバスサイズを動的計算
-    let sizeMultiplier = 2.0;
+    let sizeMultiplier = 1.0;
     
     if (this.throwPower <= 200) {
         sizeMultiplier = 2.0;  // 近距離：小さめキャンバス
