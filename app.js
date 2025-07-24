@@ -1322,32 +1322,6 @@ drawBackground(currentDistance, progress) {
     }
 }
 
-// 【追加】投球進行度に応じたスクロールオフセット計算
-const maxScroll = aerialImage.height - this.canvasHeight;
-const scrollY = progress * maxScroll;
-
-// 【追加】画像サイズをキャンバスに合わせて調整
-const scale = Math.max(
-    this.canvasWidth / aerialImage.width,
-    this.canvasHeight / aerialImage.height
-);
-
-// 【追加】実際の描画処理
-this.ctx.drawImage(aerialImage, offsetX, offsetY, scaledWidth, scaledHeight);
-
-// 【追加】進行度表示
-this.ctx.fillText(`投球進行度: ${Math.round(progress * 100)}%`, this.canvasWidth / 2, 30);
-
-this.ctx.restore();
-
-
-        
-    } catch (error) {
-        this.showDebug(`❌ 背景描画エラー: ${error.message}`);
-        this.drawFallbackBackground();
-        this.ctx.restore();
-    }
-}
     
     // Canvas上でのボール描画（改善版）
     drawCanvasBall(progress) {
