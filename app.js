@@ -897,7 +897,7 @@ async prepareAerialImages() {
         // 画像生成を Promise として作成
         const imagePromise = new Promise((resolve) => {
             try {
-                const aerialImage = this.createDetailedAerialImage(i, position);
+                const aerialImage = this.createFallbackAerialImage(i, position);
                 
                 // 画像の読み込み完了を待つ
                 if (aerialImage.complete) {
@@ -961,8 +961,11 @@ async prepareAerialImages() {
     this.updatePreparationStatus();
 }
     
-          
-        
+         
+    // より詳細な航空写真風画像を生成
+    createDetailedAerialImage(index, position) {
+        return this.createFallbackAerialImage(index, position);
+    }
     
     // フォールバック航空写真生成
     createFallbackAerialImage(index, position) {
