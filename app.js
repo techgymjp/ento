@@ -1289,7 +1289,7 @@ drawBackground(currentDistance, progress) {
         
         // 中央寄せのためのオフセット計算
         const offsetX = (this.canvasWidth - scaledWidth) / 2;
-        const offsetY = -scrollY; // スクロール効果
+        const offsetY = scrollY; // スクロール効果
 
         // 実際の描画処理
         this.ctx.drawImage(
