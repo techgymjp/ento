@@ -63,7 +63,7 @@ class BallThrowJourneyApp {
         // Shake detection
         this.accelerationData = [];
         this.maxAcceleration = 0;
-        this.shakeThreshold = 14;
+        this.shakeThreshold = 8;
         this.totalDistance = 0;
         
         // Animation
@@ -477,44 +477,58 @@ showDetailedError(context, error) {
     }
     
     handleMotion(event) {
-        if (!this.isDetectingShake) return;
-        
-        const acceleration = event.acceleration || event.accelerationIncludingGravity;
-        if (!acceleration) return;
-        
-        // より正確な加速度計算
-        const totalAcceleration = Math.sqrt(
+    if (!this.isDetectingShake) return;
+    
+    const acceleration = event.acceleration || event.accelerationIncludingGravity;
+    if (!acceleration) return;
+    
+    // 【修正】より正確な加速度計算（重力を除去）
+    let totalAcceleration;
+    if (event.acceleration) {
+        // 重力除去済みの加速度データがある場合
+        totalAcceleration = Math.sqrt(
             Math.pow(acceleration.x || 0, 2) + 
             Math.pow(acceleration.y || 0, 2) + 
             Math.pow(acceleration.z || 0, 2)
         );
+    } else {
+        // 重力込みデータから推定重力を差し引く
+        const x = acceleration.x || 0;
+        const y = acceleration.y || 0;
+        const z = acceleration.z || 0;
         
-        const currentTime = Date.now();
-        this.accelerationData.push({
-            value: totalAcceleration,
-            timestamp: currentTime
-        });
+        // 重力の影響を減らす（通常重力は約9.8）
+        const gravityCompensatedZ = Math.abs(z) > 9 ? z - Math.sign(z) * 9.8 : z;
         
-        // Keep only recent data (last 1 second)
-        this.accelerationData = this.accelerationData.filter(
-            data => currentTime - data.timestamp <= 1000
-        );
-        
-        if (totalAcceleration > this.maxAcceleration) {
-            this.maxAcceleration = totalAcceleration;
-        }
-        
-        // Update power meter
-        const powerLevel = Math.min((totalAcceleration / 20) * 100, 100);
-        document.getElementById('powerFill').style.height = powerLevel + '%';
-        document.getElementById('speed').textContent = `${Math.round(totalAcceleration * 10)/10}`;
-        
-        // Detect throw
-        if (totalAcceleration > this.shakeThreshold && this.maxAcceleration > this.shakeThreshold) {
-            console.log('🎯 投球検出！');
-            this.startThrowWithShake();
-        }
+        totalAcceleration = Math.sqrt(x * x + y * y + gravityCompensatedZ * gravityCompensatedZ);
     }
+    
+    const currentTime = Date.now();
+    this.accelerationData.push({
+        value: totalAcceleration,
+        timestamp: currentTime
+    });
+    
+    // Keep only recent data (last 1 second)
+    this.accelerationData = this.accelerationData.filter(
+        data => currentTime - data.timestamp <= 1000
+    );
+    
+    if (totalAcceleration > this.maxAcceleration) {
+        this.maxAcceleration = totalAcceleration;
+    }
+    
+    // 【修正】パワーメーター表示の調整
+    const powerLevel = Math.min((totalAcceleration / 15) * 100, 100); // 20から15に変更
+    document.getElementById('powerFill').style.height = powerLevel + '%';
+    document.getElementById('speed').textContent = `${Math.round(totalAcceleration * 10)/10}`;
+    
+    // 【修正】投球検出の閾値調整
+    if (totalAcceleration > this.shakeThreshold && this.maxAcceleration > this.shakeThreshold) {
+        console.log('🎯 投球検出！最大加速度:', this.maxAcceleration);
+        this.startThrowWithShake();
+    }
+}
     
     setupFallbackShakeDetection() {
         console.log('🔧 フォールバック振り検出を設定');
@@ -907,17 +921,39 @@ resizeCanvasForPower() {
         if (this.isActive || !this.isDetectingShake) return;
         
         console.log('🎯 投球準備処理開始');
-        // 重要：ここではまだボール移動を開始しない（状態フラグは設定しない）
-        // リソース準備画面を表示（ボール移動はまだ開始しない）
         this.isDetectingShake = false;
         document.getElementById('powerMeter').style.display = 'none';
         
-        const shakeIntensity = Math.min(this.maxAcceleration / 30, 1);
-        this.throwPower = Math.max(100, shakeIntensity * 1000);
+        // より細かい段階分けで現実的な飛距離に
+        let throwPower;
+    
+        if (this.maxAcceleration <= 10) {
+        // 軽い振り: 100-300m
+        throwPower = 100 + (this.maxAcceleration - 8) * 100;
+    } else if (this.maxAcceleration <= 15) {
+        // 普通の振り: 300-600m  
+        throwPower = 300 + (this.maxAcceleration - 10) * 60;
+    } else if (this.maxAcceleration <= 20) {
+        // 強い振り: 600-1000m
+        throwPower = 600 + (this.maxAcceleration - 15) * 80;
+    } else if (this.maxAcceleration <= 25) {
+        // とても強い振り: 1000-1500m
+        throwPower = 1000 + (this.maxAcceleration - 20) * 100;
+    } else {
+        // 超強力な振り: 1500-2000m
+        throwPower = Math.min(2000, 1500 + (this.maxAcceleration - 25) * 100);
+    }
+        this.throwPower = Math.max(100, Math.round(throwPower)); // 最低100m
         this.throwAngle = this.heading;
         
-        console.log(`投球検出! パワー: ${this.throwPower}m, 方向: ${this.throwAngle}°`);
+        console.log(`投球検出! 最大加速度: ${this.maxAcceleration.toFixed(2)}, パワー: ${this.throwPower}m, 方向: ${this.throwAngle}°`);
         
+        // デバッグ表示
+        this.showDebug(`🎯 投球パワー計算:`);
+        this.showDebug(`  - 最大加速度: ${this.maxAcceleration.toFixed(2)}`);
+        this.showDebug(`  - 計算された飛距離: ${this.throwPower}m`);
+        this.showDebug(`  - 投球方向: ${this.throwAngle}度`);
+
         this.ballElement.classList.add('throwing');
         this.ballTrailPoints = [];
         this.clearTrails();
