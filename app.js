@@ -19,9 +19,6 @@ class BallThrowJourneyApp {
         this.ballCanvasY = 0;
         this.backgroundOffsetY = 0;
         
-        // デバッグ表示用エレメント
-        this.debugElement = this.createDebugElement();
-        
         // Audio elements
         this.sounds = {
             start: new Audio('start.mp3'),
@@ -88,55 +85,6 @@ class BallThrowJourneyApp {
         
         this.updateStatus('位置情報とデバイスセンサーの許可が必要です');
         console.log('✅ BallThrowJourneyApp initialized');
-    }
-    
-    // デバッグ表示エレメント作成
-    createDebugElement() {
-        const debugDiv = document.createElement('div');
-        debugDiv.id = 'debugInfo';
-        debugDiv.style.cssText = `
-            position: fixed;
-            top: 10px;
-            left: 10px;
-            background: rgba(0, 0, 0, 0.8);
-            color: white;
-            padding: 10px;
-            border-radius: 5px;
-            font-size: 12px;
-            font-family: monospace;
-            z-index: 9999;
-            max-width: 300px;
-            max-height: 200px;
-            overflow-y: auto;
-            display: none;
-        `;
-        document.body.appendChild(debugDiv);
-        return debugDiv;
-    }
-    
-    // デバッグ情報表示
-    showDebug(message) {
-        if (!this.debugElement) return;
-        
-        const timestamp = new Date().toLocaleTimeString();
-        const newMessage = `[${timestamp}] ${message}`;
-        
-        this.debugElement.innerHTML += newMessage + '<br>';
-        this.debugElement.scrollTop = this.debugElement.scrollHeight;
-        this.debugElement.style.display = 'block';
-        
-        // 50行を超えたら古いメッセージを削除
-        const lines = this.debugElement.innerHTML.split('<br>');
-        if (lines.length > 50) {
-            this.debugElement.innerHTML = lines.slice(-50).join('<br>');
-        }
-    }
-    
-    // デバッグ情報をクリア
-    clearDebug() {
-        if (this.debugElement) {
-            this.debugElement.innerHTML = '';
-        }
     }
     
     // 2点間の距離を計算（メートル単位）
@@ -531,19 +479,15 @@ class BallThrowJourneyApp {
         startBtn.onclick = () => this.startCountdown();
     }
     
-    // Canvas初期化（デバッグ強化版）
+    // Canvas初期化（エラーハンドリング強化）
     initCanvas() {
-        this.showDebug('🎨 Canvas初期化開始');
-        
         if (!this.gameCanvas) {
-            this.showDebug('❌ Canvas要素が見つかりません');
             console.error('❌ Game canvas element not found');
             return false;
         }
         
         const container = this.gameCanvas.parentElement;
         if (!container) {
-            this.showDebug('❌ Canvas親要素が見つかりません');
             console.error('❌ Canvas container not found');
             return false;
         }
@@ -551,10 +495,7 @@ class BallThrowJourneyApp {
         this.canvasWidth = container.clientWidth;
         this.canvasHeight = container.clientHeight;
         
-        this.showDebug(`📐 Canvas寸法: ${this.canvasWidth}x${this.canvasHeight}`);
-        
         if (this.canvasWidth <= 0 || this.canvasHeight <= 0) {
-            this.showDebug('❌ Canvas寸法が不正です');
             console.error('❌ Invalid canvas dimensions:', this.canvasWidth, 'x', this.canvasHeight);
             return false;
         }
@@ -567,9 +508,7 @@ class BallThrowJourneyApp {
             if (!this.ctx) {
                 throw new Error('Canvas context is null');
             }
-            this.showDebug('✅ Canvas context取得成功');
         } catch (error) {
-            this.showDebug(`❌ Canvas context取得失敗: ${error.message}`);
             console.error('❌ Failed to get canvas context:', error);
             return false;
         }
@@ -579,12 +518,11 @@ class BallThrowJourneyApp {
         
         this.loadBallImage();
         
-        this.showDebug('✅ Canvas初期化完了');
         console.log('✅ Canvas initialized successfully:', this.canvasWidth, 'x', this.canvasHeight);
         return true;
     }
 
-    // ボール画像読み込み（修正版）
+    // ボール画像読み込み（改善版）
     loadBallImage() {
         console.log('🏀 ボール画像読み込み開始');
         this.ballImage = new Image();
@@ -594,20 +532,20 @@ class BallThrowJourneyApp {
             this.isBallImageReady = true;
             this.updatePreparationStatus();
         };
-        
         this.ballImage.onerror = () => {
-            console.warn('⚠️ ball.gif failed to load, trying ball.png...');
-            this.ballImage.src = 'ball.png';
-            
-            // ball.pngも失敗した場合のフォールバック
+            console.warn('⚠️ Ball image failed to load, creating fallback');
+            this.createFallbackBallImage();
+            this.ballImage.src = 'ball.png';// フォールバック
+        
+        // ball.pngも失敗した場合のフォールバック
             this.ballImage.onerror = () => {
                 console.warn('⚠️ ball.png also failed, creating fallback');
                 this.createFallbackBallImage();
             };
         };
 
-        // ball.gif を最初に試行
-        this.ballImage.src = 'ball.gif';
+        // 修正: ball.gif を最初に試行（この行を変更）
+        this.ballImage.src = 'ball.gif';  // 元: 'ball.png'
     }
     
     // フォールバックボール画像生成
@@ -745,6 +683,8 @@ class BallThrowJourneyApp {
         if (this.isActive || !this.isDetectingShake) return;
         
         console.log('🎯 投球準備処理開始');
+        // 重要：ここではまだボール移動を開始しない（状態フラグは設定しない）
+        // リソース準備画面を表示（ボール移動はまだ開始しない）
         this.isDetectingShake = false;
         document.getElementById('powerMeter').style.display = 'none';
         
@@ -795,10 +735,11 @@ class BallThrowJourneyApp {
     async prepareResources() {
         console.log('🚀 リソース準備開始');
 
-        // 状態をリセット
+        // 修正: 状態をリセット（この3行を追加）
         this.isAudioReady = false;
         this.isAerialImagesReady = false;
         this.isBallImageReady = false;
+    
         
         // 並行してリソースを準備
         this.prepareAudio();
@@ -825,44 +766,44 @@ class BallThrowJourneyApp {
             this.updatePreparationStatus();
             cleanup();
         };
+            const onError = (e) => {
+                console.warn('⚠️ 効果音読み込み失敗、新しいインスタンスで再試行', e);
+                // 新しいAudioインスタンスを作成
+                const newAudio = new Audio('kick.mp3');
+                newAudio.volume = 0.8;
+                newAudio.preload = 'auto';
+                this.sounds.kick = newAudio;
         
-        const onError = (e) => {
-            console.warn('⚠️ 効果音読み込み失敗、新しいインスタンスで再試行', e);
-            // 新しいAudioインスタンスを作成
-            const newAudio = new Audio('kick.mp3');
-            newAudio.volume = 0.8;
-            newAudio.preload = 'auto';
-            this.sounds.kick = newAudio;
-    
-            newAudio.addEventListener('canplaythrough', () => {
-                console.log('✅ 新しい効果音インスタンス準備完了');
-                this.isAudioReady = true;
-                this.updatePreparationStatus();
-            }, { once: true });
-    
-            newAudio.addEventListener('error', () => {
-                console.log('⚠️ 効果音準備失敗、フォールバックで続行');
-                this.isAudioReady = true;
-                this.updatePreparationStatus();
-            }, { once: true });
-    
-            cleanup();
-        };
+                newAudio.onload = () => {
+                    console.log('✅ 新しい効果音インスタンス準備完了');
+                    this.isAudioReady = true;
+                    this.updatePreparationStatus();
+                };
+        
+                newAudio.onerror = () => {
+                    console.log('⚠️ 効果音準備失敗、フォールバックで続行');
+                    this.isAudioReady = true;
+                    this.updatePreparationStatus();
+                };
+        
+                cleanup();
+                };
 
-        const cleanup = () => {
+            const cleanup = () => {
             kickAudio.removeEventListener('canplaythrough', onCanPlay);
             kickAudio.removeEventListener('error', onError);
-        };
-
-        kickAudio.addEventListener('canplaythrough', onCanPlay, { once: true });
-        kickAudio.addEventListener('error', onError, { once: true });
-
-        try {
-            kickAudio.load();
-        } catch (e) {
+            };
+    
+            kickAudio.addEventListener('canplaythrough', onCanPlay, { once: true });
+            kickAudio.addEventListener('error', onError, { once: true });
+    
+            try {
+                kickAudio.load();
+            } catch (e) {
             console.warn('Audio load failed:', e);
             onError(e);
         }
+
 
         // タイムアウト設定を短縮
         setTimeout(() => {
@@ -904,6 +845,7 @@ class BallThrowJourneyApp {
             kickButton.textContent = '🚀 KICK!';
             kickButton.onclick = () => {
                 this.hideResourcePreparation();
+                 // ここでボール移動を開始
                 this.startBallMovement();
             };
             
@@ -919,144 +861,107 @@ class BallThrowJourneyApp {
     }
     
 
-    // 航空写真準備（スマホデバッグ版）
-    async prepareAerialImages() {
-        this.showDebug('🛰️ 航空写真準備開始');
-        this.showDebug(`📍 位置: ${this.startPosition.lat.toFixed(4)}, ${this.startPosition.lng.toFixed(4)}`);
-        this.showDebug(`🧭 角度: ${this.throwAngle}°`);
+    // 航空写真準備（改善版）
+async prepareAerialImages() {
+    console.log('🛰️ 航空写真準備開始');
+    
+    const bearing = this.throwAngle * Math.PI / 180;
+    const earthRadius = 6371000;
+    const maxDistance = 1000;
+    const imageCount = 8;
+    
+    this.aerialImages = [];
+    
+    // まず全ての画像を同期的に生成
+    const imagePromises = [];
+    
+    for (let i = 0; i < imageCount; i++) {
+        const distance = (maxDistance / imageCount) * i;
         
-        console.log('🛰️ 航空写真準備開始');
-        console.log('📍 現在位置:', this.startPosition);
-        console.log('🧭 投球角度:', this.throwAngle);
+        const lat1 = this.startPosition.lat * Math.PI / 180;
+        const lng1 = this.startPosition.lng * Math.PI / 180;
         
-        const bearing = this.throwAngle * Math.PI / 180;
-        const earthRadius = 6371000;
-        const maxDistance = 1000;
-        const imageCount = 8;
+        const lat2 = Math.asin(
+            Math.sin(lat1) * Math.cos(distance / earthRadius) +
+            Math.cos(lat1) * Math.sin(distance / earthRadius) * Math.cos(bearing)
+        );
         
-        this.aerialImages = [];
+        const lng2 = lng1 + Math.atan2(
+            Math.sin(bearing) * Math.sin(distance / earthRadius) * Math.cos(lat1),
+            Math.cos(distance / earthRadius) - Math.sin(lat1) * Math.sin(lat2)
+        );
         
-        // Canvas寸法確認
-        this.showDebug(`📐 Canvas: ${this.canvasWidth}x${this.canvasHeight}`);
-        console.log('📐 Canvas寸法:', this.canvasWidth, 'x', this.canvasHeight);
+        const position = {
+            lat: lat2 * 180 / Math.PI,
+            lng: lng2 * 180 / Math.PI
+        };
         
-        // まず全ての画像を同期的に生成
-        const imagePromises = [];
-        
-        for (let i = 0; i < imageCount; i++) {
-            const distance = (maxDistance / imageCount) * i;
-            
-            const lat1 = this.startPosition.lat * Math.PI / 180;
-            const lng1 = this.startPosition.lng * Math.PI / 180;
-            
-            const lat2 = Math.asin(
-                Math.sin(lat1) * Math.cos(distance / earthRadius) +
-                Math.cos(lat1) * Math.sin(distance / earthRadius) * Math.cos(bearing)
-            );
-            
-            const lng2 = lng1 + Math.atan2(
-                Math.sin(bearing) * Math.sin(distance / earthRadius) * Math.cos(lat1),
-                Math.cos(distance / earthRadius) - Math.sin(lat1) * Math.sin(lat2)
-            );
-            
-            const position = {
-                lat: lat2 * 180 / Math.PI,
-                lng: lng2 * 180 / Math.PI
-            };
-            
-            this.showDebug(`🖼️ 画像${i + 1} 生成中 (${distance}m)`);
-            console.log(`🖼️ 航空写真 ${i + 1} 生成開始 - 距離: ${distance}m, 座標: ${position.lat.toFixed(4)}, ${position.lng.toFixed(4)}`);
-            
-            // 画像生成を Promise として作成
-            const imagePromise = new Promise((resolve) => {
-                try {
-                    const aerialImage = this.createFallbackAerialImage(i, position);
-                    this.showDebug(`✅ 画像${i + 1} オブジェクト作成完了`);
-                    console.log(`✅ 航空写真 ${i + 1} 画像オブジェクト作成完了`);
-                    
-                    // 画像の読み込み完了を待つ
-                    if (aerialImage.complete) {
-                        this.showDebug(`✅ 画像${i + 1} 即座に完了`);
-                        console.log(`✅ 航空写真 ${i + 1} 即座に完了`);
+        // 画像生成を Promise として作成
+        const imagePromise = new Promise((resolve) => {
+            try {
+                const aerialImage = this.createFallbackAerialImage(i, position);
+                
+                // 画像の読み込み完了を待つ
+                if (aerialImage.complete) {
+                    resolve({
+                        image: aerialImage,
+                        position: position,
+                        distance: distance,
+                        isFallback: true
+                    });
+                } else {
+                    aerialImage.onload = () => {
                         resolve({
                             image: aerialImage,
                             position: position,
                             distance: distance,
                             isFallback: true
                         });
-                    } else {
-                        aerialImage.onload = () => {
-                            this.showDebug(`✅ 画像${i + 1} 読み込み完了`);
-                            console.log(`✅ 航空写真 ${i + 1} 読み込み完了`);
-                            resolve({
-                                image: aerialImage,
-                                position: position,
-                                distance: distance,
-                                isFallback: true
-                            });
-                        };
-                        aerialImage.onerror = () => {
-                            this.showDebug(`⚠️ 画像${i + 1} エラー、再試行`);
-                            console.warn(`⚠️ 航空写真 ${i + 1} エラー、フォールバック作成`);
-                            const fallbackImage = this.createFallbackAerialImage(i, position);
-                            resolve({
-                                image: fallbackImage,
-                                position: position,
-                                distance: distance,
-                                isFallback: true
-                            });
-                        };
-                    }
-                } catch (error) {
-                    this.showDebug(`❌ 画像${i + 1} 生成失敗`);
-                    console.error(`❌ 航空写真 ${i + 1} 生成失敗:`, error);
-                    const basicImage = this.createBasicFallbackImage();
-                    resolve({
-                        image: basicImage,
-                        position: position,
-                        distance: distance,
-                        isFallback: true
-                    });
+                    };
+                    aerialImage.onerror = () => {
+                        // エラー時はフォールバック画像を作成
+                        const fallbackImage = this.createFallbackAerialImage(i, position);
+                        resolve({
+                            image: fallbackImage,
+                            position: position,
+                            distance: distance,
+                            isFallback: true
+                        });
+                    };
                 }
-            });
-            
-            imagePromises.push(imagePromise);
-        }
-        
-        // すべての画像の準備完了を待つ
-        try {
-            this.aerialImages = await Promise.all(imagePromises);
-            this.showDebug(`🎯 航空写真準備完了！画像数: ${this.aerialImages.length}`);
-            console.log(`🎯 航空写真準備完了！画像数: ${this.aerialImages.length}`);
-            
-            // 各画像の詳細をログ出力
-            this.aerialImages.forEach((aerialData, index) => {
-                this.showDebug(`📸 画像${index + 1}: ${aerialData.image.width || '?'}x${aerialData.image.height || '?'}`);
-                console.log(`📸 航空写真 ${index + 1}:`, {
-                    hasImage: !!aerialData.image,
-                    imageComplete: aerialData.image.complete,
-                    imageWidth: aerialData.image.width || 'unknown',
-                    imageHeight: aerialData.image.height || 'unknown',
-                    distance: aerialData.distance,
-                    position: aerialData.position
+            } catch (error) {
+                console.error(`❌ 航空写真 ${i + 1} 生成失敗:`, error);
+                const basicImage = this.createBasicFallbackImage();
+                resolve({
+                    image: basicImage,
+                    position: position,
+                    distance: distance,
+                    isFallback: true
                 });
-            });
-            
-        } catch (error) {
-            this.showDebug(`❌ 航空写真準備エラー: ${error.message}`);
-            console.error('❌ 航空写真準備中にエラー:', error);
-            // エラー時は基本的なフォールバック画像で埋める
-            this.aerialImages = Array.from({ length: imageCount }, (_, i) => ({
-                image: this.createBasicFallbackImage(),
-                position: { lat: 0, lng: 0 },
-                distance: i * 125,
-                isFallback: true
-            }));
-        }
+            }
+        });
         
-        this.isAerialImagesReady = true;
-        this.updatePreparationStatus();
+        imagePromises.push(imagePromise);
     }
+    
+    // すべての画像の準備完了を待つ
+    try {
+        this.aerialImages = await Promise.all(imagePromises);
+        console.log(`🎯 航空写真準備完了！画像数: ${this.aerialImages.length}`);
+    } catch (error) {
+        console.error('❌ 航空写真準備中にエラー:', error);
+        // エラー時は基本的なフォールバック画像で埋める
+        this.aerialImages = Array.from({ length: imageCount }, (_, i) => ({
+            image: this.createBasicFallbackImage(),
+            position: { lat: 0, lng: 0 },
+            distance: i * 125,
+            isFallback: true
+        }));
+    }
+    
+    this.isAerialImagesReady = true;
+    this.updatePreparationStatus();
+}
     
          
     // より詳細な航空写真風画像を生成
@@ -1064,32 +969,12 @@ class BallThrowJourneyApp {
         return this.createFallbackAerialImage(index, position);
     }
     
-    // フォールバック航空写真生成（デバッグ強化版）
+    // フォールバック航空写真生成
     createFallbackAerialImage(index, position) {
-        console.log(`🎨 フォールバック航空写真生成開始 ${index + 1}`);
-        
-        // Canvas寸法の確認と設定
-        let canvasWidth = this.canvasWidth * 2;
-        let canvasHeight = this.canvasHeight * 2;
-        
-        // Canvas寸法が不正な場合のフォールバック
-        if (!canvasWidth || !canvasHeight || canvasWidth <= 0 || canvasHeight <= 0) {
-            console.warn('⚠️ Canvas寸法が不正、デフォルト寸法を使用');
-            canvasWidth = 800;
-            canvasHeight = 600;
-        }
-        
-        console.log(`📐 使用するCanvas寸法: ${canvasWidth} x ${canvasHeight}`);
-        
         const canvas = document.createElement('canvas');
-        canvas.width = canvasWidth;
-        canvas.height = canvasHeight;
+        canvas.width = this.canvasWidth * 2;
+        canvas.height = this.canvasHeight * 2;
         const ctx = canvas.getContext('2d');
-        
-        if (!ctx) {
-            console.error('❌ Canvas context取得失敗');
-            return this.createBasicFallbackImage();
-        }
         
         const landscapes = [
             { colors: ['#4CAF50', '#2E7D32'], name: '森林' },
@@ -1104,72 +989,51 @@ class BallThrowJourneyApp {
         
         const landscape = landscapes[index % landscapes.length];
         
-        console.log(`🌍 選択された地形: ${landscape.name}`);
+        const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+        gradient.addColorStop(0, landscape.colors[0]);
+        gradient.addColorStop(1, landscape.colors[1]);
         
-        try {
-            // グラデーション背景
-            const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
-            gradient.addColorStop(0, landscape.colors[0]);
-            gradient.addColorStop(1, landscape.colors[1]);
-            
-            ctx.fillStyle = gradient;
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            
-            // パターン追加
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
-            for (let i = 0; i < 100; i++) {
-                const x = Math.random() * canvas.width;
-                const y = Math.random() * canvas.height;
-                const size = Math.random() * 8 + 2;
-                ctx.fillRect(x, y, size, size);
-            }
-            
-            // グリッドパターン
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
-            ctx.lineWidth = 2;
-            const gridSize = 100;
-            for (let x = 0; x < canvas.width; x += gridSize) {
-                ctx.beginPath();
-                ctx.moveTo(x, 0);
-                ctx.lineTo(x, canvas.height);
-                ctx.stroke();
-            }
-            for (let y = 0; y < canvas.height; y += gridSize) {
-                ctx.beginPath();
-                ctx.moveTo(0, y);
-                ctx.lineTo(canvas.width, y);
-                ctx.stroke();
-            }
-            
-            // テキスト情報
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
-            ctx.font = 'bold 24px Arial';
-            ctx.textAlign = 'center';
-            ctx.fillText(`${landscape.name} 区間`, canvas.width / 2, canvas.height / 2 - 30);
-            
-            ctx.font = '18px Arial';
-            ctx.fillText(`距離: ${Math.round(index * 125)}m`, canvas.width / 2, canvas.height / 2);
-            ctx.fillText(`座標: ${position.lat.toFixed(4)}, ${position.lng.toFixed(4)}`, canvas.width / 2, canvas.height / 2 + 30);
-            
-            // デバッグ情報も追加
-            ctx.font = '14px Arial';
-            ctx.fillText(`Index: ${index + 1}/8`, canvas.width / 2, canvas.height / 2 + 60);
-            ctx.fillText(`Canvas: ${canvas.width}x${canvas.height}`, canvas.width / 2, canvas.height / 2 + 80);
-            
-            console.log(`✅ フォールバック航空写真 ${index + 1} 描画完了`);
-            
-        } catch (error) {
-            console.error(`❌ フォールバック航空写真 ${index + 1} 描画エラー:`, error);
-            // 基本的な塗りつぶしだけでも実行
-            ctx.fillStyle = landscape.colors[0];
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        // パターン追加
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+        for (let i = 0; i < 100; i++) {
+            const x = Math.random() * canvas.width;
+            const y = Math.random() * canvas.height;
+            const size = Math.random() * 8 + 2;
+            ctx.fillRect(x, y, size, size);
         }
+        
+        // グリッドパターン
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+        ctx.lineWidth = 2;
+        const gridSize = 100;
+        for (let x = 0; x < canvas.width; x += gridSize) {
+            ctx.beginPath();
+            ctx.moveTo(x, 0);
+            ctx.lineTo(x, canvas.height);
+            ctx.stroke();
+        }
+        for (let y = 0; y < canvas.height; y += gridSize) {
+            ctx.beginPath();
+            ctx.moveTo(0, y);
+            ctx.lineTo(canvas.width, y);
+            ctx.stroke();
+        }
+        
+        // テキスト情報
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+        ctx.font = 'bold 24px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(`${landscape.name} 区間`, canvas.width / 2, canvas.height / 2 - 30);
+        
+        ctx.font = '18px Arial';
+        ctx.fillText(`距離: ${Math.round(index * 125)}m`, canvas.width / 2, canvas.height / 2);
+        ctx.fillText(`座標: ${position.lat.toFixed(4)}, ${position.lng.toFixed(4)}`, canvas.width / 2, canvas.height / 2 + 30);
         
         const img = new Image();
         img.src = canvas.toDataURL();
-        
-        console.log(`📸 フォールバック航空写真 ${index + 1} Image作成完了`);
-        
         return img;
     }
     
@@ -1198,22 +1062,17 @@ class BallThrowJourneyApp {
         return img;
     }
     
-    // ボール移動開始（スマホデバッグ版）
+    // ボール移動開始（改善版）
     async startBallMovement() {
+        // ここで初めて状態フラグを設定
         this.isActive = true;
         this.isBallMoving = true;
-        
-        this.showDebug('🚀 ボール移動開始');
-        this.clearDebug(); // 古いデバッグ情報をクリア
-        this.showDebug('🚀 ボール移動開始');
         
         console.log('🚀 ボール移動開始 - キャンバスモード');
         
         if (!this.ctx) {
-            this.showDebug('⚠️ Canvas再初期化中');
             console.warn('⚠️ Canvas context not ready, reinitializing...');
             if (!this.initCanvas()) {
-                this.showDebug('❌ Canvas初期化失敗、着地処理');
                 console.error('❌ Canvas initialization failed, aborting animation');
                 this.landBall();
                 return;
@@ -1230,19 +1089,20 @@ class BallThrowJourneyApp {
         this.updateStatus(`🏀 ボール投球中... 方向: ${this.getCompassDirection(this.throwAngle)} (${Math.round(this.throwAngle)}°)`);
         
         // 音声再生
-        this.showDebug('🔊 音声再生開始');
         console.log('🔊 音声再生開始');
         this.playKickSound();
         
         this.animateCanvasThrow();
     }
     
-    // キック音再生（修正版）
+    // キック音再生（専用メソッド）
     playKickSound() {
         const kickAudio = this.sounds.kick;
         console.log('🔊 キック音再生開始');
         
         try {
+
+            // 音声ファイルの状態をチェック
             console.log('🎵 音声状態:', {
                 readyState: kickAudio.readyState,
                 networkState: kickAudio.networkState,
@@ -1250,6 +1110,8 @@ class BallThrowJourneyApp {
                 duration: kickAudio.duration
             });
 
+
+            //再生位置をリセット
             kickAudio.currentTime = 0;
             kickAudio.volume = 1.0;
             
@@ -1301,6 +1163,7 @@ class BallThrowJourneyApp {
     
     // Canvas描画アニメーション（改善版）
     animateCanvasThrow() {
+        // 状態チェックを追加
         if (!this.isActive || !this.isBallMoving || !this.ctx) {
             console.log('❌ キャンバスアニメーション停止 - 状態異常');
             return;
@@ -1362,15 +1225,9 @@ class BallThrowJourneyApp {
         requestAnimationFrame(() => this.animateCanvasThrow());
     }
     
-    // 背景描画（スマホデバッグ版）
+    // 背景描画（改善版）
     drawBackground(currentDistance) {
-        if (!this.ctx) {
-            this.showDebug('❌ Canvas context無し');
-            console.error('❌ Canvas context not available for background drawing');
-            return;
-        }
-        
-        this.showDebug(`🖼️ 背景描画 距離:${Math.round(currentDistance)}m`);
+        if (!this.ctx) return;
         
         try {
             const imageIndex = Math.min(
@@ -1378,15 +1235,11 @@ class BallThrowJourneyApp {
                 this.aerialImages.length - 1
             );
             
-            this.showDebug(`🎯 画像Index: ${imageIndex}`);
-            
             const speedFactor = Math.min(this.maxAcceleration / 15, 3);
             this.backgroundOffsetY += speedFactor * 4;
             
             if (this.aerialImages.length > 0 && this.aerialImages[imageIndex]) {
                 const aerialData = this.aerialImages[imageIndex];
-                
-                this.showDebug(`📸 画像: ${aerialData.image.width || '?'}x${aerialData.image.height || '?'}`);
                 
                 try {
                     const imgWidth = this.canvasWidth * 2;
@@ -1394,56 +1247,20 @@ class BallThrowJourneyApp {
                     const imgX = -this.canvasWidth / 2;
                     const imgY = -this.canvasHeight / 2 + this.backgroundOffsetY;
                     
-                    // Canvas状態をクリア
-                    this.ctx.save();
-                    
                     this.ctx.drawImage(
                         aerialData.image,
                         imgX, imgY,
                         imgWidth, imgHeight
                     );
                     
-                    this.ctx.restore();
-                    
-                    this.showDebug(`✅ 航空写真描画成功 ${imageIndex + 1}`);
-                    
-                } catch (error) {
-                    this.showDebug(`❌ 描画エラー: ${error.message}`);
-                    console.error('❌ 航空写真描画エラー:', error);
-                    this.drawFallbackBackground();
-                }
-            } else {
-                this.showDebug('⚠️ 航空写真無し、フォールバック描画');
-                this.drawFallbackBackground();
-            }
-            
-        } catch (error) {
-            this.showDebug(`❌ 背景描画エラー: ${error.message}`);
-            console.error('❌ 背景描画全般エラー:', error);
-            this.drawFallbackBackground();
-        }
-    }
-                        aerialData.image,
-                        imgX, imgY,
-                        imgWidth, imgHeight
-                    );
-                    
-                    this.ctx.restore();
-                    
-                    console.log(`✅ 航空写真描画成功 ${imageIndex + 1}/${this.aerialImages.length} (距離: ${Math.round(currentDistance)}m)`);
+                    console.log(`🖼️ 航空写真描画成功 ${imageIndex + 1}/${this.aerialImages.length} (距離: ${Math.round(currentDistance)}m)`);
                     
                 } catch (error) {
                     console.error('❌ 航空写真描画エラー:', error);
-                    console.log('🔄 フォールバック背景に切り替え');
                     this.drawFallbackBackground();
                 }
             } else {
                 console.warn('⚠️ 航空写真が利用できません、フォールバック背景を描画');
-                console.log('📊 デバッグ情報:', {
-                    aerialImagesLength: this.aerialImages.length,
-                    imageIndex: imageIndex,
-                    hasImageAtIndex: !!this.aerialImages[imageIndex]
-                });
                 this.drawFallbackBackground();
             }
             
@@ -1770,7 +1587,7 @@ class BallThrowJourneyApp {
         this.backgroundOffsetY = 0;
         this.aerialImages = [];
 
-        // リセット時に準備状態もリセット
+        // 修正: リセット時に準備状態もリセット（追加）
         this.isAudioReady = false;
         this.isAerialImagesReady = false;
         this.isBallImageReady = false;
@@ -1786,6 +1603,7 @@ class BallThrowJourneyApp {
         this.ballElement.classList.remove('throwing', 'flying');
         this.ballElement.style.transform = 'translate(-50%, -50%) scale(1)';
         
+        
         document.getElementById('powerMeter').style.display = 'none';
         document.getElementById('powerFill').style.height = '0%';
         
@@ -1793,7 +1611,7 @@ class BallThrowJourneyApp {
         
         this.ballPosition = { ...this.startPosition };
 
-        // ボール画像を再読み込み（リセット時）
+        // ボール画像を再読み込み（リセット時）（新しい位置に追加）
         this.loadBallImage();
         
         if (this.isMapReady) {
@@ -1856,4 +1674,75 @@ class BallThrowJourneyApp {
     }
 }
 
-// app.jsの最後の部分を削除して、HTMLで初期化を管理
+// Global app instance
+let app = null;
+
+// Initialize app when DOM is ready
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('🚀 DOM loaded, creating app instance...');
+    app = new BallThrowJourneyApp();
+    console.log('✅ App instance created:', app);
+});
+
+// Global function for button clicks
+function startApp() {
+    console.log('🚀 startApp called');
+    if (app && typeof app.startApp === 'function') {
+        app.startApp();
+    } else {
+        console.error('❌ App not ready');
+        if (!app) {
+            app = new BallThrowJourneyApp();
+            setTimeout(() => {
+                if (app.startApp) {
+                    app.startApp();
+                }
+            }, 500);
+        }
+    }
+}
+
+// Set up button event listener when page loads
+window.addEventListener('load', function() {
+    const startBtn = document.getElementById('startBtn');
+    if (startBtn) {
+        console.log('🎮 Setting up start button...');
+        
+        startBtn.onclick = null;
+        startBtn.removeAttribute('onclick');
+        
+        startBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            console.log('🎯 Start button clicked');
+            
+            // Enable audio context on first user interaction
+            if (app && app.sounds) {
+                Object.values(app.sounds).forEach(audio => {
+                    audio.load();
+                });
+            }
+            
+            startApp();
+        });
+        
+        console.log('✅ Start button event listener added');
+    } else {
+        console.error('❌ Start button not found');
+    }
+});
+
+// Prevent zoom on double tap (iOS Safari)
+document.addEventListener('touchstart', function(event) {
+    if (event.touches.length > 1) {
+        event.preventDefault();
+    }
+}, { passive: false });
+
+let lastTouchEnd = 0;
+document.addEventListener('touchend', function(event) {
+    const now = (new Date()).getTime();
+    if (now - lastTouchEnd <= 300) {
+        event.preventDefault();
+    }
+    lastTouchEnd = now;
+}, { passive: false });
