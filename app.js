@@ -1611,7 +1611,7 @@ async prepareAerialImages() {
         
         this.ballPosition = { ...this.startPosition };
 
-        / ボール画像を再読み込み（リセット時）（新しい位置に追加）
+        // ボール画像を再読み込み（リセット時）（新しい位置に追加）
         this.loadBallImage();
         
         if (this.isMapReady) {
