@@ -1104,7 +1104,7 @@ async prepareAerialImages() {
             image: rotatedImage,
             position: this.startPosition,
             distance: 0,
-            index: 0
+            index: 0,
             zoom: zoom,
             imageSize: imageSize
         }];
@@ -1270,7 +1270,7 @@ latToTileY(lat, zoom) {
 }
 
 
-r// デバッグ強化版 rotateImageForThrow メソッド
+// デバッグ強化版 rotateImageForThrow メソッド
 rotateImageForThrow(originalImg, throwAngle) {
     console.log(`🔄 画像を${throwAngle}度回転中...`);
     this.showDebug(`🔄 画像回転開始 - 元画像:${originalImg.width}x${originalImg.height}, 角度:${throwAngle}度`);
@@ -1537,7 +1537,7 @@ async startBallMovement() {
         }
         
         this.animationFrame++;
-        const progress = this.animationFrame * 0.005; // スクロール速度を調整
+        const progress = this.animationFrame * 0.008; // スクロール速度を調整
 
 if (progress >= 1) {
     console.log('✅ キャンバスアニメーション完了、着地処理開始');
@@ -1611,7 +1611,7 @@ drawBackground(currentDistance, progress) {
         // 画像読み込み状態チェック
         if (!aerialImage.complete || aerialImage.naturalWidth === 0) {
             this.showDebug('⚠️ 画像未読み込み→フォールバック');
-            this.drawFallbackBackground();
+            this.drawFallbackBackground(progress);
             this.ctx.restore();
             return;  
         }
@@ -1667,7 +1667,7 @@ drawBackground(currentDistance, progress) {
         
     } catch (error) {
         this.showDetailedError('背景描画', error);
-        this.drawFallbackBackground();
+        this.drawFallbackBackground(progress);
         this.ctx.restore();
     }
 }
