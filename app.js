@@ -1596,6 +1596,7 @@ if (progress >= 1) {
     
 
 // 【簡略化版】drawBackground - 1つの航空写真をスクロールするだけ
+// 【正しい下方向スクロール版】drawBackground
 drawBackground(currentDistance, progress) {
     if (!this.ctx || !this.aerialImages.length || !this.aerialImages[0].image) {
         this.showDebug(`❌ 描画前チェック失敗 - ctx:${!!this.ctx}, 画像数:${this.aerialImages.length}`);
@@ -1616,47 +1617,61 @@ drawBackground(currentDistance, progress) {
             return;  
         }
 
-        // 【シンプルなスクロール計算】
-        // 画像をキャンバス幅に合わせつつ、高さを2倍にしてスクロール余地を作る
+        // 画像をキャンバス幅に合わせつつ、高さを3倍にしてスクロール余地を作る
         const scale = this.canvasWidth / aerialImage.naturalWidth;
         const scaledWidth = aerialImage.naturalWidth * scale;
-        const scaledHeight = aerialImage.naturalHeight * scale * 2; // 高さ2倍
+        const scaledHeight = aerialImage.naturalHeight * scale * 3; // 高さ3倍
         
         // 中央配置のX座標
         const centerX = (this.canvasWidth - scaledWidth) / 2;
         
-        // スクロール計算：上から下へ移動
-        const totalScrollDistance = scaledHeight - this.canvasHeight;
-        const startY = progress * totalScrollDistance;
-        const scrollY = -startY; // 描画位置は負の値
-
+        // 【修正】正しい下方向スクロール計算
+        // progress=0: 画像の上部から開始（scrollY = 0）
+        // progress=1: 画像の下部で終了（scrollY = -(scaledHeight - canvasHeight)）
+        const maxScroll = scaledHeight - this.canvasHeight;
+        const scrollY = -(progress * maxScroll);
         
         // デバッグ情報（10フレームに1回のみ）
         if (this.animationFrame % 10 === 0) {
-            this.showDebug(`📊 スクロール: ${Math.round(progress*100)}% Y=${Math.round(scrollY)}px`);
+            this.showDebug(`📊 下スクロール: ${Math.round(progress*100)}%`);
+            this.showDebug(`  - maxScroll: ${Math.round(maxScroll)}px`);
+            this.showDebug(`  - scrollY: ${Math.round(scrollY)}px`);
         }
 
         // 背景クリア
         this.ctx.fillStyle = '#000000';
         this.ctx.fillRect(0, 0, this.canvasWidth, this.canvasHeight);
 
-        // 航空写真を描画（スクロール位置で）
+        // 【修正】航空写真を描画（下方向スクロール）
         this.ctx.drawImage(
             aerialImage, 
             centerX,      // X位置（中央）
-            scrollY,      // Y位置（スクロール）
+            scrollY,      // Y位置（下方向スクロール）
             scaledWidth,  // 幅
-            scaledHeight  // 高さ（2倍）
+            scaledHeight  // 高さ（3倍）
         );
 
-        // 進行度表示
+        // 【追加】スクロール確認用の境界線
+        this.ctx.strokeStyle = '#00ff00';
+        this.ctx.lineWidth = 2;
+        this.ctx.strokeRect(centerX, scrollY, scaledWidth, scaledHeight);
+
+        // 進行度と方向表示
         this.ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
         this.ctx.font = 'bold 18px Arial';
         this.ctx.textAlign = 'center';
         this.ctx.fillText(
-            `🛰️ 航空写真 ${Math.round(progress * 100)}%`, 
+            `🛰️ 下方向スクロール ${Math.round(progress * 100)}%`, 
             this.canvasWidth / 2, 
             40
+        );
+
+        // スクロール位置の数値表示
+        this.ctx.font = 'bold 14px Arial';
+        this.ctx.fillText(
+            `位置: ${Math.round(-scrollY)}/${Math.round(maxScroll)}px`, 
+            this.canvasWidth / 2, 
+            70
         );
 
         this.ctx.restore();
@@ -1779,40 +1794,7 @@ drawBackground(currentDistance, progress) {
     }
     
     // フォールバック背景描画（改善版）
-    drawFallbackBackground() {
-        if (!this.ctx) return;
-        
-        try {
-            const gradient = this.ctx.createLinearGradient(
-                0, 0, 
-                this.canvasWidth, this.canvasHeight
-            );
-            
-            const phase = (this.backgroundOffsetY / 100) % 1;
-            gradient.addColorStop(0, `hsl(${120 + phase * 60}, 60%, 40%)`);
-            gradient.addColorStop(0.5, `hsl(${90 + phase * 60}, 50%, 35%)`);
-            gradient.addColorStop(1, `hsl(${60 + phase * 60}, 40%, 30%)`);
-            
-            this.ctx.fillStyle = gradient;
-            this.ctx.fillRect(0, 0, this.canvasWidth, this.canvasHeight);
-            
-            this.ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
-            for (let i = 0; i < 20; i++) {
-                const x = (i * 50) % this.canvasWidth;
-                const y = (i * 30 + this.backgroundOffsetY) % (this.canvasHeight + 100);
-                this.ctx.fillRect(x, y, 2, 2);
-            }
-            
-            this.ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
-            this.ctx.font = '24px Arial';
-            this.ctx.textAlign = 'center';
-            const textY = (this.backgroundOffsetY / 2) % (this.canvasHeight + 100);
-            this.ctx.fillText('フォールバック背景', this.canvasWidth / 2, textY);
-            
-        } catch (error) {
-            console.error('❌ フォールバック背景描画エラー:', error);
-        }
-    }
+   rawFallbackBackground
     
     clearTrails() {
         const trails = document.querySelectorAll('.ball-trail');
