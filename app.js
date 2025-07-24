@@ -908,9 +908,10 @@ showDebug(message) {
     }
     
 
-    // 航空写真準備（1キロ四方版）
+// デバッグ強化版 prepareAerialImages メソッド
 async prepareAerialImages() {
     console.log('🛰️ 航空写真準備開始（1キロ四方版）');
+    this.showDebug('🛰️ 航空写真準備開始');
     
     try {
         // Static Maps APIのURL構築
@@ -919,11 +920,15 @@ async prepareAerialImages() {
             `zoom=16&size=1024x1024&maptype=satellite&` +
             `key=AIzaSyDbZWtPobAYr04A8da3OUOjtNNdjfvkbXA`;
         
+        this.showDebug(`Static Maps URL: ${staticMapUrl.substring(0, 100)}...`);
+        
         // 実際の航空写真を取得
         const originalImage = await this.loadImageWithCORS(staticMapUrl);
+        this.showDebug(`✅ 元画像読み込み成功 - ${originalImage.width}x${originalImage.height}`);
         
         // 投球方向に回転
         const rotatedImage = this.rotateImageForThrow(originalImage, this.throwAngle);
+        this.showDebug(`✅ 画像回転完了 - 角度:${this.throwAngle}度`);
         
         // 1枚の画像として保存
         this.aerialImages = [{
@@ -933,27 +938,31 @@ async prepareAerialImages() {
             index: 0
         }];
 
-        // 【追加】成功時の処理
+        // 【追加】回転後画像の詳細情報
+        this.showDebug(`回転後画像詳細 - complete:${rotatedImage.complete}, naturalWidth:${rotatedImage.naturalWidth}, src:${rotatedImage.src.substring(0, 30)}...`);
+
         console.log('🎯 1キロ四方航空写真準備完了！');
         this.isAerialImagesReady = true;
         this.updatePreparationStatus();
 
     } catch (error) {
-    console.warn('⚠️ Static Maps API失敗、フォールバック画像を使用:', error);
-    
-    // フォールバック：方向性のある生成画像
-    const fallbackImage = this.createDirectionalAerialImage(this.throwAngle);
-    
-    this.aerialImages = [{
-        image: fallbackImage,
-        position: this.startPosition,
-        distance: 0,
-        index: 0
-    }];
-    
-    console.log('🎯 フォールバック航空写真準備完了！');
-    this.isAerialImagesReady = true;
-    this.updatePreparationStatus();
+        console.warn('⚠️ Static Maps API失敗、フォールバック画像を使用:', error);
+        this.showDebug(`⚠️ API失敗: ${error.message}`);
+        
+        // フォールバック：方向性のある生成画像
+        const fallbackImage = this.createDirectionalAerialImage(this.throwAngle);
+        this.showDebug(`フォールバック画像作成 - ${fallbackImage.width}x${fallbackImage.height}`);
+        
+        this.aerialImages = [{
+            image: fallbackImage,
+            position: this.startPosition,
+            distance: 0,
+            index: 0
+        }];
+        
+        console.log('🎯 フォールバック航空写真準備完了！');
+        this.isAerialImagesReady = true;
+        this.updatePreparationStatus();
     }
 }
     
@@ -974,28 +983,56 @@ async prepareAerialImages() {
 }
 
 
+r// デバッグ強化版 rotateImageForThrow メソッド
 rotateImageForThrow(originalImg, throwAngle) {
     console.log(`🔄 画像を${throwAngle}度回転中...`);
+    this.showDebug(`🔄 画像回転開始 - 元画像:${originalImg.width}x${originalImg.height}, 角度:${throwAngle}度`);
     
     const canvas = document.createElement('canvas');
     const diagonal = Math.sqrt(originalImg.width * originalImg.width + originalImg.height * originalImg.height);
     canvas.width = Math.ceil(diagonal);
     canvas.height = Math.ceil(diagonal);
     
+    this.showDebug(`回転用キャンバス作成 - ${canvas.width}x${canvas.height}`);
+    
     const ctx = canvas.getContext('2d');
+    if (!ctx) {
+        this.showDebug('❌ 回転用キャンバスのコンテキスト取得失敗');
+        return originalImg; // フォールバック
+    }
+    
     const centerX = canvas.width / 2;
     const centerY = canvas.height / 2;
     
-    ctx.translate(centerX, centerY);
-    ctx.rotate((throwAngle * Math.PI) / 180);
-    ctx.drawImage(originalImg, -originalImg.width / 2, -originalImg.height / 2, originalImg.width, originalImg.height);
-    ctx.resetTransform();
-    
-    const rotatedImg = new Image();
-    rotatedImg.src = canvas.toDataURL();
-    
-    console.log('✅ 画像回転完了');
-    return rotatedImg;
+    try {
+        // 背景を白で塗りつぶし（デバッグ用）
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        ctx.translate(centerX, centerY);
+        ctx.rotate((throwAngle * Math.PI) / 180);
+        ctx.drawImage(originalImg, -originalImg.width / 2, -originalImg.height / 2, originalImg.width, originalImg.height);
+        ctx.resetTransform();
+        
+        this.showDebug('✅ キャンバス回転描画完了');
+        
+        const rotatedImg = new Image();
+        rotatedImg.onload = () => {
+            this.showDebug(`✅ 回転画像Imageオブジェクト作成完了 - ${rotatedImg.naturalWidth}x${rotatedImg.naturalHeight}`);
+        };
+        rotatedImg.onerror = (e) => {
+            this.showDebug(`❌ 回転画像Imageオブジェクト作成失敗: ${e}`);
+        };
+        
+        rotatedImg.src = canvas.toDataURL('image/png', 0.9);
+        
+        console.log('✅ 画像回転完了');
+        return rotatedImg;
+        
+    } catch (error) {
+        this.showDebug(`❌ 画像回転エラー: ${error.message}`);
+        return originalImg; // エラー時は元画像を返す
+    }
 }
 
 createDirectionalAerialImage(throwAngle) {
@@ -1256,15 +1293,21 @@ if (progress >= 1) {
     }
     
 
-// 修正版 drawBackground メソッド
+// デバッグ強化版 drawBackground メソッド
 drawBackground(currentDistance, progress) {
-    if (!this.ctx || !this.aerialImages.length || !this.aerialImages[0].image) return;
+    if (!this.ctx || !this.aerialImages.length || !this.aerialImages[0].image) {
+        this.showDebug('❌ Canvas/画像が見つからない - ctx:' + !!this.ctx + ', 画像数:' + this.aerialImages.length);
+        return;
+    }
     
     try {
         this.ctx.save();
         this.ctx.setTransform(1, 0, 0, 1, 0, 0);
         
         const aerialImage = this.aerialImages[0].image;
+        
+        // 詳細な画像状態チェック
+        this.showDebug(`画像状態詳細 - complete:${aerialImage.complete}, naturalWidth:${aerialImage.naturalWidth}, naturalHeight:${aerialImage.naturalHeight}, src:${aerialImage.src.substring(0, 50)}...`);
         
         // 画像読み込み状態チェック
         if (!aerialImage.complete || aerialImage.naturalWidth === 0) {
@@ -1273,10 +1316,6 @@ drawBackground(currentDistance, progress) {
             this.ctx.restore();
             return;  
         }
-
-        // 投球進行度に応じたスクロールオフセット計算
-        const maxScroll = Math.max(0, aerialImage.height - this.canvasHeight);
-        const scrollY = progress * maxScroll;
 
         // 画像サイズをキャンバスに合わせて調整
         const scale = Math.max(
@@ -1287,9 +1326,13 @@ drawBackground(currentDistance, progress) {
         const scaledWidth = aerialImage.width * scale;
         const scaledHeight = aerialImage.height * scale;
         
-        // 中央寄せのためのオフセット計算
+        // 下スクロール用のオフセット計算
         const offsetX = (this.canvasWidth - scaledWidth) / 2;
-        const offsetY = scrollY; // スクロール効果
+        const maxScroll = Math.max(0, scaledHeight - this.canvasHeight);
+        const offsetY = -(progress * maxScroll);
+        
+        // 描画前の詳細ログ
+        this.showDebug(`描画パラメータ - scale:${scale.toFixed(2)}, scaledW:${Math.round(scaledWidth)}, scaledH:${Math.round(scaledHeight)}, offsetX:${Math.round(offsetX)}, offsetY:${Math.round(offsetY)}`);
 
         // 実際の描画処理
         this.ctx.drawImage(
@@ -1300,18 +1343,25 @@ drawBackground(currentDistance, progress) {
             scaledHeight
         );
 
-        // 進行度表示（オプション）
+        // 描画後の確認
+        this.showDebug(`✅ drawImage実行完了 - 画像描画成功`);
+
+        // 進行度表示
         this.ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
         this.ctx.font = '16px Arial';
         this.ctx.textAlign = 'center';
         this.ctx.fillText(
-            `投球進行度: ${Math.round(progress * 100)}%`, 
+            `投球進行度: ${Math.round(progress * 100)}% ↓`, 
             this.canvasWidth / 2, 
             30
         );
 
-        // デバッグ情報
-        this.showDebug(`背景描画成功 - 進行度: ${Math.round(progress * 100)}%, スクロール: ${Math.round(scrollY)}px`);
+        // 画像の四隅に赤い点を描画（デバッグ用）
+        this.ctx.fillStyle = 'red';
+        this.ctx.fillRect(offsetX, offsetY, 10, 10); // 左上
+        this.ctx.fillRect(offsetX + scaledWidth - 10, offsetY, 10, 10); // 右上
+        this.ctx.fillRect(offsetX, offsetY + scaledHeight - 10, 10, 10); // 左下
+        this.ctx.fillRect(offsetX + scaledWidth - 10, offsetY + scaledHeight - 10, 10, 10); // 右下
 
         this.ctx.restore();
         
