@@ -1255,14 +1255,14 @@ async prepareAerialImages() {
                 const imgHeight = this.canvasHeight * 2.5;
                 const imgX = (this.canvasWidth - imgWidth) / 2;
                 
-                const imgY1 = -scrollOffset;
+                const imgY1 = scrollOffset;
                 this.ctx.drawImage(
                     aerialData.image,
                     imgX, imgY1,
                     imgWidth, imgHeight
                 );
                 
-                const imgY2 = imgY1 - imgHeight;
+                const imgY2 = imgY1 + imgHeight;
                 this.ctx.drawImage(
                     aerialData.image,
                     imgX, imgY2,
