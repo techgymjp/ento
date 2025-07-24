@@ -1202,7 +1202,7 @@ async prepareAerialImages() {
                 const imgX = (this.canvasWidth - imgWidth) / 2;
                 
                 // 【修正2】シームレススクロール - メイン画像
-                const imgY1 = -scrollOffset;
+                const imgY1 = scrollOffset;
                 this.ctx.drawImage(
                     aerialData.image,
                     imgX, imgY1,
@@ -1210,7 +1210,7 @@ async prepareAerialImages() {
                 );
                 
                 // 【修正3】シームレススクロール - 上の画像
-                const imgY2 = imgY1 - imgHeight;
+                const imgY2 = imgY1 + imgHeight;
                 this.ctx.drawImage(
                     aerialData.image,
                     imgX, imgY2,
