@@ -705,7 +705,7 @@ resizeCanvasForPower() {
     const baseHeight = container.clientHeight;
     
     // 【新機能】投球パワーに応じてキャンバスサイズを動的計算
-    let sizeMultiplier = 1.0;
+    let sizeMultiplier = 2.0;
     
     if (this.throwPower <= 200) {
         sizeMultiplier = 1.0;  // 近距離：小さめキャンバス
@@ -936,7 +936,7 @@ resizeCanvasForPower() {
     } else if (this.maxAcceleration <= 20) {
         // 強い振り: 600-1000m
         throwPower = 600 + (this.maxAcceleration - 15) * 80;
-    } else if (this.maxAcceleration <= 25) {
+    } else if (this.maxAcceleration <= 30) {
         // とても強い振り: 1000-1500m
         throwPower = 1000 + (this.maxAcceleration - 20) * 100;
     } else {
