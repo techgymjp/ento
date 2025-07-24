@@ -84,8 +84,50 @@ class BallThrowJourneyApp {
         this.preparationTimer = null;
         
         this.updateStatus('位置情報とデバイスセンサーの許可が必要です');
+
+        // 【追加】デバッグ表示要素を作成
+        this.createDebugDisplay();
         console.log('✅ BallThrowJourneyApp initialized');
     }
+
+    // 【新規メソッド】デバッグ表示を作成
+    createDebugDisplay() {
+    this.debugElement = document.createElement('div');
+    this.debugElement.id = 'debugDisplay';
+    this.debugElement.style.cssText = `
+        position: fixed;
+        top: 10px;
+        left: 10px;
+        background: rgba(0, 0, 0, 0.8);
+        color: white;
+        padding: 10px;
+        border-radius: 5px;
+        font-family: monospace;
+        font-size: 12px;
+        z-index: 10000;
+        max-width: calc(100vw - 20px);
+        white-space: pre-wrap;
+        display: none;
+    `;
+    document.body.appendChild(this.debugElement);
+}
+
+// 【新規メソッド】デバッグメッセージを画面に表示
+showDebug(message) {
+    if (this.debugElement) {
+        const timestamp = new Date().toLocaleTimeString();
+        this.debugElement.textContent = `[${timestamp}] ${message}`;
+        this.debugElement.style.display = 'block';
+        
+        // 5秒後に自動で非表示
+        setTimeout(() => {
+            if (this.debugElement) {
+                this.debugElement.style.display = 'none';
+            }
+        }, 5000);
+    }
+}
+
     
     // 2点間の距離を計算（メートル単位）
     calculateDistance(lat1, lng1, lat2, lng2) {
@@ -1178,8 +1220,9 @@ async prepareAerialImages() {
         requestAnimationFrame(() => this.animateCanvasThrow());
     }
     
-    // 背景描画（改善版）
-    // 背景描画（修正版）
+
+ 
+    // 背景描画（デバッグ表示版）
     drawBackground(currentDistance, progress) {
     if (!this.ctx) return;
     
@@ -1189,62 +1232,56 @@ async prepareAerialImages() {
             this.aerialImages.length - 1
         );
         
-        // 【修正1】プログレスベースのスクロール
-        const scrollProgress = (progress * 2) % 1; // 0-1の範囲でループ
-        const scrollOffset = scrollProgress * this.canvasHeight;
+        // 【デバッグ表示】基本情報
+        this.showDebug(`描画試行: idx=${imageIndex}, 配列長=${this.aerialImages.length}, 距離=${Math.round(currentDistance)}m`);
         
         if (this.aerialImages.length > 0 && this.aerialImages[imageIndex]) {
             const aerialData = this.aerialImages[imageIndex];
             
-            try {
+            // 【デバッグ表示】画像状態
+            const imgStatus = aerialData.image ? 
+                `complete=${aerialData.image.complete}, size=${aerialData.image.naturalWidth}x${aerialData.image.naturalHeight}` :
+                'image=null';
+            this.showDebug(`画像状態: ${imgStatus}`);
+            
+            if (aerialData.image && aerialData.image.complete && aerialData.image.naturalWidth > 0) {
+                this.showDebug('✅ 画像有効、描画開始');
+                
+                // 既存の描画コード
+                const scrollProgress = (progress * 2) % 1;
+                const scrollOffset = scrollProgress * this.canvasHeight;
+                
                 const imgWidth = this.canvasWidth * 2.5;
                 const imgHeight = this.canvasHeight * 2.5;
                 const imgX = (this.canvasWidth - imgWidth) / 2;
                 
-                // 【修正2】シームレススクロール - メイン画像
-                const imgY1 = scrollOffset;
+                const imgY1 = -scrollOffset;
                 this.ctx.drawImage(
                     aerialData.image,
                     imgX, imgY1,
                     imgWidth, imgHeight
                 );
                 
-                // 【修正3】シームレススクロール - 上の画像
-                const imgY2 = imgY1 + imgHeight;
+                const imgY2 = imgY1 - imgHeight;
                 this.ctx.drawImage(
                     aerialData.image,
                     imgX, imgY2,
                     imgWidth, imgHeight
                 );
                 
-                // 【修正4】次の画像とのブレンド効果
-                const nextIndex = Math.min(imageIndex + 1, this.aerialImages.length - 1);
-                if (nextIndex !== imageIndex && this.aerialImages[nextIndex]) {
-                    const blendFactor = (progress * this.aerialImages.length) % 1;
-                    if (blendFactor > 0.7) { // 画像切り替え時のみブレンド
-                        this.ctx.globalAlpha = (blendFactor - 0.7) / 0.3;
-                        this.ctx.drawImage(
-                            this.aerialImages[nextIndex].image,
-                            imgX, imgY1,
-                            imgWidth, imgHeight
-                        );
-                        this.ctx.globalAlpha = 1.0;
-                    }
-                }
+                this.showDebug(`✅ 描画完了: ${imgWidth}x${imgHeight} at (${imgX},${imgY1})`);
                 
-                console.log(`🖼️ 航空写真描画成功 ${imageIndex + 1}/${this.aerialImages.length} (進行: ${Math.round(progress * 100)}%)`);
-                
-            } catch (error) {
-                console.error('❌ 航空写真描画エラー:', error);
+            } else {
+                this.showDebug('⚠️ 画像無効、フォールバック使用');
                 this.drawFallbackBackground();
             }
         } else {
-            console.warn('⚠️ 航空写真が利用できません、フォールバック背景を描画');
+            this.showDebug('⚠️ 配列が空またはインデックス範囲外');
             this.drawFallbackBackground();
         }
         
     } catch (error) {
-        console.error('❌ 背景描画全般エラー:', error);
+        this.showDebug(`❌ 描画エラー: ${error.message}`);
         this.drawFallbackBackground();
     }
 }
