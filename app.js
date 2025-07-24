@@ -1096,8 +1096,20 @@ async prepareAerialImages() {
     // キック音再生（専用メソッド）
     playKickSound() {
         const kickAudio = this.sounds.kick;
+        console.log('🔊 キック音再生開始');
         
         try {
+
+            // 音声ファイルの状態をチェック
+            console.log('🎵 音声状態:', {
+                readyState: kickAudio.readyState,
+                networkState: kickAudio.networkState,
+                src: kickAudio.src,
+                duration: kickAudio.duration
+            });
+
+
+            //再生位置をリセット
             kickAudio.currentTime = 0;
             kickAudio.volume = 1.0;
             
@@ -1115,6 +1127,16 @@ async prepareAerialImages() {
             } else {
                 console.log('✅ キック音再生開始（Promise未サポート）');
             }
+
+            // 再生確認用のタイマー
+            setTimeout(() => {
+                if (kickAudio.currentTime > 0) {
+                    console.log('✅ キック音正常再生中 - 時間:', kickAudio.currentTime);
+                } else {
+                    console.warn('⚠️ キック音再生されていない可能性があります');
+                    this.fallbackPlayKickSound();
+                }
+            }, 100);
             
         } catch (error) {
             console.error('❌ キック音再生エラー:', error);
