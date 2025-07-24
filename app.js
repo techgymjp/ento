@@ -961,54 +961,22 @@ async prepareAerialImages() {
 }
     
 
-// より現実的な航空写真風画像を生成
+// シンプルな航空写真風画像を生成（回転要素完全削除）
 createDetailedAerialImage(index, position, distance) {
     const canvas = document.createElement('canvas');
-    canvas.width = this.canvasWidth * 2;
-    canvas.height = this.canvasHeight * 2;
+    canvas.width = this.canvasWidth;
+    canvas.height = this.canvasHeight;
     const ctx = canvas.getContext('2d');
     
-    // より現実的な地形色
-    const terrainTypes = [
-        { colors: ['#3e7b3e', '#2d5a2d'], name: '森林', features: 'trees' },
-        { colors: ['#6b8e3d', '#5a7a32'], name: '草地', features: 'grass' },
-        { colors: ['#8b4513', '#654321'], name: '土地', features: 'soil' },
-        { colors: ['#87ceeb', '#4682b4'], name: '河川', features: 'water' },
-        { colors: ['#708090', '#556b2f'], name: '住宅地', features: 'urban' },
-        { colors: ['#daa520', '#b8860b'], name: '農地', features: 'farm' }
+    // シンプルな地形色
+    const colors = [
+        '#3e7b3e', '#6b8e3d', '#8b4513', '#87ceeb', '#708090', '#daa520'
     ];
+    const color = colors[index % colors.length];
     
-    const terrain = terrainTypes[index % terrainTypes.length];
-    
-    // 自然な色合いのベース
-    const gradient = ctx.createRadialGradient(
-        canvas.width * 0.3, canvas.height * 0.3, 0,
-        canvas.width * 0.7, canvas.height * 0.7, canvas.width * 0.6
-    );
-    gradient.addColorStop(0, terrain.colors[0]);
-    gradient.addColorStop(1, terrain.colors[1]);
-    
-    ctx.fillStyle = gradient;
+    // 単純な塗りつぶし
+    ctx.fillStyle = color;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-    
-    // 航空写真らしいパターンを追加
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
-    for (let i = 0; i < 300; i++) {
-        const x = Math.random() * canvas.width;
-        const y = Math.random() * canvas.height;
-        const size = Math.random() * 3 + 1;
-        ctx.fillRect(x, y, size, size);
-    }
-    
-    // 道路のような線を追加
-    ctx.strokeStyle = 'rgba(100, 100, 100, 0.3)';
-    ctx.lineWidth = 3;
-    for (let i = 0; i < 5; i++) {
-        ctx.beginPath();
-        ctx.moveTo(Math.random() * canvas.width, Math.random() * canvas.height);
-        ctx.lineTo(Math.random() * canvas.width, Math.random() * canvas.height);
-        ctx.stroke();
-    }
     
     const img = new Image();
     img.src = canvas.toDataURL();
