@@ -961,76 +961,54 @@ async prepareAerialImages() {
 }
     
 
-// より詳細な航空写真風画像を生成（完全修正版）
-    createDetailedAerialImage(index, position, distance) {
-        const canvas = document.createElement('canvas');
-        canvas.width = this.canvasWidth * 3; // より大きなサイズで生成
-        canvas.height = this.canvasHeight * 3;
-        const ctx = canvas.getContext('2d');
+// より現実的な航空写真風画像を生成
+createDetailedAerialImage(index, position, distance) {
+    const canvas = document.createElement('canvas');
+    canvas.width = this.canvasWidth * 2;
+    canvas.height = this.canvasHeight * 2;
+    const ctx = canvas.getContext('2d');
     
-    // 距離に応じた地形パターンを決定
-        const terrainTypes = [
-            { colors: ['#4CAF50', '#2E7D32'], name: '森林地帯', pattern: 'forest' },
-            { colors: ['#81C784', '#388E3C'], name: '草原地帯', pattern: 'grass' },
-            { colors: ['#A5D6A7', '#4CAF50'], name: '公園エリア', pattern: 'park' },
-            { colors: ['#FFEB3B', '#FBC02D'], name: '開発地区', pattern: 'urban' },
-            { colors: ['#607D8B', '#455A64'], name: '市街地', pattern: 'city' },
-            { colors: ['#795548', '#5D4037'], name: '丘陵地帯', pattern: 'hills' },
-            { colors: ['#2196F3', '#1565C0'], name: '河川エリア', pattern: 'water' },
-            { colors: ['#FF9800', '#F57C00'], name: '農業地区', pattern: 'farm' }
-        ];
+    // より現実的な地形色
+    const terrainTypes = [
+        { colors: ['#3e7b3e', '#2d5a2d'], name: '森林', features: 'trees' },
+        { colors: ['#6b8e3d', '#5a7a32'], name: '草地', features: 'grass' },
+        { colors: ['#8b4513', '#654321'], name: '土地', features: 'soil' },
+        { colors: ['#87ceeb', '#4682b4'], name: '河川', features: 'water' },
+        { colors: ['#708090', '#556b2f'], name: '住宅地', features: 'urban' },
+        { colors: ['#daa520', '#b8860b'], name: '農地', features: 'farm' }
+    ];
     
-        const terrain = terrainTypes[index % terrainTypes.length];  // ← terrain変数
+    const terrain = terrainTypes[index % terrainTypes.length];
     
-    // 背景グラデーション（修正）
-        const gradient = ctx.createRadialGradient(
-            canvas.width / 2, canvas.height / 2, 0,
-            canvas.width / 2, canvas.height / 2, canvas.width / 2
-        );
-        gradient.addColorStop(0, terrain.colors[0]);  // ← 修正: terrain.colors
-        gradient.addColorStop(1, terrain.colors[1]);  // ← 修正: terrain.colors
+    // 自然な色合いのベース
+    const gradient = ctx.createRadialGradient(
+        canvas.width * 0.3, canvas.height * 0.3, 0,
+        canvas.width * 0.7, canvas.height * 0.7, canvas.width * 0.6
+    );
+    gradient.addColorStop(0, terrain.colors[0]);
+    gradient.addColorStop(1, terrain.colors[1]);
     
-        ctx.fillStyle = gradient;
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
     
-    // パターン追加
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
-    for (let i = 0; i < 100; i++) {
+    // 航空写真らしいパターンを追加
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
+    for (let i = 0; i < 300; i++) {
         const x = Math.random() * canvas.width;
         const y = Math.random() * canvas.height;
-        const size = Math.random() * 8 + 2;
+        const size = Math.random() * 3 + 1;
         ctx.fillRect(x, y, size, size);
     }
     
-    // グリッドパターン
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
-    ctx.lineWidth = 2;
-    const gridSize = 100;
-    for (let x = 0; x < canvas.width; x += gridSize) {
+    // 道路のような線を追加
+    ctx.strokeStyle = 'rgba(100, 100, 100, 0.3)';
+    ctx.lineWidth = 3;
+    for (let i = 0; i < 5; i++) {
         ctx.beginPath();
-        ctx.moveTo(x, 0);
-        ctx.lineTo(x, canvas.height);
+        ctx.moveTo(Math.random() * canvas.width, Math.random() * canvas.height);
+        ctx.lineTo(Math.random() * canvas.width, Math.random() * canvas.height);
         ctx.stroke();
     }
-    for (let y = 0; y < canvas.height; y += gridSize) {
-        ctx.beginPath();
-        ctx.moveTo(0, y);
-        ctx.lineTo(canvas.width, y);
-        ctx.stroke();
-    }
-    
-    // 情報テキストオーバーレイ
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-    ctx.fillRect(10, 10, canvas.width - 20, 120);
-    
-    ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 28px Arial';
-    ctx.textAlign = 'left';
-    ctx.fillText(`${terrain.name}`, 30, 50);  // ← 修正: terrain.name
-    
-    ctx.font = '22px Arial';
-    ctx.fillText(`距離: ${Math.round(distance)}m`, 30, 80);  // ← 修正: distance
-    ctx.fillText(`座標: ${position.lat.toFixed(5)}, ${position.lng.toFixed(5)}`, 30, 110);
     
     const img = new Image();
     img.src = canvas.toDataURL();
@@ -1256,8 +1234,8 @@ async prepareAerialImages() {
                 const scrollProgress = (progress * 2) % 1;
                 const scrollOffset = scrollProgress * this.canvasHeight;
                 
-                const imgWidth = this.canvasWidth * 0.8;
-                const imgHeight = this.canvasHeight * 0.8;
+                const imgWidth = this.canvasWidth * 1.5;
+                const imgHeight = this.canvasHeight * 1.5;
                 const imgX = (this.canvasWidth - imgWidth) / 2;
                 
                 const imgY1 = scrollOffset;
