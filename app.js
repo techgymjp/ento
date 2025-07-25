@@ -705,22 +705,22 @@ resizeCanvasForPower() {
     const baseHeight = container.clientHeight;
     
     // 【新機能】投球パワーに応じてキャンバスサイズを動的計算
-    let sizeMultiplier = 2.0;
+    let sizeMultiplier = 1.0;
     
     if (this.throwPower <= 200) {
-        sizeMultiplier = 1.0;  // 近距離：小さめキャンバス
+        sizeMultiplier = 0.8;  // 近距離：小さめキャンバス
         this.showDebug('📏 近距離投球 - キャンバス80%サイズ');
     } else if (this.throwPower <= 500) {
         sizeMultiplier = 1.0;  // 中距離：標準サイズ
         this.showDebug('📏 中距離投球 - キャンバス標準サイズ');
     } else if (this.throwPower <= 1000) {
-        sizeMultiplier = 1.0;  // 長距離：大きめキャンバス
+        sizeMultiplier = 1.3;  // 長距離：大きめキャンバス
         this.showDebug('📏 長距離投球 - キャンバス130%サイズ');
     } else if (this.throwPower <= 2000) {
-        sizeMultiplier = 1.0;  // 超長距離：かなり大きめ
+        sizeMultiplier = 1.6;  // 超長距離：かなり大きめ
         this.showDebug('📏 超長距離投球 - キャンバス160%サイズ');
     } else {
-        sizeMultiplier = 1.0;  // 極長距離：最大サイズ
+        sizeMultiplier = 2.0;  // 極長距離：最大サイズ
         this.showDebug('📏 極長距離投球 - キャンバス200%サイズ');
     }
     
@@ -1129,20 +1129,20 @@ calculateOptimalImageParams() {
     
     // パワーに応じて適切なズームレベルを設定
     if (powerMeters <= 200) {
-        zoom = 17;  // 近距離用：建物詳細レベル
-        imageSize = 512;
-    } else if (powerMeters <= 500) {
-        zoom = 16;  // 中距離用：街区レベル
-        imageSize = 768;
-    } else if (powerMeters <= 1000) {
-        zoom = 15;  // 長距離用：地区レベル
-        imageSize = 1024;
-    } else if (powerMeters <= 2000) {
-        zoom = 14;  // 超長距離用：市区レベル
+        zoom = 18;  // 近距離用：建物詳細レベル
         imageSize = 1536;
-    } else {
-        zoom = 13;  // 極長距離用：広域レベル
+    } else if (powerMeters <= 500) {
+        zoom = 17;  // 中距離用：街区レベル
         imageSize = 2048;
+    } else if (powerMeters <= 1000) {
+        zoom = 16;  // 長距離用：地区レベル
+        imageSize = 2560;
+    } else if (powerMeters <= 2000) {
+        zoom = 15;  // 超長距離用：市区レベル
+        imageSize = 3072;
+    } else {
+        zoom = 14;  // 極長距離用：広域レベル
+        imageSize = 4096;
     }
     
     this.showDebug(`📐 選択パラメータ: zoom=${zoom}, imageSize=${imageSize}px`);
