@@ -157,28 +157,40 @@ createDebugDisplay() {
 }
 
 
-/// 【強化版】デバッグメッセージ表示
+// 【強化版】デバッグメッセージ表示（ちらつき防止版）
 showDebug(message) {
     if (this.debugElement) {
         const timestamp = new Date().toLocaleTimeString();
         const newMessage = `[${timestamp}] ${message}`;
         
-        // 既存のメッセージに追加（最新を上に）
-        this.debugElement.textContent = newMessage + '\n' + this.debugElement.textContent;
-        
-        // 20行を超えたら古いメッセージを削除
-        const lines = this.debugElement.textContent.split('\n');
-        if (lines.length > 20) {
-            this.debugElement.textContent = lines.slice(0, 20).join('\n');
+        // 【修正】頻繁な更新を制御
+        if (!this.debugUpdateQueue) {
+            this.debugUpdateQueue = [];
+            this.lastDebugUpdate = 0;
         }
         
-        // 自動スクロール（最新メッセージが見えるように）
-        this.debugElement.scrollTop = 0;
+        // キューに追加
+        this.debugUpdateQueue.push(newMessage);
+        
+        // 100ms間隔で更新（ちらつき防止）
+        const now = Date.now();
+        if (now - this.lastDebugUpdate >= 100) {
+            this.flushDebugQueue();
+            this.lastDebugUpdate = now;
+        } else if (!this.debugUpdateTimer) {
+            // タイマーがない場合は設定
+            this.debugUpdateTimer = setTimeout(() => {
+                this.flushDebugQueue();
+                this.debugUpdateTimer = null;
+                this.lastDebugUpdate = Date.now();
+            }, 100);
+        }
     }
     
     // コンソールにも出力（PC用）
     console.log(message);
 }
+   
 
     
 // デバッグ表示切り替え
