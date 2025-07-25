@@ -861,49 +861,55 @@ initCanvas() {
     }
     
     startThrowWithShake() {
-        if (this.isActive || !this.isDetectingShake) return;
-        
-        console.log('🎯 投球準備処理開始');
-        this.isDetectingShake = false;
-        document.getElementById('powerMeter').style.display = 'none';
-        
-        // より細かい段階分けで現実的な飛距離に
-        let throwPower;
+    if (this.isActive || !this.isDetectingShake) return;
     
-        if (this.maxAcceleration <= 10) {
-        // 軽い振り: 100-300m
+    this.showDebug(`🎯 ===== 投球角度設定確認 =====`);
+    this.showDebug(`⏰ 設定時刻: ${new Date().toLocaleTimeString()}`);
+    
+    // 現在のコンパス状態を詳細に記録
+    this.showDebug(`📱 現在のコンパス状態:`);
+    this.showDebug(`  - 画面表示heading: ${document.getElementById('heading').textContent}`);
+    this.showDebug(`  - 画面表示compass: ${document.getElementById('compass').textContent}`);
+    this.showDebug(`  - this.heading値: ${this.heading}°`);
+    this.showDebug(`  - compassNeedle回転: ${this.compassNeedle.style.transform}`);
+    
+    console.log('🎯 投球準備処理開始');
+    this.isDetectingShake = false;
+    document.getElementById('powerMeter').style.display = 'none';
+    
+    // より細かい段階分けで現実的な飛距離に
+    let throwPower;
+    if (this.maxAcceleration <= 10) {
         throwPower = 100 + (this.maxAcceleration - 8) * 100;
     } else if (this.maxAcceleration <= 15) {
-        // 普通の振り: 300-600m  
         throwPower = 300 + (this.maxAcceleration - 10) * 60;
     } else if (this.maxAcceleration <= 20) {
-        // 強い振り: 600-1000m
         throwPower = 600 + (this.maxAcceleration - 15) * 80;
     } else if (this.maxAcceleration <= 30) {
-        // とても強い振り: 1000-1500m
         throwPower = 1000 + (this.maxAcceleration - 20) * 100;
     } else {
-        // 超強力な振り: 1500-2000m
         throwPower = Math.min(2000, 1500 + (this.maxAcceleration - 25) * 100);
     }
-        this.throwPower = Math.max(100, Math.round(throwPower)); // 最低100m
-        this.throwAngle = this.heading;
-        
-        console.log(`投球検出! 最大加速度: ${this.maxAcceleration.toFixed(2)}, パワー: ${this.throwPower}m, 方向: ${this.throwAngle}°`);
-        
-        // デバッグ表示
-        this.showDebug(`🎯 投球パワー計算:`);
-        this.showDebug(`  - 最大加速度: ${this.maxAcceleration.toFixed(2)}`);
-        this.showDebug(`  - 計算された飛距離: ${this.throwPower}m`);
-        this.showDebug(`  - 投球方向: ${this.throwAngle}度`);
-
-        this.ballElement.classList.add('throwing');
-        this.ballTrailPoints = [];
-        this.clearTrails();
-        this.ballPosition = { ...this.startPosition };
-        
-        this.showResourcePreparation();
-    }
+    this.throwPower = Math.max(100, Math.round(throwPower));
+    
+    // 【重要】投球角度の設定
+    this.throwAngle = this.heading;
+    
+    this.showDebug(`🎯 投球角度設定:`);
+    this.showDebug(`  - this.heading → this.throwAngle: ${this.heading}° → ${this.throwAngle}°`);
+    this.showDebug(`  - 方向名: ${this.getCompassDirection(this.throwAngle)}`);
+    this.showDebug(`  - 投球パワー: ${this.throwPower}m`);
+    this.showDebug(`✅ ===== 投球角度設定完了 =====`);
+    
+    console.log(`投球検出! 最大加速度: ${this.maxAcceleration.toFixed(2)}, パワー: ${this.throwPower}m, 方向: ${this.throwAngle}°`);
+    
+    this.ballElement.classList.add('throwing');
+    this.ballTrailPoints = [];
+    this.clearTrails();
+    this.ballPosition = { ...this.startPosition };
+    
+    this.showResourcePreparation();
+}
     
     showResourcePreparation() {
         this.preparationOverlay = document.createElement('div');
@@ -1322,122 +1328,193 @@ latToTileY(lat, zoom) {
 
 
 // デバッグ強化版 rotateImageForThrow メソッド
+// センサーが正常動作している場合の問題分析
+
+// 【重要】画像回転が実際に実行されているかの確認
+
 rotateImageForThrow(originalImg, throwAngle) {
-    // 【追加】詳細なデバッグ情報の開始
-    this.showDebug(`🔄 ===== 画像回転処理開始 =====`);
-    this.showDebug(`📊 入力パラメータ:`);
+    this.showDebug(`🔄 ===== 画像回転メソッド呼び出し =====`);
+    this.showDebug(`📊 受信パラメータ:`);
     this.showDebug(`  - throwAngle: ${throwAngle}°`);
-    this.showDebug(`  - this.heading: ${this.heading}°`);
-    this.showDebug(`  - 方向名: ${this.getCompassDirection(throwAngle)}`);
-    this.showDebug(`  - 元画像サイズ: ${originalImg.width}x${originalImg.height}`);
-    this.showDebug(`  - 元画像complete: ${originalImg.complete}`);
-    this.showDebug(`  - 元画像src: ${originalImg.src.substring(0, 50)}...`);
+    this.showDebug(`  - 画像タイプ: ${originalImg.constructor.name}`);
+    this.showDebug(`  - 画像サイズ: ${originalImg.width}x${originalImg.height}`);
+    this.showDebug(`  - 画像src: ${originalImg.src ? originalImg.src.substring(0, 30) + '...' : 'データURL'}`);
     
-    // 回転角度の計算
+    // 回転角度の詳細計算
     const correctedAngle = -(throwAngle - 90);
-    const radians = (correctedAngle * Math.PI) / 180;
-    
     this.showDebug(`🧮 回転角度計算:`);
+    this.showDebug(`  - 入力角度: ${throwAngle}°`);
     this.showDebug(`  - 計算式: -(${throwAngle} - 90) = ${correctedAngle}°`);
-    this.showDebug(`  - ラジアン: ${radians.toFixed(4)}`);
-    this.showDebug(`  - 期待される結果:`);
-    this.showDebug(`    北(0°) → -90° → 北が上向き`);
-    this.showDebug(`    東(90°) → 0° → 東が上向き`);
-    this.showDebug(`    南(180°) → 90° → 南が上向き`);
-    this.showDebug(`    西(270°) → 180° → 西が上向き`);
     
-    // キャンバス作成
+    // 期待される結果を明示
+    const directionMap = {
+        0: { corrected: -90, result: "北が上向き" },
+        90: { corrected: 0, result: "東が上向き" },
+        180: { corrected: 90, result: "南が上向き" },
+        270: { corrected: 180, result: "西が上向き" }
+    };
+    
+    const expected = directionMap[throwAngle] || { corrected: correctedAngle, result: "計算された方向" };
+    this.showDebug(`  - 期待結果: ${expected.result}`);
+    this.showDebug(`  - 計算値: ${correctedAngle}° (期待値: ${expected.corrected}°)`);
+    
+    if (Math.abs(correctedAngle - expected.corrected) < 1) {
+        this.showDebug(`  ✅ 角度計算正常`);
+    } else {
+        this.showDebug(`  ⚠️ 角度計算に差異あり`);
+    }
+    
+    // 実際に画像が回転されているかテスト
     const canvas = document.createElement('canvas');
     const diagonal = Math.sqrt(originalImg.width * originalImg.width + originalImg.height * originalImg.height);
     canvas.width = Math.ceil(diagonal);
     canvas.height = Math.ceil(diagonal);
     
-    this.showDebug(`🖼️ 回転用キャンバス作成:`);
-    this.showDebug(`  - 対角線長: ${diagonal.toFixed(2)}px`);
+    this.showDebug(`🖼️ キャンバス作成:`);
+    this.showDebug(`  - 元画像対角線: ${diagonal.toFixed(1)}px`);
     this.showDebug(`  - キャンバスサイズ: ${canvas.width}x${canvas.height}`);
     
     const ctx = canvas.getContext('2d');
     if (!ctx) {
-        this.showDebug('❌ 回転用キャンバスのコンテキスト取得失敗');
+        this.showDebug(`❌ キャンバスコンテキスト取得失敗`);
         return originalImg;
     }
     
     const centerX = canvas.width / 2;
     const centerY = canvas.height / 2;
     
-    this.showDebug(`📐 描画パラメータ:`);
-    this.showDebug(`  - キャンバス中心: (${centerX}, ${centerY})`);
-    this.showDebug(`  - 画像描画位置: (${-originalImg.width / 2}, ${-originalImg.height / 2})`);
-    
     try {
-        // 背景を識別可能な色で塗りつぶし（デバッグ用）
-        ctx.fillStyle = '#ffcccc'; // 薄いピンク色でデバッグ
+        // 回転前の状態を記録
+        ctx.save();
+        
+        // 【重要】背景色で回転確認
+        ctx.fillStyle = throwAngle === 0 ? '#ffcccc' :   // 北: 薄い赤
+                        throwAngle === 90 ? '#ccffcc' :   // 東: 薄い緑  
+                        throwAngle === 180 ? '#ccccff' :  // 南: 薄い青
+                        throwAngle === 270 ? '#ffffcc' :  // 西: 薄い黄
+                        '#e0e0e0';                        // その他: グレー
+        
         ctx.fillRect(0, 0, canvas.width, canvas.height);
-        this.showDebug(`🎨 背景色設定: 薄いピンク (#ffcccc)`);
+        this.showDebug(`🎨 背景色設定: ${ctx.fillStyle} (方向識別用)`);
         
-        // 回転変換の実行
-        this.showDebug(`🔄 変換実行中...`);
+        // 中心に移動
         ctx.translate(centerX, centerY);
-        this.showDebug(`  ✓ 中心点移動: translate(${centerX}, ${centerY})`);
+        this.showDebug(`📐 中心移動: translate(${centerX}, ${centerY})`);
         
+        // 回転実行
+        const radians = (correctedAngle * Math.PI) / 180;
         ctx.rotate(radians);
-        this.showDebug(`  ✓ 回転実行: rotate(${radians.toFixed(4)} rad = ${correctedAngle}°)`);
+        this.showDebug(`🔄 回転実行: rotate(${radians.toFixed(4)} radians = ${correctedAngle}°)`);
         
         // 画像描画
-        ctx.drawImage(
-            originalImg, 
-            -originalImg.width / 2, 
-            -originalImg.height / 2, 
-            originalImg.width, 
-            originalImg.height
-        );
-        this.showDebug(`  ✓ 画像描画完了`);
+        const drawX = -originalImg.width / 2;
+        const drawY = -originalImg.height / 2;
+        ctx.drawImage(originalImg, drawX, drawY, originalImg.width, originalImg.height);
+        this.showDebug(`🖼️ 画像描画: (${drawX}, ${drawY}) サイズ ${originalImg.width}x${originalImg.height}`);
         
-        ctx.resetTransform();
-        this.showDebug(`  ✓ 変換リセット完了`);
+        // 【追加】回転確認用のマーカー（方向矢印）
+        ctx.strokeStyle = '#ff0000';
+        ctx.lineWidth = 4;
+        ctx.fillStyle = '#ff0000';
         
-        // 結果画像の生成
-        const rotatedImg = new Image();
-        rotatedImg.onload = () => {
-            this.showDebug(`✅ 回転画像Imageオブジェクト作成完了:`);
-            this.showDebug(`  - 最終サイズ: ${rotatedImg.naturalWidth}x${rotatedImg.naturalHeight}`);
-            this.showDebug(`  - データURL長: ${rotatedImg.src.length}文字`);
-        };
-        rotatedImg.onerror = (e) => {
-            this.showDebug(`❌ 回転画像Imageオブジェクト作成失敗:`);
-            this.showDebug(`  - エラー: ${e}`);
-        };
+        // 上向き矢印（投球方向表示）
+        ctx.beginPath();
+        ctx.moveTo(0, -60);
+        ctx.lineTo(0, -20);
+        ctx.moveTo(-15, -45);
+        ctx.lineTo(0, -60);
+        ctx.lineTo(15, -45);
+        ctx.stroke();
         
-        // データURL生成
+        // 矢印の根元に方向文字
+        ctx.font = 'bold 16px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(`${throwAngle}°`, 0, -10);
+        
+        this.showDebug(`🎯 方向マーカー描画完了 (赤矢印 + ${throwAngle}°)`);
+        
+        ctx.restore();
+        
+        // 結果画像生成
         const dataURL = canvas.toDataURL('image/png', 0.9);
         this.showDebug(`📦 データURL生成:`);
-        this.showDebug(`  - 形式: PNG, 品質: 0.9`);
-        this.showDebug(`  - データサイズ: ${dataURL.length}文字`);
-        this.showDebug(`  - データURL先頭: ${dataURL.substring(0, 50)}...`);
+        this.showDebug(`  - 画像形式: PNG`);
+        this.showDebug(`  - データサイズ: ${Math.round(dataURL.length / 1024)}KB`);
+        
+        const rotatedImg = new Image();
+        rotatedImg.onload = () => {
+            this.showDebug(`✅ 回転画像作成完了:`);
+            this.showDebug(`  - 最終サイズ: ${rotatedImg.naturalWidth}x${rotatedImg.naturalHeight}`);
+            this.showDebug(`✅ ===== 画像回転メソッド完了 =====`);
+        };
+        
+        rotatedImg.onerror = (e) => {
+            this.showDebug(`❌ 回転画像作成失敗: ${e}`);
+        };
         
         rotatedImg.src = dataURL;
-        
-        this.showDebug(`✅ ===== 画像回転処理完了 =====`);
-        console.log('✅ 画像回転完了 - 詳細はDEBUGログを確認');
-        
         return rotatedImg;
         
     } catch (error) {
-        this.showDebug(`❌ ===== 画像回転エラー =====`);
-        this.showDebug(`  - エラーメッセージ: ${error.message}`);
-        this.showDebug(`  - エラータイプ: ${error.name}`);
-        if (error.stack) {
-            const stackLines = error.stack.split('\n').slice(0, 3);
-            stackLines.forEach((line, index) => {
-                this.showDebug(`  - スタック${index + 1}: ${line.trim()}`);
-            });
-        }
-        this.showDebug(`  → 元画像をそのまま返します`);
-        
-        console.error(`画像回転エラー:`, error);
-        return originalImg; // エラー時は元画像を返す
+        ctx.restore();
+        this.showDebug(`❌ 画像回転エラー: ${error.message}`);
+        this.showDebug(`  → 元画像を返します`);
+        return originalImg;
     }
-}  
+}
+
+// 【追加】投球角度設定時の詳細確認
+startThrowWithShake() {
+    if (this.isActive || !this.isDetectingShake) return;
+    
+    this.showDebug(`🎯 ===== 投球角度設定確認 =====`);
+    this.showDebug(`⏰ 設定時刻: ${new Date().toLocaleTimeString()}`);
+    
+    // 現在のコンパス状態を詳細に記録
+    this.showDebug(`📱 現在のコンパス状態:`);
+    this.showDebug(`  - 画面表示heading: ${document.getElementById('heading').textContent}`);
+    this.showDebug(`  - 画面表示compass: ${document.getElementById('compass').textContent}`);
+    this.showDebug(`  - this.heading値: ${this.heading}°`);
+    this.showDebug(`  - compassNeedle回転: ${this.compassNeedle.style.transform}`);
+    
+    console.log('🎯 投球準備処理開始');
+    this.isDetectingShake = false;
+    document.getElementById('powerMeter').style.display = 'none';
+    
+    // より細かい段階分けで現実的な飛距離に
+    let throwPower;
+    if (this.maxAcceleration <= 10) {
+        throwPower = 100 + (this.maxAcceleration - 8) * 100;
+    } else if (this.maxAcceleration <= 15) {
+        throwPower = 300 + (this.maxAcceleration - 10) * 60;
+    } else if (this.maxAcceleration <= 20) {
+        throwPower = 600 + (this.maxAcceleration - 15) * 80;
+    } else if (this.maxAcceleration <= 30) {
+        throwPower = 1000 + (this.maxAcceleration - 20) * 100;
+    } else {
+        throwPower = Math.min(2000, 1500 + (this.maxAcceleration - 25) * 100);
+    }
+    this.throwPower = Math.max(100, Math.round(throwPower));
+    
+    // 【重要】投球角度の設定
+    this.throwAngle = this.heading;
+    
+    this.showDebug(`🎯 投球角度設定:`);
+    this.showDebug(`  - this.heading → this.throwAngle: ${this.heading}° → ${this.throwAngle}°`);
+    this.showDebug(`  - 方向名: ${this.getCompassDirection(this.throwAngle)}`);
+    this.showDebug(`  - 投球パワー: ${this.throwPower}m`);
+    this.showDebug(`✅ ===== 投球角度設定完了 =====`);
+    
+    console.log(`投球検出! 最大加速度: ${this.maxAcceleration.toFixed(2)}, パワー: ${this.throwPower}m, 方向: ${this.throwAngle}°`);
+    
+    this.ballElement.classList.add('throwing');
+    this.ballTrailPoints = [];
+    this.clearTrails();
+    this.ballPosition = { ...this.startPosition };
+    
+    this.showResourcePreparation();
+}
+
 
 
 createDirectionalAerialImage(throwAngle) {
