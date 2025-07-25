@@ -838,7 +838,7 @@ updateDisplay() {
     }
     
     setupComplete() {
-        this.updateStatus('🎯 投球準備完了！スタートボタンを押してください');
+        this.updateStatus('🎯 投球準備完了！');
         this.updateCoordinatesDisplay();
         
         // Initialize canvas
@@ -1021,7 +1021,7 @@ initCanvas() {
             if (count > 0) {
                 this.showCountdown(count);
             } else {
-                this.showCountdown('投げて！');
+                this.showCountdown('投げろ');
                 setTimeout(() => {
                     this.hideCountdown();
                     this.enableThrowDetection();
