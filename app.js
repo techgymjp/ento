@@ -512,8 +512,8 @@ showDetailedError(context, error) {
         
         // テスト用のイベントリスナー
         const testListener = (event) => {
-            // this.showDebug(`🎯 テストイベント受信: alpha=${event.alpha}, beta=${event.beta}`);
-            // this.handleOrientation(event);
+            this.showDebug(`🎯 テストイベント受信: alpha=${event.alpha}, beta=${event.beta}`);
+            this.handleOrientation(event);
         };
         
         window.addEventListener('deviceorientation', testListener, { passive: true });
@@ -1662,7 +1662,6 @@ rotateImageForThrow(originalImg, throwAngle) {
 startThrowWithShake() {
     if (this.isActive || !this.isDetectingShake) return;
     
-    console.log('🎯 投球時heading:', this.heading, '度');
     this.showDebug(`🎯 ===== 投球角度設定確認 =====`);
     this.showDebug(`⏰ 設定時刻: ${new Date().toLocaleTimeString()}`);
     
