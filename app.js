@@ -1064,22 +1064,22 @@ calculateOptimalImageParams() {
     // 【修正】キャンバスサイズに応じて画像サイズを調整
     const canvasScale = Math.max(this.canvasWidth / 800, this.canvasHeight / 600);
     
-    // パワーに応じて適切なズームレベルを設定（画像サイズを2倍に拡大）
+    // パワーに応じて適切なズームレベルを設定
     if (powerMeters <= 200) {
         zoom = 18;  // 近距離用：建物詳細レベル
-        imageSize = 3072;  // 1536 × 2
+        imageSize = 1536;
     } else if (powerMeters <= 500) {
         zoom = 17;  // 中距離用：街区レベル
-        imageSize = 4096;  // 2048 × 2
+        imageSize = 2048;
     } else if (powerMeters <= 1000) {
         zoom = 16;  // 長距離用：地区レベル
-        imageSize = 5120;  // 2560 × 2
+        imageSize = 2560;
     } else if (powerMeters <= 2000) {
         zoom = 15;  // 超長距離用：市区レベル
-        imageSize = 6144;  // 3072 × 2
+        imageSize = 3072;
     } else {
         zoom = 14;  // 極長距離用：広域レベル
-        imageSize = 8192;  // 4096 × 2
+        imageSize = 4096;
     }
     
     this.showDebug(`📐 選択パラメータ: zoom=${zoom}, imageSize=${imageSize}px`);
