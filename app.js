@@ -1582,7 +1582,7 @@ rotateImageForThrow(originalImg, throwAngle) {
     this.showDebug(`  - 画像src: ${originalImg.src ? originalImg.src.substring(0, 30) + '...' : 'データURL'}`);
     
     // 回転角度の詳細計算
-    const correctedAngle = -(throwAngle - 90);
+    const correctedAngle = throwAngle;
     this.showDebug(`🧮 回転角度計算:`);
     this.showDebug(`  - 入力角度: ${throwAngle}°`);
     this.showDebug(`  - 計算式: -(${throwAngle} - 90) = ${correctedAngle}°`);
