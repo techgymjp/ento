@@ -617,7 +617,7 @@ handleOrientation(event) {
     
     // 権限チェック前にログ（デバッグ頻度制御あり）
     if (shouldDebug) {
-        this.showDebug(`🔐 権限チェック: isPermissionGranted = ${this.isPermissionGranted}`);
+        //this.showDebug(`🔐 権限チェック: isPermissionGranted = ${this.isPermissionGranted}`);
     }
     
     if (!this.isPermissionGranted) {
@@ -661,7 +661,7 @@ handleOrientation(event) {
     this.lastTime = currentTime;
     
     if (shouldDebug) {
-        this.showDebug(`✅ updateDisplay呼び出し`);
+        //this.showDebug(`✅ updateDisplay呼び出し`);
     }
     this.updateDisplay();
 }
