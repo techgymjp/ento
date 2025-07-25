@@ -383,98 +383,229 @@ showDetailedError(context, error) {
     }
     
     async requestSensorPermission() {
-        try {
-            // iOS 13+ device orientation permission
-            if (typeof DeviceOrientationEvent !== 'undefined' && 
-                typeof DeviceOrientationEvent.requestPermission === 'function') {
-                
-                const orientationPermission = await DeviceOrientationEvent.requestPermission();
-                if (orientationPermission !== 'granted') {
-                    throw new Error('デバイス方向センサーの許可が必要です');
-                }
+    this.showDebug('🔐 ===== センサー許可取得開始 =====');
+    
+    try {
+        // ブラウザとプラットフォームの確認
+        this.showDebug(`🌐 ブラウザ情報:`);
+        this.showDebug(`  - UserAgent: ${navigator.userAgent.substring(0, 100)}...`);
+        this.showDebug(`  - HTTPS: ${location.protocol === 'https:'}`);
+        this.showDebug(`  - localhost: ${location.hostname === 'localhost'}`);
+        
+        // iOS 13+ device orientation permission
+        if (typeof DeviceOrientationEvent !== 'undefined' && 
+            typeof DeviceOrientationEvent.requestPermission === 'function') {
+            
+            this.showDebug(`📲 iOS 13+ 検出 - Orientation許可要求中...`);
+            
+            const orientationPermission = await DeviceOrientationEvent.requestPermission();
+            this.showDebug(`📋 Orientation許可結果: ${orientationPermission}`);
+            
+            if (orientationPermission !== 'granted') {
+                this.showDebug(`❌ Orientation許可拒否`);
+                throw new Error('デバイス方向センサーの許可が必要です');
+            } else {
+                this.showDebug(`✅ Orientation許可取得成功`);
             }
-            
-            // iOS 13+ device motion permission
-            if (typeof DeviceMotionEvent !== 'undefined' && 
-                typeof DeviceMotionEvent.requestPermission === 'function') {
-                
-                const motionPermission = await DeviceMotionEvent.requestPermission();
-                if (motionPermission !== 'granted') {
-                    throw new Error('デバイスモーションセンサーの許可が必要です');
-                }
-            }
-            
-            this.startSensors();
-            
-        } catch (error) {
-            console.warn('⚠️ Sensor permission failed:', error);
-            this.startSensors();
+        } else {
+            this.showDebug(`📱 iOS 13+以外 - 許可要求不要`);
         }
+        
+        // iOS 13+ device motion permission
+        if (typeof DeviceMotionEvent !== 'undefined' && 
+            typeof DeviceMotionEvent.requestPermission === 'function') {
+            
+            this.showDebug(`📲 iOS 13+ Motion許可要求中...`);
+            
+            const motionPermission = await DeviceMotionEvent.requestPermission();
+            this.showDebug(`📋 Motion許可結果: ${motionPermission}`);
+            
+            if (motionPermission !== 'granted') {
+                this.showDebug(`❌ Motion許可拒否`);
+                throw new Error('デバイスモーションセンサーの許可が必要です');
+            } else {
+                this.showDebug(`✅ Motion許可取得成功`);
+            }
+        } else {
+            this.showDebug(`📱 Motion許可要求不要`);
+        }
+        
+        this.showDebug(`🚀 センサー開始処理実行...`);
+        this.startSensors();
+        
+    } catch (error) {
+        this.showDebug(`❌ センサー許可エラー: ${error.message}`);
+        console.warn('⚠️ Sensor permission failed:', error);
+        this.showDebug(`🔄 フォールバックでセンサー開始...`);
+        this.startSensors();
     }
+}
+  
+    
     
     startSensors() {
-        // Device orientation
-        if (typeof DeviceOrientationEvent !== 'undefined') {
-            window.addEventListener('deviceorientation', (event) => {
-                this.handleOrientation(event);
-            }, { passive: true });
-            
-            window.addEventListener('deviceorientationabsolute', (event) => {
-                this.handleAbsoluteOrientation(event);
-            }, { passive: true });
-        }
+    this.showDebug('🔧 ===== センサー開始処理 =====');
+    
+    // デバイス情報の詳細確認
+    this.showDebug(`📱 デバイス情報:`);
+    this.showDebug(`  - UserAgent: ${navigator.userAgent.substring(0, 80)}...`);
+    this.showDebug(`  - DeviceOrientationEvent: ${typeof DeviceOrientationEvent !== 'undefined'}`);
+    this.showDebug(`  - DeviceMotionEvent: ${typeof DeviceMotionEvent !== 'undefined'}`);
+    
+    // Device orientation
+    if (typeof DeviceOrientationEvent !== 'undefined') {
+        this.showDebug(`📡 DeviceOrientationイベント登録開始...`);
         
-        // Device motion for shake detection
-        if (typeof DeviceMotionEvent !== 'undefined') {
-            window.addEventListener('devicemotion', (event) => {
-                this.handleMotion(event);
-            }, { passive: true });
-        } else {
-            this.setupFallbackShakeDetection();
-        }
+        // テスト用のイベントリスナー
+        const testListener = (event) => {
+            this.showDebug(`🎯 テストイベント受信: alpha=${event.alpha}, beta=${event.beta}`);
+            this.handleOrientation(event);
+        };
         
-        this.isPermissionGranted = true;
+        window.addEventListener('deviceorientation', testListener, { passive: true });
+        this.showDebug(`✅ DeviceOrientationイベント登録完了`);
+        
+        // 絶対方向イベントも登録
+        window.addEventListener('deviceorientationabsolute', (event) => {
+            this.showDebug(`🧭 AbsoluteOrientationイベント受信`);
+            this.handleAbsoluteOrientation(event);
+        }, { passive: true });
+        
+        this.showDebug(`✅ DeviceOrientationAbsoluteイベント登録完了`);
+        
+        // 【追加】イベント発生確認用のタイマー
+        setTimeout(() => {
+            this.showDebug(`⏰ 5秒経過 - センサーイベント受信状況確認`);
+            if (this.heading === 0) {
+                this.showDebug(`⚠️ headingが初期値のまま - イベント未受信の可能性`);
+                this.troubleshootSensors();
+            } else {
+                this.showDebug(`✅ センサーイベント正常受信中`);
+            }
+        }, 5000);
+        
+    } else {
+        this.showDebug(`❌ DeviceOrientationEvent未対応`);
     }
     
-    handleOrientation(event) {
-
-        // 【追加】センサーイベント受信確認
-        console.log(`📡 センサー受信: heading=${this.heading}°, 権限=${this.isPermissionGranted}, 状態=${this.isActive ? 'Active' : 'Idle'}`);
+    // Device motion for shake detection
+    if (typeof DeviceMotionEvent !== 'undefined') {
+        this.showDebug(`📡 DeviceMotionイベント登録中...`);
         
-        if (!this.isPermissionGranted) {
-        console.log('❌ センサー権限なし - 更新停止');
+        window.addEventListener('devicemotion', (event) => {
+            this.handleMotion(event);
+        }, { passive: true });
+        
+        this.showDebug(`✅ DeviceMotionイベント登録完了`);
+    } else {
+        this.showDebug(`❌ DeviceMotionEvent未対応 - フォールバック設定`);
+        this.setupFallbackShakeDetection();
+    }
+    
+    this.isPermissionGranted = true;
+    this.showDebug(`✅ センサー許可フラグ設定: ${this.isPermissionGranted}`);
+    this.showDebug(`✅ ===== センサー開始処理完了 =====`);
+}
+
+
+    // センサートラブルシューティング用メソッド
+troubleshootSensors() {
+    this.showDebug(`🔧 ===== センサートラブルシューティング =====`);
+    
+    // 手動でテストイベントを作成
+    this.showDebug(`🧪 手動テストイベント作成...`);
+    
+    const testEvent = {
+        alpha: 45,
+        beta: 10,
+        gamma: 5,
+        webkitCompassHeading: 45,
+        absolute: true
+    };
+    
+    this.showDebug(`📤 テストイベント送信:`);
+    this.showDebug(`  - alpha: ${testEvent.alpha}`);
+    this.showDebug(`  - webkitCompassHeading: ${testEvent.webkitCompassHeading}`);
+    
+    // テストイベントでhandleOrientationを呼び出し
+    this.handleOrientation(testEvent);
+    
+    this.showDebug(`📊 テスト結果確認:`);
+    this.showDebug(`  - heading更新後: ${this.heading}°`);
+    this.showDebug(`  - 画面表示: ${document.getElementById('heading').textContent}`);
+    
+    if (this.heading !== 0) {
+        this.showDebug(`✅ handleOrientation処理は正常動作`);
+        this.showDebug(`❌ 実際のデバイスイベントが発生していない`);
+        this.showDebug(`💡 可能な原因:`);
+        this.showDebug(`   - ブラウザがセンサーアクセスをブロック`);
+        this.showDebug(`   - HTTPS接続が必要`);
+        this.showDebug(`   - デバイスがセンサーをサポートしていない`);
+    } else {
+        this.showDebug(`❌ handleOrientation処理に問題あり`);
+    }
+    
+    this.showDebug(`✅ ===== トラブルシューティング完了 =====`);
+}
+  
+    
+    handleOrientation(event) {
+    // 【最重要】イベント受信の確認を最初に行う
+    this.showDebug(`📡 handleOrientation呼び出し！`);
+    
+    // イベントデータの詳細を確認
+    this.showDebug(`📊 イベントデータ:`);
+    this.showDebug(`  - alpha: ${event.alpha}`);
+    this.showDebug(`  - beta: ${event.beta}`);
+    this.showDebug(`  - gamma: ${event.gamma}`);
+    this.showDebug(`  - webkitCompassHeading: ${event.webkitCompassHeading}`);
+    this.showDebug(`  - absolute: ${event.absolute}`);
+    
+    // 権限チェック前にログ
+    this.showDebug(`🔐 権限チェック: isPermissionGranted = ${this.isPermissionGranted}`);
+    
+    if (!this.isPermissionGranted) {
+        this.showDebug('❌ センサー権限なし - 処理停止');
         return;
     }
-
-        if (!this.isPermissionGranted) return;
-        
-        let newHeading = 0;
-        
-        // iOS
-        if (event.webkitCompassHeading !== undefined) {
-            newHeading = event.webkitCompassHeading;
-        }
-        // Android
-        else if (event.alpha !== null) {
-            newHeading = 360 - event.alpha;
-            if (newHeading >= 360) newHeading -= 360;
-            if (newHeading < 0) newHeading += 360;
-        }
-        
-        this.heading = newHeading;
-        
-        const newTilt = event.beta || 0;
-        const currentTime = Date.now();
-        const deltaTime = Math.max((currentTime - this.lastTime) / 1000, 0.001);
-        const deltaTilt = newTilt - this.lastTilt;
-        this.tiltSpeed = Math.abs(deltaTilt) / deltaTime;
-        
-        this.tilt = newTilt;
-        this.lastTilt = newTilt;
-        this.lastTime = currentTime;
-        
-        this.updateDisplay();
+    
+    let newHeading = 0;
+    
+    // iOS方式の確認
+    if (event.webkitCompassHeading !== undefined) {
+        newHeading = event.webkitCompassHeading;
+        this.showDebug(`🍎 iOS方式採用: webkitCompassHeading = ${newHeading}°`);
     }
+    // Android方式の確認
+    else if (event.alpha !== null) {
+        newHeading = 360 - event.alpha;
+        if (newHeading >= 360) newHeading -= 360;
+        if (newHeading < 0) newHeading += 360;
+        this.showDebug(`🤖 Android方式採用: alpha = ${event.alpha}° → heading = ${newHeading}°`);
+    }
+    else {
+        this.showDebug(`❌ 有効なセンサーデータなし`);
+    }
+    
+    const oldHeading = this.heading;
+    this.heading = newHeading;
+    
+    this.showDebug(`📊 heading更新: ${oldHeading}° → ${this.heading}°`);
+    
+    const newTilt = event.beta || 0;
+    const currentTime = Date.now();
+    const deltaTime = Math.max((currentTime - this.lastTime) / 1000, 0.001);
+    const deltaTilt = newTilt - this.lastTilt;
+    this.tiltSpeed = Math.abs(deltaTilt) / deltaTime;
+    
+    this.tilt = newTilt;
+    this.lastTilt = newTilt;
+    this.lastTime = currentTime;
+    
+    this.showDebug(`✅ updateDisplay呼び出し`);
+    this.updateDisplay();
+}
+
     
     handleAbsoluteOrientation(event) {
         if (event.absolute && event.alpha !== null) {
