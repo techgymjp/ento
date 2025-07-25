@@ -1662,6 +1662,7 @@ rotateImageForThrow(originalImg, throwAngle) {
 startThrowWithShake() {
     if (this.isActive || !this.isDetectingShake) return;
     
+    console.log('🎯 投球時heading:', this.heading, '度');
     this.showDebug(`🎯 ===== 投球角度設定確認 =====`);
     this.showDebug(`⏰ 設定時刻: ${new Date().toLocaleTimeString()}`);
     
