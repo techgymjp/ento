@@ -666,44 +666,6 @@ handleOrientation(event) {
     this.updateDisplay();
 }
     
-    
-    
-    let newHeading = 0;
-    
-    // iOS方式の確認
-    if (event.webkitCompassHeading !== undefined) {
-        newHeading = event.webkitCompassHeading;
-        this.showDebug(`🍎 iOS方式採用: webkitCompassHeading = ${newHeading}°`);
-    }
-    // Android方式の確認
-    else if (event.alpha !== null) {
-        newHeading = 360 - event.alpha;
-        if (newHeading >= 360) newHeading -= 360;
-        if (newHeading < 0) newHeading += 360;
-        this.showDebug(`🤖 Android方式採用: alpha = ${event.alpha}° → heading = ${newHeading}°`);
-    }
-    else {
-        this.showDebug(`❌ 有効なセンサーデータなし`);
-    }
-    
-    const oldHeading = this.heading;
-    this.heading = newHeading;
-    
-    this.showDebug(`📊 heading更新: ${oldHeading}° → ${this.heading}°`);
-    
-    const newTilt = event.beta || 0;
-    const currentTime = Date.now();
-    const deltaTime = Math.max((currentTime - this.lastTime) / 1000, 0.001);
-    const deltaTilt = newTilt - this.lastTilt;
-    this.tiltSpeed = Math.abs(deltaTilt) / deltaTime;
-    
-    this.tilt = newTilt;
-    this.lastTilt = newTilt;
-    this.lastTime = currentTime;
-    
-    this.showDebug(`✅ updateDisplay呼び出し`);
-    this.updateDisplay();
-}
 
     
     handleAbsoluteOrientation(event) {
