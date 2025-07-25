@@ -1339,7 +1339,12 @@ rotateImageForThrow(originalImg, throwAngle) {
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         
         ctx.translate(centerX, centerY);
-        ctx.rotate((throwAngle * Math.PI) / 180);
+        
+        
+        const correctedAngle = -(throwAngle - 90);
+        ctx.rotate((correctedAngle * Math.PI) / 180);
+
+
         ctx.drawImage(originalImg, -originalImg.width / 2, -originalImg.height / 2, originalImg.width, originalImg.height);
         ctx.resetTransform();
         
