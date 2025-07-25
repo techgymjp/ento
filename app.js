@@ -437,6 +437,15 @@ showDetailedError(context, error) {
     }
     
     handleOrientation(event) {
+
+        // 【追加】センサーイベント受信確認
+        console.log(`📡 センサー受信: heading=${this.heading}°, 権限=${this.isPermissionGranted}, 状態=${this.isActive ? 'Active' : 'Idle'}`);
+        
+        if (!this.isPermissionGranted) {
+        console.log('❌ センサー権限なし - 更新停止');
+        return;
+    }
+
         if (!this.isPermissionGranted) return;
         
         let newHeading = 0;
