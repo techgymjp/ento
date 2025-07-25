@@ -1662,6 +1662,9 @@ drawBackground(currentDistance, progress) {
         // 【修正】画像を元のサイズのまま使用（縮小なし）
         const imageWidth = aerialImage.naturalWidth;
         const imageHeight = aerialImage.naturalHeight;
+        const imageWidth = originalWidth * 2;  // ← 2倍に拡大
+        const imageHeight = originalHeight * 2; // ← 2倍に拡大
+
 
         // キャンバスサイズに応じて画像サイズを調整（パワーが大きいほど画像も大きく表示）
         const canvasScale = Math.max(this.canvasWidth / 800, this.canvasHeight / 600); // 基準サイズ比
@@ -1675,7 +1678,7 @@ drawBackground(currentDistance, progress) {
         
         // 【修正】下方向スクロール計算
         // 画像がキャンバスより大きい場合のみスクロール可能
-        const scrollFactor = 0.5; // スクロール量を30%に制限
+        const scrollFactor = 0.7; // スクロール量を30%に制限
         const maxScroll = Math.max(0, imageHeight - this.canvasHeight);
         const scrollY = centerY + progress * maxScroll * scrollFactor;
         
