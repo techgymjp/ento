@@ -1071,7 +1071,7 @@ initCanvas() {
     startThrowWithShake() {
     if (this.isActive || !this.isDetectingShake) return;
     
-    this.showDebug(`🎯 ===== 投球角度設定確認 =====`);
+    console.log('🎯 投球時heading:', this.heading, '度');
     this.showDebug(`⏰ 設定時刻: ${new Date().toLocaleTimeString()}`);
     
     // 現在のコンパス状態を詳細に記録
@@ -1657,59 +1657,6 @@ rotateImageForThrow(originalImg, throwAngle) {
         return originalImg;
     }
 }
-
-// 【追加】投球角度設定時の詳細確認
-startThrowWithShake() {
-    if (this.isActive || !this.isDetectingShake) return;
-    
-    this.showDebug(`🎯 ===== 投球角度設定確認 =====`);
-    this.showDebug(`⏰ 設定時刻: ${new Date().toLocaleTimeString()}`);
-    
-    // 現在のコンパス状態を詳細に記録
-    this.showDebug(`📱 現在のコンパス状態:`);
-    this.showDebug(`  - 画面表示heading: ${document.getElementById('heading').textContent}`);
-    this.showDebug(`  - 画面表示compass: ${document.getElementById('compass').textContent}`);
-    this.showDebug(`  - this.heading値: ${this.heading}°`);
-    this.showDebug(`  - compassNeedle回転: ${this.compassNeedle.style.transform}`);
-    
-    console.log('🎯 投球準備処理開始');
-    this.isDetectingShake = false;
-    document.getElementById('powerMeter').style.display = 'none';
-    
-    // より細かい段階分けで現実的な飛距離に
-    let throwPower;
-    if (this.maxAcceleration <= 10) {
-        throwPower = 100 + (this.maxAcceleration - 8) * 100;
-    } else if (this.maxAcceleration <= 15) {
-        throwPower = 300 + (this.maxAcceleration - 10) * 60;
-    } else if (this.maxAcceleration <= 20) {
-        throwPower = 600 + (this.maxAcceleration - 15) * 80;
-    } else if (this.maxAcceleration <= 30) {
-        throwPower = 1000 + (this.maxAcceleration - 20) * 100;
-    } else {
-        throwPower = Math.min(2000, 1500 + (this.maxAcceleration - 25) * 100);
-    }
-    this.throwPower = Math.max(100, Math.round(throwPower));
-    
-    // 【重要】投球角度の設定
-    this.throwAngle = this.heading;
-    
-    this.showDebug(`🎯 投球角度設定:`);
-    this.showDebug(`  - this.heading → this.throwAngle: ${this.heading}° → ${this.throwAngle}°`);
-    this.showDebug(`  - 方向名: ${this.getCompassDirection(this.throwAngle)}`);
-    this.showDebug(`  - 投球パワー: ${this.throwPower}m`);
-    this.showDebug(`✅ ===== 投球角度設定完了 =====`);
-    
-    console.log(`投球検出! 最大加速度: ${this.maxAcceleration.toFixed(2)}, パワー: ${this.throwPower}m, 方向: ${this.throwAngle}°`);
-    
-    this.ballElement.classList.add('throwing');
-    this.ballTrailPoints = [];
-    this.clearTrails();
-    this.ballPosition = { ...this.startPosition };
-    
-    this.showResourcePreparation();
-}
-
 
 
 createDirectionalAerialImage(throwAngle) {
