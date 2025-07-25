@@ -1675,7 +1675,7 @@ drawBackground(currentDistance, progress) {
         
         // 【修正】下方向スクロール計算
         // 画像がキャンバスより大きい場合のみスクロール可能
-        const scrollFactor = 0.3; // スクロール量を30%に制限
+        const scrollFactor = 0.5; // スクロール量を30%に制限
         const maxScroll = Math.max(0, imageHeight - this.canvasHeight);
         const scrollY = centerY + progress * maxScroll * scrollFactor;
         
