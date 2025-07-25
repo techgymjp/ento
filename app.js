@@ -508,7 +508,7 @@ showDetailedError(context, error) {
     
     // Device orientation
     if (typeof DeviceOrientationEvent !== 'undefined') {
-       // this.showDebug(`📡 DeviceOrientationイベント登録開始...`);
+        this.showDebug(`📡 DeviceOrientationイベント登録開始...`);
         
         // テスト用のイベントリスナー
         const testListener = (event) => {
@@ -521,8 +521,8 @@ showDetailedError(context, error) {
         
         // 絶対方向イベントも登録
         window.addEventListener('deviceorientationabsolute', (event) => {
-          //  this.showDebug(`🧭 AbsoluteOrientationイベント受信`);
-          //  this.handleAbsoluteOrientation(event);
+            this.showDebug(`🧭 AbsoluteOrientationイベント受信`);
+            this.handleAbsoluteOrientation(event);
         }, { passive: true });
         
         this.showDebug(`✅ DeviceOrientationAbsoluteイベント登録完了`);
