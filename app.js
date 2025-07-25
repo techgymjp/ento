@@ -512,8 +512,8 @@ showDetailedError(context, error) {
         
         // テスト用のイベントリスナー
         const testListener = (event) => {
-           // this.showDebug(`🎯 テストイベント受信: alpha=${event.alpha}, beta=${event.beta}`);
-           //  this.handleOrientation(event);
+            this.showDebug(`🎯 テストイベント受信: alpha=${event.alpha}, beta=${event.beta}`);
+            this.handleOrientation(event);
         };
         
         window.addEventListener('deviceorientation', testListener, { passive: true });
@@ -1339,10 +1339,10 @@ async prepareAerialImages() {
         // 回転完了を待つ（修正版）
         await new Promise((resolve, reject) => {
         if (rotatedImage.complete && rotatedImage.naturalWidth > 0 && rotatedImage.src.startsWith('data:')) {
-            this.showDebug('✅ 回転画像即座に完了');
-            this.showDebug(`📊 回転画像確認: ${rotatedImage.naturalWidth}x${rotatedImage.naturalHeight}`);
-            resolve();
-        } else {
+        this.showDebug('✅ 回転画像即座に完了');
+        this.showDebug(`📊 回転画像確認: ${rotatedImage.naturalWidth}x${rotatedImage.naturalHeight}`);
+        resolve();
+    } else {
         this.showDebug('⏳ 回転画像読み込み待機中...');
         rotatedImage.onload = () => {
             // 追加：実際の画像データ確認
