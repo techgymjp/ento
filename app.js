@@ -190,7 +190,27 @@ showDebug(message) {
     // コンソールにも出力（PC用）
     console.log(message);
 }
-   
+   flushDebugQueue() {
+    if (!this.debugElement || !this.debugUpdateQueue || this.debugUpdateQueue.length === 0) {
+        return;
+    }
+    
+    // キューの全メッセージを一度に処理
+    const newMessages = this.debugUpdateQueue.join('\n');
+    this.debugUpdateQueue = [];
+    
+    // 【修正】一度にまとめて更新
+    this.debugElement.textContent = newMessages + '\n' + this.debugElement.textContent;
+    
+    // 20行を超えたら古いメッセージを削除
+    const lines = this.debugElement.textContent.split('\n');
+    if (lines.length > 20) {
+        this.debugElement.textContent = lines.slice(0, 20).join('\n');
+    }
+    
+    // 自動スクロール（最新メッセージが見えるように）
+    this.debugElement.scrollTop = 0;
+}
 
     
 // デバッグ表示切り替え
