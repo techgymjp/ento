@@ -91,6 +91,9 @@ class BallThrowJourneyApp {
     }
 
     // 【強化版】デバッグ表示を作成
+// 【ステップ2】既存のcreateDebugDisplayメソッドを以下で完全置き換えしてください
+
+// 【強化版】デバッグ表示を作成（ちらつき防止版）
 createDebugDisplay() {
     this.debugElement = document.createElement('div');
     this.debugElement.id = 'debugDisplay';
@@ -111,6 +114,11 @@ createDebugDisplay() {
         white-space: pre-wrap;
         display: block;
         border: 2px solid #00ff00;
+        transform: translateZ(0);
+        will-change: contents;
+        backface-visibility: hidden;
+        -webkit-font-smoothing: antialiased;
+        text-rendering: optimizeSpeed;
     `;
     document.body.appendChild(this.debugElement);
     
@@ -129,6 +137,8 @@ createDebugDisplay() {
         font-size: 12px;
         z-index: 10001;
         font-weight: bold;
+        user-select: none;
+        -webkit-tap-highlight-color: transparent;
     `;
     this.debugToggle.onclick = () => this.toggleDebug();
     document.body.appendChild(this.debugToggle);
@@ -148,13 +158,23 @@ createDebugDisplay() {
         font-size: 12px;
         z-index: 10001;
         font-weight: bold;
+        user-select: none;
+        -webkit-tap-highlight-color: transparent;
     `;
     this.debugClear.onclick = () => this.clearDebug();
     document.body.appendChild(this.debugClear);
 
     this.debugVisible = true;
-    this.showDebug('🚀 スマホ対応デバッグシステム開始');
+    
+    // 【新規追加】ちらつき防止用の変数初期化
+    this.debugUpdateQueue = [];
+    this.lastDebugUpdate = 0;
+    this.debugUpdateTimer = null;
+    
+    this.showDebug('🚀 スマホ対応デバッグシステム開始（ちらつき修正版）');
 }
+ 
+
 
 
 // 【強化版】デバッグメッセージ表示（ちらつき防止版）
@@ -190,6 +210,8 @@ showDebug(message) {
     // コンソールにも出力（PC用）
     console.log(message);
 }
+
+
    flushDebugQueue() {
     if (!this.debugElement || !this.debugUpdateQueue || this.debugUpdateQueue.length === 0) {
         return;
