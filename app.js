@@ -1580,7 +1580,7 @@ async startBallMovement() {
         }
         
         this.animationFrame++;
-        const progress = this.animationFrame * 0.008; // スクロール速度を調整
+        const progress = this.animationFrame * 0.005; // スクロール速度を調整
 
 if (progress >= 1) {
     console.log('✅ キャンバスアニメーション完了、着地処理開始');
