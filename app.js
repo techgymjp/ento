@@ -1354,8 +1354,8 @@ async prepareAerialImages() {
             index: 0,
             zoom: zoom,
             imageSize: imageSize,
-            appliedRotation: this.throwAngle  // ← デバッグ用回転角度記録
-            isRotated: true // ← 回転済みフラグを追加
+            appliedRotation: this.throwAngle,  // ← デバッグ用回転角度記録
+            isRotated: true, // ← 回転済みフラグを追加
         }];
 
         this.showDebug('✅ 地理院地図航空写真準備完了！');
