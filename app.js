@@ -611,7 +611,7 @@ handleOrientation(event) {
     
     if (shouldDebug) {
         this.showDebug(`📡 handleOrientation呼び出し！`);
-        this.showDebug(`📊 イベントデータ: alpha=${event.alpha}, beta=${event.beta}`);
+        //this.showDebug(`📊 イベントデータ: alpha=${event.alpha}, beta=${event.beta}`);
         this.lastOrientationDebug = Date.now();
     }
     
