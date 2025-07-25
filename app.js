@@ -1,4 +1,1053 @@
-showResourcePreparation() {
+class BallThrowJourneyApp {
+    constructor() {
+        console.log('🚀 BallThrowJourneyApp initializing...');
+        
+        // Core elements
+        this.map = null;
+        this.mapElement = document.getElementById('map');
+        this.ballElement = document.getElementById('ball');
+        this.compassNeedle = document.getElementById('compassNeedle');
+        this.gameCanvas = document.getElementById('gameCanvas');
+        this.ctx = null;
+        
+        // Canvas and image data
+        this.aerialImages = [];
+        this.ballImage = null;
+        this.canvasWidth = 0;
+        this.canvasHeight = 0;
+        this.ballCanvasX = 0;
+        this.ballCanvasY = 0;
+        this.backgroundOffsetY = 0;
+        
+        // Audio elements
+        this.sounds = {
+            start: new Audio('start.mp3'),
+            kick: new Audio('kick.mp3'),
+            goal: new Audio('goal.mp3')
+        };
+        
+        // Preload audio files
+        Object.values(this.sounds).forEach(audio => {
+            audio.preload = 'auto';
+            audio.volume = 0.8;
+            audio.addEventListener('canplaythrough', () => {
+                console.log(`✅ Audio ${audio.src} loaded successfully`);
+            });
+            audio.addEventListener('error', (e) => {
+                console.error(`❌ Audio ${audio.src} failed to load:`, e);
+            });
+        });
+        
+        // State management
+        this.isActive = false;
+        this.isCountdownActive = false;
+        this.isPermissionGranted = false;
+        this.isMapReady = false;
+        this.isMapFullyLoaded = false;
+        this.isBallMoving = false;
+        this.isDetectingShake = false;
+        
+        // Position data
+        this.currentPosition = { lat: 35.4476, lng: 139.6425 };
+        this.startPosition = { ...this.currentPosition };
+        this.ballPosition = { ...this.currentPosition };
+        
+        // Sensor data
+        this.heading = 0;
+        this.absoluteHeading = 0;
+        this.tilt = 0;
+        this.lastTilt = 0;
+        this.tiltSpeed = 0;
+        this.lastTime = Date.now();
+        
+        // Shake detection
+        this.accelerationData = [];
+        this.maxAcceleration = 0;
+        this.shakeThreshold = 8;
+        this.totalDistance = 0;
+        
+        // Animation
+        this.animationFrame = 0;
+        this.throwPower = 0;
+        this.throwAngle = 0;
+        this.ballTrailPoints = [];
+        
+        // Preparation state
+        this.isAudioReady = false;
+        this.isAerialImagesReady = false;
+        this.isBallImageReady = false;
+        this.preparationOverlay = null;
+        
+        // Timers
+        this.countdownTimer = null;
+        this.countdownElement = null;
+        this.preparationTimer = null;
+        
+        this.updateStatus('位置情報とデバイスセンサーの許可が必要です');
+
+        // デバッグ表示要素を作成
+        this.createDebugDisplay();
+        console.log('✅ BallThrowJourneyApp initialized');
+    }
+
+    // デバッグ表示を作成
+    createDebugDisplay() {
+        this.debugElement = document.createElement('div');
+        this.debugElement.id = 'debugDisplay';
+        this.debugElement.style.cssText = `
+            position: fixed;
+            top: 50px;
+            left: 10px;
+            right: 10px;
+            background: rgba(0, 0, 0, 0.9);
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 11px;
+            z-index: 10000;
+            max-height: 300px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            display: block;
+            border: 2px solid #00ff00;
+        `;
+        document.body.appendChild(this.debugElement);
+        
+        // デバッグ表示の切り替えボタン
+        this.debugToggle = document.createElement('button');
+        this.debugToggle.textContent = 'DEBUG';
+        this.debugToggle.style.cssText = `
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            background: #ff4444;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            z-index: 10001;
+            font-weight: bold;
+        `;
+        this.debugToggle.onclick = () => this.toggleDebug();
+        document.body.appendChild(this.debugToggle);
+        
+        // クリアボタン
+        this.debugClear = document.createElement('button');
+        this.debugClear.textContent = 'CLEAR';
+        this.debugClear.style.cssText = `
+            position: fixed;
+            top: 10px;
+            right: 70px;
+            background: #4444ff;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            z-index: 10001;
+            font-weight: bold;
+        `;
+        this.debugClear.onclick = () => this.clearDebug();
+        document.body.appendChild(this.debugClear);
+
+        // センサー状態確認ボタン
+        this.debugSensorCheck = document.createElement('button');
+        this.debugSensorCheck.textContent = 'SENSOR';
+        this.debugSensorCheck.style.cssText = `
+            position: fixed;
+            top: 10px;
+            right: 130px;
+            background: #44ff44;
+            color: black;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            z-index: 10001;
+            font-weight: bold;
+        `;
+        this.debugSensorCheck.onclick = () => this.checkSensorStatus();
+        document.body.appendChild(this.debugSensorCheck);
+
+        this.debugVisible = true;
+        this.showDebug('🚀 スマホ対応デバッグシステム開始');
+    }
+
+    // センサー状態確認メソッド
+    checkSensorStatus() {
+        this.showDebug(`🔍 ===== 手動センサー確認 =====`);
+        this.showDebug(`⏰ 確認時刻: ${new Date().toLocaleTimeString()}`);
+        this.showDebug(`📱 現在のheading: ${this.heading}°`);
+        this.showDebug(`📱 現在の方向: ${this.getCompassDirection(this.heading)}`);
+        this.showDebug(`📱 画面表示: ${document.getElementById('heading').textContent}`);
+        this.showDebug(`📱 コンパス表示: ${document.getElementById('compass').textContent}`);
+        this.showDebug(`📱 needle回転: ${this.compassNeedle.style.transform}`);
+        this.showDebug(`📱 センサー許可: ${this.isPermissionGranted}`);
+        this.showDebug(`✅ ===== 確認完了 =====`);
+    }
+
+    // デバッグメッセージ表示
+    showDebug(message) {
+        if (this.debugElement) {
+            const timestamp = new Date().toLocaleTimeString();
+            const newMessage = `[${timestamp}] ${message}`;
+            
+            // 既存のメッセージに追加（最新を上に）
+            this.debugElement.textContent = newMessage + '\n' + this.debugElement.textContent;
+            
+            // 20行を超えたら古いメッセージを削除
+            const lines = this.debugElement.textContent.split('\n');
+            if (lines.length > 20) {
+                this.debugElement.textContent = lines.slice(0, 20).join('\n');
+            }
+            
+            // 自動スクロール（最新メッセージが見えるように）
+            this.debugElement.scrollTop = 0;
+        }
+        
+        // コンソールにも出力（PC用）
+        console.log(message);
+    }
+    
+    // デバッグ表示切り替え
+    toggleDebug() {
+        this.debugVisible = !this.debugVisible;
+        this.debugElement.style.display = this.debugVisible ? 'block' : 'none';
+        this.debugToggle.style.background = this.debugVisible ? '#ff4444' : '#888888';
+        console.log('Debug表示切り替え:', this.debugVisible);
+    }
+
+    // デバッグクリア
+    clearDebug() {
+        if (this.debugElement) {
+            this.debugElement.textContent = '';
+            this.showDebug('🧹 デバッグログクリア');
+            console.log('Debug log cleared');
+        }
+    }
+
+    // 航空写真の詳細状態をデバッグ表示
+    debugAerialImageState() {
+        if (this.aerialImages.length > 0 && this.aerialImages[0].image) {
+            const img = this.aerialImages[0].image;
+            this.showDebug(`📸 航空写真状態:`);
+            this.showDebug(`  - complete: ${img.complete}`);
+            this.showDebug(`  - naturalWidth: ${img.naturalWidth}`);
+            this.showDebug(`  - naturalHeight: ${img.naturalHeight}`);
+            this.showDebug(`  - width: ${img.width}`);
+            this.showDebug(`  - height: ${img.height}`);
+            this.showDebug(`  - src先頭: ${img.src.substring(0, 60)}...`);
+        } else {
+            this.showDebug('❌ 航空写真が存在しない');
+        }
+    }
+
+    // キャンバス状態をデバッグ表示
+    debugCanvasState() {
+        this.showDebug(`🖼️ キャンバス状態:`);
+        this.showDebug(`  - canvasWidth: ${this.canvasWidth}`);
+        this.showDebug(`  - canvasHeight: ${this.canvasHeight}`);
+        this.showDebug(`  - ctx存在: ${!!this.ctx}`);
+        this.showDebug(`  - gameCanvas存在: ${!!this.gameCanvas}`);
+        if (this.gameCanvas) {
+            this.showDebug(`  - canvas表示: ${this.gameCanvas.style.display}`);
+        }
+    }
+
+    // エラー詳細表示
+    showDetailedError(context, error) {
+        this.showDebug(`❌ ${context}でエラー発生:`);
+        this.showDebug(`  - メッセージ: ${error.message}`);
+        if (error.stack) {
+            const stackLines = error.stack.split('\n').slice(0, 3); // 最初の3行のみ
+            stackLines.forEach(line => {
+                this.showDebug(`  - ${line.trim()}`);
+            });
+        }
+        console.error(`${context}エラー:`, error);
+    }
+
+    // 2点間の距離を計算（メートル単位）
+    calculateDistance(lat1, lng1, lat2, lng2) {
+        const R = 6371000; // 地球の半径（メートル）
+        const dLat = (lat2 - lat1) * Math.PI / 180;
+        const dLng = (lng2 - lng1) * Math.PI / 180;
+        const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                 Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                 Math.sin(dLng/2) * Math.sin(dLng/2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        return R * c;
+    }
+    
+    async startApp() {
+        const startBtn = document.getElementById('startBtn');
+        if (!startBtn) return;
+        
+        console.log('🚀 Starting app...');
+        startBtn.disabled = true;
+        startBtn.textContent = '初期化中...';
+        
+        try {
+            // Get location
+            this.updateStatus('📍 位置情報を取得中...');
+            await this.getCurrentPosition();
+            
+            // Initialize map
+            this.updateStatus('🗺️ 地図を準備中...');
+            await this.initMap();
+            
+            // Request sensor permissions
+            this.updateStatus('📱 センサー許可を取得中...');
+            await this.requestSensorPermission();
+            
+            this.setupComplete();
+            
+        } catch (error) {
+            console.error('❌ Setup error:', error);
+            this.showError('初期化エラー: ' + error.message);
+            this.fallbackSetup();
+        }
+    }
+    
+    getCurrentPosition() {
+        return new Promise((resolve, reject) => {
+            if (!navigator.geolocation) {
+                console.warn('⚠️ Geolocation not supported');
+                resolve();
+                return;
+            }
+            
+            const options = {
+                enableHighAccuracy: true,
+                timeout: 15000,
+                maximumAge: 60000
+            };
+            
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    this.currentPosition = {
+                        lat: position.coords.latitude,
+                        lng: position.coords.longitude
+                    };
+                    this.startPosition = { ...this.currentPosition };
+                    this.ballPosition = { ...this.currentPosition };
+                    console.log('✅ Position obtained:', this.currentPosition);
+                    resolve();
+                },
+                (error) => {
+                    console.warn('⚠️ Geolocation failed:', error.message);
+                    resolve();
+                },
+                options
+            );
+        });
+    }
+    
+    async initMap() {
+        document.getElementById('loading').style.display = 'block';
+        
+        try {
+            if (!window.google) {
+                await this.loadGoogleMapsAPI();
+            }
+            
+            this.map = new google.maps.Map(this.mapElement, {
+                center: this.currentPosition,
+                zoom: 20,
+                mapTypeId: google.maps.MapTypeId.SATELLITE,
+                disableDefaultUI: true,
+                gestureHandling: 'none',
+                heading: 0,
+                tilt: 0,
+                styles: [
+                    {
+                        featureType: 'all',
+                        elementType: 'labels',
+                        stylers: [{ visibility: 'off' }]
+                    }
+                ]
+            });
+            
+            google.maps.event.addListenerOnce(this.map, 'idle', () => {
+                console.log('✅ Map is ready');
+                this.isMapReady = true;
+                
+                setTimeout(() => {
+                    this.isMapFullyLoaded = true;
+                    console.log('✅ Map fully loaded');
+                }, 2000);
+            });
+            
+        } catch (error) {
+            console.error('❌ Map initialization failed:', error);
+            throw error;
+        }
+        
+        document.getElementById('loading').style.display = 'none';
+    }
+    
+    loadGoogleMapsAPI() {
+        return new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = `https://maps.googleapis.com/maps/api/js?key=AIzaSyDbZWtPobAYr04A8da3OUOjtNNdjfvkbXA&libraries=geometry`;
+            script.async = true;
+            script.defer = true;
+            
+            script.onload = () => {
+                console.log('✅ Google Maps API loaded');
+                resolve();
+            };
+            
+            script.onerror = () => {
+                console.error('❌ Failed to load Google Maps API');
+                reject(new Error('Google Maps API loading failed'));
+            };
+            
+            document.head.appendChild(script);
+        });
+    }
+    
+    async requestSensorPermission() {
+        this.showDebug('🔐 ===== センサー許可取得開始 =====');
+        
+        try {
+            // ブラウザとプラットフォームの確認
+            this.showDebug(`🌐 ブラウザ情報:`);
+            this.showDebug(`  - UserAgent: ${navigator.userAgent.substring(0, 100)}...`);
+            this.showDebug(`  - HTTPS: ${location.protocol === 'https:'}`);
+            this.showDebug(`  - localhost: ${location.hostname === 'localhost'}`);
+            
+            // iOS 13+ device orientation permission
+            if (typeof DeviceOrientationEvent !== 'undefined' && 
+                typeof DeviceOrientationEvent.requestPermission === 'function') {
+                
+                this.showDebug(`📲 iOS 13+ 検出 - Orientation許可要求中...`);
+                
+                const orientationPermission = await DeviceOrientationEvent.requestPermission();
+                this.showDebug(`📋 Orientation許可結果: ${orientationPermission}`);
+                
+                if (orientationPermission !== 'granted') {
+                    this.showDebug(`❌ Orientation許可拒否`);
+                    throw new Error('デバイス方向センサーの許可が必要です');
+                } else {
+                    this.showDebug(`✅ Orientation許可取得成功`);
+                }
+            } else {
+                this.showDebug(`📱 iOS 13+以外 - 許可要求不要`);
+            }
+            
+            // iOS 13+ device motion permission
+            if (typeof DeviceMotionEvent !== 'undefined' && 
+                typeof DeviceMotionEvent.requestPermission === 'function') {
+                
+                this.showDebug(`📲 iOS 13+ Motion許可要求中...`);
+                
+                const motionPermission = await DeviceMotionEvent.requestPermission();
+                this.showDebug(`📋 Motion許可結果: ${motionPermission}`);
+                
+                if (motionPermission !== 'granted') {
+                    this.showDebug(`❌ Motion許可拒否`);
+                    throw new Error('デバイスモーションセンサーの許可が必要です');
+                } else {
+                    this.showDebug(`✅ Motion許可取得成功`);
+                }
+            } else {
+                this.showDebug(`📱 Motion許可要求不要`);
+            }
+            
+            this.showDebug(`🚀 センサー開始処理実行...`);
+            this.startSensors();
+            
+        } catch (error) {
+            this.showDebug(`❌ センサー許可エラー: ${error.message}`);
+            console.warn('⚠️ Sensor permission failed:', error);
+            this.showDebug(`🔄 フォールバックでセンサー開始...`);
+            this.startSensors();
+        }
+    }
+    
+    startSensors() {
+        this.showDebug('🔧 ===== センサー開始処理 =====');
+        
+        // デバイス情報の詳細確認
+        this.showDebug(`📱 デバイス情報:`);
+        this.showDebug(`  - UserAgent: ${navigator.userAgent.substring(0, 80)}...`);
+        this.showDebug(`  - DeviceOrientationEvent: ${typeof DeviceOrientationEvent !== 'undefined'}`);
+        this.showDebug(`  - DeviceMotionEvent: ${typeof DeviceMotionEvent !== 'undefined'}`);
+        
+        // Device orientation
+        if (typeof DeviceOrientationEvent !== 'undefined') {
+            this.showDebug(`📡 DeviceOrientationイベント登録開始...`);
+            
+            window.addEventListener('deviceorientation', (event) => {
+                this.handleOrientation(event);
+            }, { passive: true });
+            this.showDebug(`✅ DeviceOrientationイベント登録完了`);
+            
+            // 絶対方向イベントも登録
+            window.addEventListener('deviceorientationabsolute', (event) => {
+                this.handleAbsoluteOrientation(event);
+            }, { passive: true });
+            
+            this.showDebug(`✅ DeviceOrientationAbsoluteイベント登録完了`);
+            
+            // イベント発生確認用のタイマー
+            setTimeout(() => {
+                this.showDebug(`⏰ 5秒経過 - センサーイベント受信状況確認`);
+                if (this.heading === 0) {
+                    this.showDebug(`⚠️ headingが初期値のまま - イベント未受信の可能性`);
+                    this.troubleshootSensors();
+                } else {
+                    this.showDebug(`✅ センサーイベント正常受信中`);
+                }
+            }, 5000);
+            
+        } else {
+            this.showDebug(`❌ DeviceOrientationEvent未対応`);
+        }
+        
+        // Device motion for shake detection
+        if (typeof DeviceMotionEvent !== 'undefined') {
+            this.showDebug(`📡 DeviceMotionイベント登録中...`);
+            
+            window.addEventListener('devicemotion', (event) => {
+                this.handleMotion(event);
+            }, { passive: true });
+            
+            this.showDebug(`✅ DeviceMotionイベント登録完了`);
+        } else {
+            this.showDebug(`❌ DeviceMotionEvent未対応 - フォールバック設定`);
+            this.setupFallbackShakeDetection();
+        }
+        
+        this.isPermissionGranted = true;
+        this.showDebug(`✅ センサー許可フラグ設定: ${this.isPermissionGranted}`);
+        this.showDebug(`✅ ===== センサー開始処理完了 =====`);
+    }
+
+    // センサートラブルシューティング用メソッド
+    troubleshootSensors() {
+        this.showDebug(`🔧 ===== センサートラブルシューティング =====`);
+        
+        // 手動でテストイベントを作成
+        this.showDebug(`🧪 手動テストイベント作成...`);
+        
+        const testEvent = {
+            alpha: 45,
+            beta: 10,
+            gamma: 5,
+            webkitCompassHeading: 45,
+            absolute: true
+        };
+        
+        this.showDebug(`📤 テストイベント送信:`);
+        this.showDebug(`  - alpha: ${testEvent.alpha}`);
+        this.showDebug(`  - webkitCompassHeading: ${testEvent.webkitCompassHeading}`);
+        
+        // テストイベントでhandleOrientationを呼び出し
+        this.handleOrientation(testEvent);
+        
+        this.showDebug(`📊 テスト結果確認:`);
+        this.showDebug(`  - heading更新後: ${this.heading}°`);
+        this.showDebug(`  - 画面表示: ${document.getElementById('heading').textContent}`);
+        
+        if (this.heading !== 0) {
+            this.showDebug(`✅ handleOrientation処理は正常動作`);
+            this.showDebug(`❌ 実際のデバイスイベントが発生していない`);
+            this.showDebug(`💡 可能な原因:`);
+            this.showDebug(`   - ブラウザがセンサーアクセスをブロック`);
+            this.showDebug(`   - HTTPS接続が必要`);
+            this.showDebug(`   - デバイスがセンサーをサポートしていない`);
+        } else {
+            this.showDebug(`❌ handleOrientation処理に問題あり`);
+        }
+        
+        this.showDebug(`✅ ===== トラブルシューティング完了 =====`);
+    }
+    
+    handleOrientation(event) {
+        if (!this.isPermissionGranted) {
+            return;
+        }
+        
+        let newHeading = 0;
+        
+        // iOS方式の確認
+        if (event.webkitCompassHeading !== undefined) {
+            newHeading = event.webkitCompassHeading;
+        }
+        // Android方式の確認
+        else if (event.alpha !== null) {
+            newHeading = 360 - event.alpha;
+            if (newHeading >= 360) newHeading -= 360;
+            if (newHeading < 0) newHeading += 360;
+        }
+        
+        this.heading = newHeading;
+        
+        const newTilt = event.beta || 0;
+        const currentTime = Date.now();
+        const deltaTime = Math.max((currentTime - this.lastTime) / 1000, 0.001);
+        const deltaTilt = newTilt - this.lastTilt;
+        this.tiltSpeed = Math.abs(deltaTilt) / deltaTime;
+        
+        this.tilt = newTilt;
+        this.lastTilt = newTilt;
+        this.lastTime = currentTime;
+        
+        this.updateDisplay();
+    }
+
+    handleAbsoluteOrientation(event) {
+        if (event.absolute && event.alpha !== null) {
+            this.absoluteHeading = event.alpha;
+            this.heading = 360 - this.absoluteHeading;
+            if (this.heading >= 360) this.heading -= 360;
+            if (this.heading < 0) this.heading += 360;
+        }
+    }
+    
+    handleMotion(event) {
+        if (!this.isDetectingShake) return;
+        
+        const acceleration = event.acceleration || event.accelerationIncludingGravity;
+        if (!acceleration) return;
+        
+        // より正確な加速度計算（重力を除去）
+        let totalAcceleration;
+        if (event.acceleration) {
+            // 重力除去済みの加速度データがある場合
+            totalAcceleration = Math.sqrt(
+                Math.pow(acceleration.x || 0, 2) + 
+                Math.pow(acceleration.y || 0, 2) + 
+                Math.pow(acceleration.z || 0, 2)
+            );
+        } else {
+            // 重力込みデータから推定重力を差し引く
+            const x = acceleration.x || 0;
+            const y = acceleration.y || 0;
+            const z = acceleration.z || 0;
+            
+            // 重力の影響を減らす（通常重力は約9.8）
+            const gravityCompensatedZ = Math.abs(z) > 9 ? z - Math.sign(z) * 9.8 : z;
+            
+            totalAcceleration = Math.sqrt(x * x + y * y + gravityCompensatedZ * gravityCompensatedZ);
+        }
+        
+        const currentTime = Date.now();
+        this.accelerationData.push({
+            value: totalAcceleration,
+            timestamp: currentTime
+        });
+        
+        // Keep only recent data (last 1 second)
+        this.accelerationData = this.accelerationData.filter(
+            data => currentTime - data.timestamp <= 1000
+        );
+        
+        if (totalAcceleration > this.maxAcceleration) {
+            this.maxAcceleration = totalAcceleration;
+        }
+        
+        // パワーメーター表示の調整
+        const powerLevel = Math.min((totalAcceleration / 15) * 100, 100);
+        document.getElementById('powerFill').style.height = powerLevel + '%';
+        document.getElementById('speed').textContent = `${Math.round(totalAcceleration * 10)/10}`;
+        
+        // 投球検出の閾値調整
+        if (totalAcceleration > this.shakeThreshold && this.maxAcceleration > this.shakeThreshold) {
+            console.log('🎯 投球検出！最大加速度:', this.maxAcceleration);
+            this.startThrowWithShake();
+        }
+    }
+    
+    setupFallbackShakeDetection() {
+        console.log('🔧 フォールバック振り検出を設定');
+        let tapCount = 0;
+        let lastTapTime = 0;
+        
+        const handleTap = (e) => {
+            if (!this.isDetectingShake) return;
+            
+            console.log('👆 タップ検出');
+            const currentTime = Date.now();
+            if (currentTime - lastTapTime < 500) {
+                tapCount++;
+                console.log(`タップ回数: ${tapCount}`);
+                if (tapCount >= 3) {
+                    this.maxAcceleration = 25;
+                    console.log('🎯 フォールバック投球発動！');
+                    this.startThrowWithShake();
+                    tapCount = 0;
+                }
+            } else {
+                tapCount = 1;
+            }
+            lastTapTime = currentTime;
+        };
+        
+        document.addEventListener('touchstart', handleTap);
+        document.addEventListener('click', handleTap);
+        
+        // 画面を長押しした場合も投球発動
+        let longPressTimer = null;
+        document.addEventListener('touchstart', (e) => {
+            if (!this.isDetectingShake) return;
+            longPressTimer = setTimeout(() => {
+                this.maxAcceleration = 20;
+                console.log('⏱️ 長押し投球発動！');
+                this.startThrowWithShake();
+            }, 1500);
+        });
+        
+        document.addEventListener('touchend', () => {
+            if (longPressTimer) {
+                clearTimeout(longPressTimer);
+                longPressTimer = null;
+            }
+        });
+    }
+    
+    updateDisplay() {
+        document.getElementById('heading').textContent = Math.round(this.heading) + '°';
+        document.getElementById('compass').textContent = this.getCompassDirection(this.heading);
+        document.getElementById('tilt').textContent = Math.round(this.tilt) + '°';
+        
+        // Update compass needle
+        this.compassNeedle.style.transform = `rotate(${this.heading}deg)`;
+        
+        // スタート地点からの距離を計算して表示
+        if (!this.isBallMoving) {
+            this.totalDistance = this.calculateDistance(
+                this.startPosition.lat, this.startPosition.lng,
+                this.ballPosition.lat, this.ballPosition.lng
+            );
+            document.getElementById('distance').textContent = Math.round(this.totalDistance) + 'm';
+        }
+        
+        // Map rotation management
+        const DEAD_ZONE_START = 350;
+        const DEAD_ZONE_END = 10;
+        
+        const isHeadingInDeadZone = (this.heading >= DEAD_ZONE_START && this.heading < 360) || 
+                                    (this.heading >= 0 && this.heading < DEAD_ZONE_END);
+
+        if (!this.isActive && !this.isCountdownActive && !this.isBallMoving && this.isMapReady && !isHeadingInDeadZone) {
+            this.mapElement.style.transform = `rotate(${-this.heading}deg)`;
+        }
+        
+        this.updateCoordinatesDisplay();
+    }
+    
+    getCompassDirection(heading) {
+        const directions = ['北', '北東', '東', '南東', '南', '南西', '西', '北西'];
+        const index = Math.round(heading / 45) % 8;
+        return directions[index];
+    }
+    
+    updateCoordinatesDisplay() {
+        const lat = this.ballPosition.lat.toFixed(6);
+        const lng = this.ballPosition.lng.toFixed(6);
+        document.getElementById('coordinates').textContent = `${lat}, ${lng}`;
+    }
+    
+    setupComplete() {
+        this.updateStatus('🎯 投球準備完了！スタートボタンを押してください');
+        this.updateCoordinatesDisplay();
+        
+        // Initialize canvas
+        this.initCanvas();
+        
+        if (this.map) {
+            try {
+                this.map.setCenter(this.currentPosition);
+                setTimeout(() => {
+                    if (window.google && google.maps && google.maps.event) {
+                        google.maps.event.trigger(this.map, 'resize');
+                        this.map.setCenter(this.currentPosition);
+                    }
+                }, 100);
+            } catch (e) {
+                console.warn('⚠️ Map setup failed:', e);
+            }
+        }
+        
+        const startBtn = document.getElementById('startBtn');
+        startBtn.textContent = '🚀 スタート';
+        startBtn.disabled = false;
+        startBtn.classList.add('countdown-ready');
+        startBtn.onclick = () => this.startCountdown();
+    }
+    
+    // Canvas初期化（エラーハンドリング強化）
+    initCanvas() {
+        if (!this.gameCanvas) {
+            console.error('❌ Game canvas element not found');
+            return false;
+        }
+        
+        const container = this.gameCanvas.parentElement;
+        if (!container) {
+            console.error('❌ Canvas container not found');
+            return false;
+        }
+        
+        // 初期サイズは基本サイズで設定
+        this.canvasWidth = container.clientWidth;
+        this.canvasHeight = container.clientHeight;
+        
+        if (this.canvasWidth <= 0 || this.canvasHeight <= 0) {
+            console.error('❌ Invalid canvas dimensions:', this.canvasWidth, 'x', this.canvasHeight);
+            return false;
+        }
+        
+        //キャンバスサイズを画面サイズに設定
+        this.gameCanvas.width = this.canvasWidth;
+        this.gameCanvas.height = this.canvasHeight;
+        
+        try {
+            this.ctx = this.gameCanvas.getContext('2d');
+            if (!this.ctx) {
+                throw new Error('Canvas context is null');
+            }
+        } catch (error) {
+            console.error('❌ Failed to get canvas context:', error);
+            return false;
+        }
+        
+        this.ballCanvasX = this.canvasWidth / 2;
+        this.ballCanvasY = this.canvasHeight / 2;
+        
+        this.loadBallImage();
+        
+        console.log('✅ Canvas initialized successfully:', this.canvasWidth, 'x', this.canvasHeight);
+        return true;
+    }
+
+    // ボール画像読み込み（改善版）
+    loadBallImage() {
+        console.log('🏀 ボール画像読み込み開始');
+        this.ballImage = new Image();
+
+        this.ballImage.onload = () => {
+            console.log('✅ Ball image loaded successfully');
+            this.isBallImageReady = true;
+            this.updatePreparationStatus();
+        };
+        this.ballImage.onerror = () => {
+            console.warn('⚠️ Ball image failed to load, creating fallback');
+            this.createFallbackBallImage();
+            this.ballImage.src = 'ball.png';// フォールバック
+        
+        // ball.pngも失敗した場合のフォールバック
+            this.ballImage.onerror = () => {
+                console.warn('⚠️ ball.png also failed, creating fallback');
+                this.createFallbackBallImage();
+            };
+        };
+
+        // ball.gif を最初に試行
+        this.ballImage.src = 'ball.gif';
+    }
+    
+    // フォールバックボール画像生成
+    createFallbackBallImage() {
+        const canvas = document.createElement('canvas');
+        canvas.width = 120;
+        canvas.height = 120;
+        const ctx = canvas.getContext('2d');
+        
+        const centerX = 60;
+        const centerY = 60;
+        const radius = 55;
+        
+        // バスケットボール風のボール
+        const gradient = ctx.createRadialGradient(
+            centerX - 20, centerY - 20, 0,
+            centerX, centerY, radius
+        );
+        gradient.addColorStop(0, '#ff8a65');
+        gradient.addColorStop(0.7, '#ff5722');
+        gradient.addColorStop(1, '#d84315');
+        
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
+        ctx.fill();
+        
+        // バスケットボールのライン
+        ctx.strokeStyle = '#8d4004';
+        ctx.lineWidth = 3;
+        
+        ctx.beginPath();
+        ctx.moveTo(centerX, centerY - radius);
+        ctx.lineTo(centerX, centerY + radius);
+        ctx.stroke();
+        
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, radius * 0.7, -Math.PI, 0);
+        ctx.stroke();
+        
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, radius * 0.7, 0, Math.PI);
+        ctx.stroke();
+        
+        // ハイライト
+        ctx.fillStyle = '#ffccbc';
+        ctx.beginPath();
+        ctx.arc(centerX - 15, centerY - 15, 8, 0, 2 * Math.PI);
+        ctx.fill();
+        
+        this.ballImage = new Image();
+        this.ballImage.onload = () => {
+            console.log('✅ Fallback ball image created');
+            this.isBallImageReady = true;
+            this.updatePreparationStatus();
+        };
+        this.ballImage.src = canvas.toDataURL();
+    }
+    
+    fallbackSetup() {
+        setTimeout(() => {
+            this.isMapReady = true;
+            this.isMapFullyLoaded = true;
+            this.isPermissionGranted = true;
+            this.setupComplete();
+        }, 2000);
+    }
+    
+    async startCountdown() {
+        if (this.isCountdownActive || this.isActive) return;
+        
+        this.playSound('start');
+        
+        this.isCountdownActive = true;
+        const startBtn = document.getElementById('startBtn');
+        startBtn.disabled = true;
+        startBtn.classList.remove('countdown-ready');
+        
+        let count = 3;
+        this.showCountdown(count);
+        
+        this.countdownTimer = setInterval(() => {
+            count--;
+            if (count > 0) {
+                this.showCountdown(count);
+            } else {
+                this.showCountdown('投げて！');
+                setTimeout(() => {
+                    this.hideCountdown();
+                    this.enableThrowDetection();
+                }, 1000);
+                clearInterval(this.countdownTimer);
+            }
+        }, 1000);
+    }
+    
+    showCountdown(text) {
+        this.hideCountdown();
+        
+        this.countdownElement = document.createElement('div');
+        this.countdownElement.className = 'countdown';
+        this.countdownElement.textContent = text;
+        document.body.appendChild(this.countdownElement);
+    }
+    
+    hideCountdown() {
+        if (this.countdownElement && this.countdownElement.parentNode) {
+            this.countdownElement.parentNode.removeChild(this.countdownElement);
+            this.countdownElement = null;
+        }
+    }
+    
+    enableThrowDetection() {
+        this.isCountdownActive = false;
+        this.isDetectingShake = true;
+        this.accelerationData = [];
+        this.maxAcceleration = 0;
+        
+        document.getElementById('powerMeter').style.display = 'block';
+        
+        this.updateStatus('📱 スマホを振って投球してください！（3回タップまたは長押しでも可能）');
+        
+        // 15秒でタイムアウト
+        setTimeout(() => {
+            if (!this.isActive && this.isDetectingShake) {
+                this.isDetectingShake = false;
+                document.getElementById('powerMeter').style.display = 'none';
+                this.updateStatus('⏰ タイムアウトしました。再度お試しください。');
+                this.reset();
+            }
+        }, 15000);
+    }
+    
+    startThrowWithShake() {
+        if (this.isActive || !this.isDetectingShake) return;
+        
+        // 投球時のみ詳細デバッグ実行
+        this.showDebug(`🎯 ===== 投球開始 - 詳細ログ =====`);
+        this.showDebug(`⏰ 投球時刻: ${new Date().toLocaleTimeString()}`);
+        
+        // 現在のセンサー状態
+        this.showDebug(`📱 現在のheading: ${this.heading}°`);
+        this.showDebug(`📱 現在の方向: ${this.getCompassDirection(this.heading)}`);
+        this.showDebug(`📱 画面表示heading: ${document.getElementById('heading').textContent}`);
+        this.showDebug(`📱 画面表示方向: ${document.getElementById('compass').textContent}`);
+        
+        // heading値の妥当性チェック
+        if (this.heading === 0) {
+            this.showDebug(`⚠️ WARNING: heading=0°（センサー未更新の可能性）`);
+        } else {
+            this.showDebug(`✅ heading正常更新済み`);
+        }
+        
+        console.log('🎯 投球準備処理開始');
+        this.isDetectingShake = false;
+        document.getElementById('powerMeter').style.display = 'none';
+        
+        // パワー計算
+        let throwPower;
+        if (this.maxAcceleration <= 10) {
+            throwPower = 100 + (this.maxAcceleration - 8) * 100;
+        } else if (this.maxAcceleration <= 15) {
+            throwPower = 300 + (this.maxAcceleration - 10) * 60;
+        } else if (this.maxAcceleration <= 20) {
+            throwPower = 600 + (this.maxAcceleration - 15) * 80;
+        } else if (this.maxAcceleration <= 30) {
+            throwPower = 1000 + (this.maxAcceleration - 20) * 100;
+        } else {
+            throwPower = Math.min(2000, 1500 + (this.maxAcceleration - 25) * 100);
+        }
+        this.throwPower = Math.max(100, Math.round(throwPower));
+        
+        // 【重要】投球角度設定
+        this.throwAngle = this.heading;
+        
+        this.showDebug(`🎯 投球角度設定:`);
+        this.showDebug(`  - this.heading → this.throwAngle: ${this.heading}° → ${this.throwAngle}°`);
+        this.showDebug(`  - 方向: ${this.getCompassDirection(this.throwAngle)}`);
+        this.showDebug(`  - パワー: ${this.throwPower}m`);
+        
+        // 画像回転予測
+        const correctedAngle = -(this.throwAngle - 90);
+        this.showDebug(`🔄 画像回転予測:`);
+        this.showDebug(`  - -(${this.throwAngle} - 90) = ${correctedAngle}°`);
+        
+        this.showDebug(`✅ ===== 投球準備完了 =====`);
+        
+        console.log(`投球検出! 最大加速度: ${this.maxAcceleration.toFixed(2)}, パワー: ${this.throwPower}m, 方向: ${this.throwAngle}°`);
+        
+        this.ballElement.classList.add('throwing');
+        this.ballTrailPoints = [];
+        this.clearTrails();
+        this.ballPosition = { ...this.startPosition };
+        
+        this.showResourcePreparation();
+    }
+    
+    showResourcePreparation() {
         this.preparationOverlay = document.createElement('div');
         this.preparationOverlay.className = 'preparation-overlay';
         this.preparationOverlay.innerHTML = `
@@ -1057,6 +2106,9 @@ showResourcePreparation() {
     showLandingPanel(distance, position) {
         document.getElementById('infoPanel').style.display = 'none';
         
+    showLandingPanel(distance, position) {
+        document.getElementById('infoPanel').style.display = 'none';
+        
         const landingPanel = document.getElementById('landingPanel');
         const results = document.getElementById('results');
         const googleMapBtn = document.getElementById('googleMapBtn');
@@ -1289,1051 +2341,4 @@ document.addEventListener('DOMContentLoaded', function() {
     if (startBtn) {
         startBtn.addEventListener('click', startApp);
     }
-});class BallThrowJourneyApp {
-    constructor() {
-        console.log('🚀 BallThrowJourneyApp initializing...');
-        
-        // Core elements
-        this.map = null;
-        this.mapElement = document.getElementById('map');
-        this.ballElement = document.getElementById('ball');
-        this.compassNeedle = document.getElementById('compassNeedle');
-        this.gameCanvas = document.getElementById('gameCanvas');
-        this.ctx = null;
-        
-        // Canvas and image data
-        this.aerialImages = [];
-        this.ballImage = null;
-        this.canvasWidth = 0;
-        this.canvasHeight = 0;
-        this.ballCanvasX = 0;
-        this.ballCanvasY = 0;
-        this.backgroundOffsetY = 0;
-        
-        // Audio elements
-        this.sounds = {
-            start: new Audio('start.mp3'),
-            kick: new Audio('kick.mp3'),
-            goal: new Audio('goal.mp3')
-        };
-        
-        // Preload audio files
-        Object.values(this.sounds).forEach(audio => {
-            audio.preload = 'auto';
-            audio.volume = 0.8;
-            audio.addEventListener('canplaythrough', () => {
-                console.log(`✅ Audio ${audio.src} loaded successfully`);
-            });
-            audio.addEventListener('error', (e) => {
-                console.error(`❌ Audio ${audio.src} failed to load:`, e);
-            });
-        });
-        
-        // State management
-        this.isActive = false;
-        this.isCountdownActive = false;
-        this.isPermissionGranted = false;
-        this.isMapReady = false;
-        this.isMapFullyLoaded = false;
-        this.isBallMoving = false;
-        this.isDetectingShake = false;
-        
-        // Position data
-        this.currentPosition = { lat: 35.4476, lng: 139.6425 };
-        this.startPosition = { ...this.currentPosition };
-        this.ballPosition = { ...this.currentPosition };
-        
-        // Sensor data
-        this.heading = 0;
-        this.absoluteHeading = 0;
-        this.tilt = 0;
-        this.lastTilt = 0;
-        this.tiltSpeed = 0;
-        this.lastTime = Date.now();
-        
-        // Shake detection
-        this.accelerationData = [];
-        this.maxAcceleration = 0;
-        this.shakeThreshold = 8;
-        this.totalDistance = 0;
-        
-        // Animation
-        this.animationFrame = 0;
-        this.throwPower = 0;
-        this.throwAngle = 0;
-        this.ballTrailPoints = [];
-        
-        // Preparation state
-        this.isAudioReady = false;
-        this.isAerialImagesReady = false;
-        this.isBallImageReady = false;
-        this.preparationOverlay = null;
-        
-        // Timers
-        this.countdownTimer = null;
-        this.countdownElement = null;
-        this.preparationTimer = null;
-        
-        this.updateStatus('位置情報とデバイスセンサーの許可が必要です');
-
-        // デバッグ表示要素を作成
-        this.createDebugDisplay();
-        console.log('✅ BallThrowJourneyApp initialized');
-    }
-
-    // デバッグ表示を作成
-    createDebugDisplay() {
-        this.debugElement = document.createElement('div');
-        this.debugElement.id = 'debugDisplay';
-        this.debugElement.style.cssText = `
-            position: fixed;
-            top: 50px;
-            left: 10px;
-            right: 10px;
-            background: rgba(0, 0, 0, 0.9);
-            color: white;
-            padding: 15px;
-            border-radius: 8px;
-            font-family: monospace;
-            font-size: 11px;
-            z-index: 10000;
-            max-height: 300px;
-            overflow-y: auto;
-            white-space: pre-wrap;
-            display: block;
-            border: 2px solid #00ff00;
-        `;
-        document.body.appendChild(this.debugElement);
-        
-        // デバッグ表示の切り替えボタン
-        this.debugToggle = document.createElement('button');
-        this.debugToggle.textContent = 'DEBUG';
-        this.debugToggle.style.cssText = `
-            position: fixed;
-            top: 10px;
-            right: 10px;
-            background: #ff4444;
-            color: white;
-            border: none;
-            padding: 8px 12px;
-            border-radius: 4px;
-            font-size: 12px;
-            z-index: 10001;
-            font-weight: bold;
-        `;
-        this.debugToggle.onclick = () => this.toggleDebug();
-        document.body.appendChild(this.debugToggle);
-        
-        // クリアボタン
-        this.debugClear = document.createElement('button');
-        this.debugClear.textContent = 'CLEAR';
-        this.debugClear.style.cssText = `
-            position: fixed;
-            top: 10px;
-            right: 70px;
-            background: #4444ff;
-            color: white;
-            border: none;
-            padding: 8px 12px;
-            border-radius: 4px;
-            font-size: 12px;
-            z-index: 10001;
-            font-weight: bold;
-        `;
-        this.debugClear.onclick = () => this.clearDebug();
-        document.body.appendChild(this.debugClear);
-
-        // センサー状態確認ボタン
-        this.debugSensorCheck = document.createElement('button');
-        this.debugSensorCheck.textContent = 'SENSOR';
-        this.debugSensorCheck.style.cssText = `
-            position: fixed;
-            top: 10px;
-            right: 130px;
-            background: #44ff44;
-            color: black;
-            border: none;
-            padding: 8px 12px;
-            border-radius: 4px;
-            font-size: 12px;
-            z-index: 10001;
-            font-weight: bold;
-        `;
-        this.debugSensorCheck.onclick = () => this.checkSensorStatus();
-        document.body.appendChild(this.debugSensorCheck);
-
-        this.debugVisible = true;
-        this.showDebug('🚀 スマホ対応デバッグシステム開始');
-    }
-
-    // センサー状態確認メソッド
-    checkSensorStatus() {
-        this.showDebug(`🔍 ===== 手動センサー確認 =====`);
-        this.showDebug(`⏰ 確認時刻: ${new Date().toLocaleTimeString()}`);
-        this.showDebug(`📱 現在のheading: ${this.heading}°`);
-        this.showDebug(`📱 現在の方向: ${this.getCompassDirection(this.heading)}`);
-        this.showDebug(`📱 画面表示: ${document.getElementById('heading').textContent}`);
-        this.showDebug(`📱 コンパス表示: ${document.getElementById('compass').textContent}`);
-        this.showDebug(`📱 needle回転: ${this.compassNeedle.style.transform}`);
-        this.showDebug(`📱 センサー許可: ${this.isPermissionGranted}`);
-        this.showDebug(`✅ ===== 確認完了 =====`);
-    }
-
-    // デバッグメッセージ表示
-    showDebug(message) {
-        if (this.debugElement) {
-            const timestamp = new Date().toLocaleTimeString();
-            const newMessage = `[${timestamp}] ${message}`;
-            
-            // 既存のメッセージに追加（最新を上に）
-            this.debugElement.textContent = newMessage + '\n' + this.debugElement.textContent;
-            
-            // 20行を超えたら古いメッセージを削除
-            const lines = this.debugElement.textContent.split('\n');
-            if (lines.length > 20) {
-                this.debugElement.textContent = lines.slice(0, 20).join('\n');
-            }
-            
-            // 自動スクロール（最新メッセージが見えるように）
-            this.debugElement.scrollTop = 0;
-        }
-        
-        // コンソールにも出力（PC用）
-        console.log(message);
-    }
-    
-    // デバッグ表示切り替え
-    toggleDebug() {
-        this.debugVisible = !this.debugVisible;
-        this.debugElement.style.display = this.debugVisible ? 'block' : 'none';
-        this.debugToggle.style.background = this.debugVisible ? '#ff4444' : '#888888';
-        console.log('Debug表示切り替え:', this.debugVisible);
-    }
-
-    // デバッグクリア
-    clearDebug() {
-        if (this.debugElement) {
-            this.debugElement.textContent = '';
-            this.showDebug('🧹 デバッグログクリア');
-            console.log('Debug log cleared');
-        }
-    }
-
-    // 航空写真の詳細状態をデバッグ表示
-    debugAerialImageState() {
-        if (this.aerialImages.length > 0 && this.aerialImages[0].image) {
-            const img = this.aerialImages[0].image;
-            this.showDebug(`📸 航空写真状態:`);
-            this.showDebug(`  - complete: ${img.complete}`);
-            this.showDebug(`  - naturalWidth: ${img.naturalWidth}`);
-            this.showDebug(`  - naturalHeight: ${img.naturalHeight}`);
-            this.showDebug(`  - width: ${img.width}`);
-            this.showDebug(`  - height: ${img.height}`);
-            this.showDebug(`  - src先頭: ${img.src.substring(0, 60)}...`);
-        } else {
-            this.showDebug('❌ 航空写真が存在しない');
-        }
-    }
-
-    // キャンバス状態をデバッグ表示
-    debugCanvasState() {
-        this.showDebug(`🖼️ キャンバス状態:`);
-        this.showDebug(`  - canvasWidth: ${this.canvasWidth}`);
-        this.showDebug(`  - canvasHeight: ${this.canvasHeight}`);
-        this.showDebug(`  - ctx存在: ${!!this.ctx}`);
-        this.showDebug(`  - gameCanvas存在: ${!!this.gameCanvas}`);
-        if (this.gameCanvas) {
-            this.showDebug(`  - canvas表示: ${this.gameCanvas.style.display}`);
-        }
-    }
-
-    // エラー詳細表示
-    showDetailedError(context, error) {
-        this.showDebug(`❌ ${context}でエラー発生:`);
-        this.showDebug(`  - メッセージ: ${error.message}`);
-        if (error.stack) {
-            const stackLines = error.stack.split('\n').slice(0, 3); // 最初の3行のみ
-            stackLines.forEach(line => {
-                this.showDebug(`  - ${line.trim()}`);
-            });
-        }
-        console.error(`${context}エラー:`, error);
-    }
-
-    // 2点間の距離を計算（メートル単位）
-    calculateDistance(lat1, lng1, lat2, lng2) {
-        const R = 6371000; // 地球の半径（メートル）
-        const dLat = (lat2 - lat1) * Math.PI / 180;
-        const dLng = (lng2 - lng1) * Math.PI / 180;
-        const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-                 Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-                 Math.sin(dLng/2) * Math.sin(dLng/2);
-        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-        return R * c;
-    }
-    
-    async startApp() {
-        const startBtn = document.getElementById('startBtn');
-        if (!startBtn) return;
-        
-        console.log('🚀 Starting app...');
-        startBtn.disabled = true;
-        startBtn.textContent = '初期化中...';
-        
-        try {
-            // Get location
-            this.updateStatus('📍 位置情報を取得中...');
-            await this.getCurrentPosition();
-            
-            // Initialize map
-            this.updateStatus('🗺️ 地図を準備中...');
-            await this.initMap();
-            
-            // Request sensor permissions
-            this.updateStatus('📱 センサー許可を取得中...');
-            await this.requestSensorPermission();
-            
-            this.setupComplete();
-            
-        } catch (error) {
-            console.error('❌ Setup error:', error);
-            this.showError('初期化エラー: ' + error.message);
-            this.fallbackSetup();
-        }
-    }
-    
-    getCurrentPosition() {
-        return new Promise((resolve, reject) => {
-            if (!navigator.geolocation) {
-                console.warn('⚠️ Geolocation not supported');
-                resolve();
-                return;
-            }
-            
-            const options = {
-                enableHighAccuracy: true,
-                timeout: 15000,
-                maximumAge: 60000
-            };
-            
-            navigator.geolocation.getCurrentPosition(
-                (position) => {
-                    this.currentPosition = {
-                        lat: position.coords.latitude,
-                        lng: position.coords.longitude
-                    };
-                    this.startPosition = { ...this.currentPosition };
-                    this.ballPosition = { ...this.currentPosition };
-                    console.log('✅ Position obtained:', this.currentPosition);
-                    resolve();
-                },
-                (error) => {
-                    console.warn('⚠️ Geolocation failed:', error.message);
-                    resolve();
-                },
-                options
-            );
-        });
-    }
-    
-    async initMap() {
-        document.getElementById('loading').style.display = 'block';
-        
-        try {
-            if (!window.google) {
-                await this.loadGoogleMapsAPI();
-            }
-            
-            this.map = new google.maps.Map(this.mapElement, {
-                center: this.currentPosition,
-                zoom: 20,
-                mapTypeId: google.maps.MapTypeId.SATELLITE,
-                disableDefaultUI: true,
-                gestureHandling: 'none',
-                heading: 0,
-                tilt: 0,
-                styles: [
-                    {
-                        featureType: 'all',
-                        elementType: 'labels',
-                        stylers: [{ visibility: 'off' }]
-                    }
-                ]
-            });
-            
-            google.maps.event.addListenerOnce(this.map, 'idle', () => {
-                console.log('✅ Map is ready');
-                this.isMapReady = true;
-                
-                setTimeout(() => {
-                    this.isMapFullyLoaded = true;
-                    console.log('✅ Map fully loaded');
-                }, 2000);
-            });
-            
-        } catch (error) {
-            console.error('❌ Map initialization failed:', error);
-            throw error;
-        }
-        
-        document.getElementById('loading').style.display = 'none';
-    }
-    
-    loadGoogleMapsAPI() {
-        return new Promise((resolve, reject) => {
-            const script = document.createElement('script');
-            script.src = `https://maps.googleapis.com/maps/api/js?key=AIzaSyDbZWtPobAYr04A8da3OUOjtNNdjfvkbXA&libraries=geometry`;
-            script.async = true;
-            script.defer = true;
-            
-            script.onload = () => {
-                console.log('✅ Google Maps API loaded');
-                resolve();
-            };
-            
-            script.onerror = () => {
-                console.error('❌ Failed to load Google Maps API');
-                reject(new Error('Google Maps API loading failed'));
-            };
-            
-            document.head.appendChild(script);
-        });
-    }
-    
-    async requestSensorPermission() {
-        this.showDebug('🔐 ===== センサー許可取得開始 =====');
-        
-        try {
-            // ブラウザとプラットフォームの確認
-            this.showDebug(`🌐 ブラウザ情報:`);
-            this.showDebug(`  - UserAgent: ${navigator.userAgent.substring(0, 100)}...`);
-            this.showDebug(`  - HTTPS: ${location.protocol === 'https:'}`);
-            this.showDebug(`  - localhost: ${location.hostname === 'localhost'}`);
-            
-            // iOS 13+ device orientation permission
-            if (typeof DeviceOrientationEvent !== 'undefined' && 
-                typeof DeviceOrientationEvent.requestPermission === 'function') {
-                
-                this.showDebug(`📲 iOS 13+ 検出 - Orientation許可要求中...`);
-                
-                const orientationPermission = await DeviceOrientationEvent.requestPermission();
-                this.showDebug(`📋 Orientation許可結果: ${orientationPermission}`);
-                
-                if (orientationPermission !== 'granted') {
-                    this.showDebug(`❌ Orientation許可拒否`);
-                    throw new Error('デバイス方向センサーの許可が必要です');
-                } else {
-                    this.showDebug(`✅ Orientation許可取得成功`);
-                }
-            } else {
-                this.showDebug(`📱 iOS 13+以外 - 許可要求不要`);
-            }
-            
-            // iOS 13+ device motion permission
-            if (typeof DeviceMotionEvent !== 'undefined' && 
-                typeof DeviceMotionEvent.requestPermission === 'function') {
-                
-                this.showDebug(`📲 iOS 13+ Motion許可要求中...`);
-                
-                const motionPermission = await DeviceMotionEvent.requestPermission();
-                this.showDebug(`📋 Motion許可結果: ${motionPermission}`);
-                
-                if (motionPermission !== 'granted') {
-                    this.showDebug(`❌ Motion許可拒否`);
-                    throw new Error('デバイスモーションセンサーの許可が必要です');
-                } else {
-                    this.showDebug(`✅ Motion許可取得成功`);
-                }
-            } else {
-                this.showDebug(`📱 Motion許可要求不要`);
-            }
-            
-            this.showDebug(`🚀 センサー開始処理実行...`);
-            this.startSensors();
-            
-        } catch (error) {
-            this.showDebug(`❌ センサー許可エラー: ${error.message}`);
-            console.warn('⚠️ Sensor permission failed:', error);
-            this.showDebug(`🔄 フォールバックでセンサー開始...`);
-            this.startSensors();
-        }
-    }
-    
-    startSensors() {
-        this.showDebug('🔧 ===== センサー開始処理 =====');
-        
-        // デバイス情報の詳細確認
-        this.showDebug(`📱 デバイス情報:`);
-        this.showDebug(`  - UserAgent: ${navigator.userAgent.substring(0, 80)}...`);
-        this.showDebug(`  - DeviceOrientationEvent: ${typeof DeviceOrientationEvent !== 'undefined'}`);
-        this.showDebug(`  - DeviceMotionEvent: ${typeof DeviceMotionEvent !== 'undefined'}`);
-        
-        // Device orientation
-        if (typeof DeviceOrientationEvent !== 'undefined') {
-            this.showDebug(`📡 DeviceOrientationイベント登録開始...`);
-            
-            window.addEventListener('deviceorientation', (event) => {
-                this.handleOrientation(event);
-            }, { passive: true });
-            this.showDebug(`✅ DeviceOrientationイベント登録完了`);
-            
-            // 絶対方向イベントも登録
-            window.addEventListener('deviceorientationabsolute', (event) => {
-                this.handleAbsoluteOrientation(event);
-            }, { passive: true });
-            
-            this.showDebug(`✅ DeviceOrientationAbsoluteイベント登録完了`);
-            
-            // イベント発生確認用のタイマー
-            setTimeout(() => {
-                this.showDebug(`⏰ 5秒経過 - センサーイベント受信状況確認`);
-                if (this.heading === 0) {
-                    this.showDebug(`⚠️ headingが初期値のまま - イベント未受信の可能性`);
-                    this.troubleshootSensors();
-                } else {
-                    this.showDebug(`✅ センサーイベント正常受信中`);
-                }
-            }, 5000);
-            
-        } else {
-            this.showDebug(`❌ DeviceOrientationEvent未対応`);
-        }
-        
-        // Device motion for shake detection
-        if (typeof DeviceMotionEvent !== 'undefined') {
-            this.showDebug(`📡 DeviceMotionイベント登録中...`);
-            
-            window.addEventListener('devicemotion', (event) => {
-                this.handleMotion(event);
-            }, { passive: true });
-            
-            this.showDebug(`✅ DeviceMotionイベント登録完了`);
-        } else {
-            this.showDebug(`❌ DeviceMotionEvent未対応 - フォールバック設定`);
-            this.setupFallbackShakeDetection();
-        }
-        
-        this.isPermissionGranted = true;
-        this.showDebug(`✅ センサー許可フラグ設定: ${this.isPermissionGranted}`);
-        this.showDebug(`✅ ===== センサー開始処理完了 =====`);
-    }
-
-    // センサートラブルシューティング用メソッド
-    troubleshootSensors() {
-        this.showDebug(`🔧 ===== センサートラブルシューティング =====`);
-        
-        // 手動でテストイベントを作成
-        this.showDebug(`🧪 手動テストイベント作成...`);
-        
-        const testEvent = {
-            alpha: 45,
-            beta: 10,
-            gamma: 5,
-            webkitCompassHeading: 45,
-            absolute: true
-        };
-        
-        this.showDebug(`📤 テストイベント送信:`);
-        this.showDebug(`  - alpha: ${testEvent.alpha}`);
-        this.showDebug(`  - webkitCompassHeading: ${testEvent.webkitCompassHeading}`);
-        
-        // テストイベントでhandleOrientationを呼び出し
-        this.handleOrientation(testEvent);
-        
-        this.showDebug(`📊 テスト結果確認:`);
-        this.showDebug(`  - heading更新後: ${this.heading}°`);
-        this.showDebug(`  - 画面表示: ${document.getElementById('heading').textContent}`);
-        
-        if (this.heading !== 0) {
-            this.showDebug(`✅ handleOrientation処理は正常動作`);
-            this.showDebug(`❌ 実際のデバイスイベントが発生していない`);
-            this.showDebug(`💡 可能な原因:`);
-            this.showDebug(`   - ブラウザがセンサーアクセスをブロック`);
-            this.showDebug(`   - HTTPS接続が必要`);
-            this.showDebug(`   - デバイスがセンサーをサポートしていない`);
-        } else {
-            this.showDebug(`❌ handleOrientation処理に問題あり`);
-        }
-        
-        this.showDebug(`✅ ===== トラブルシューティング完了 =====`);
-    }
-    
-    handleOrientation(event) {
-        if (!this.isPermissionGranted) {
-            return;
-        }
-        
-        let newHeading = 0;
-        
-        // iOS方式の確認
-        if (event.webkitCompassHeading !== undefined) {
-            newHeading = event.webkitCompassHeading;
-        }
-        // Android方式の確認
-        else if (event.alpha !== null) {
-            newHeading = 360 - event.alpha;
-            if (newHeading >= 360) newHeading -= 360;
-            if (newHeading < 0) newHeading += 360;
-        }
-        
-        this.heading = newHeading;
-        
-        const newTilt = event.beta || 0;
-        const currentTime = Date.now();
-        const deltaTime = Math.max((currentTime - this.lastTime) / 1000, 0.001);
-        const deltaTilt = newTilt - this.lastTilt;
-        this.tiltSpeed = Math.abs(deltaTilt) / deltaTime;
-        
-        this.tilt = newTilt;
-        this.lastTilt = newTilt;
-        this.lastTime = currentTime;
-        
-        this.updateDisplay();
-    }
-
-    handleAbsoluteOrientation(event) {
-        if (event.absolute && event.alpha !== null) {
-            this.absoluteHeading = event.alpha;
-            this.heading = 360 - this.absoluteHeading;
-            if (this.heading >= 360) this.heading -= 360;
-            if (this.heading < 0) this.heading += 360;
-        }
-    }
-    
-    handleMotion(event) {
-        if (!this.isDetectingShake) return;
-        
-        const acceleration = event.acceleration || event.accelerationIncludingGravity;
-        if (!acceleration) return;
-        
-        // より正確な加速度計算（重力を除去）
-        let totalAcceleration;
-        if (event.acceleration) {
-            // 重力除去済みの加速度データがある場合
-            totalAcceleration = Math.sqrt(
-                Math.pow(acceleration.x || 0, 2) + 
-                Math.pow(acceleration.y || 0, 2) + 
-                Math.pow(acceleration.z || 0, 2)
-            );
-        } else {
-            // 重力込みデータから推定重力を差し引く
-            const x = acceleration.x || 0;
-            const y = acceleration.y || 0;
-            const z = acceleration.z || 0;
-            
-            // 重力の影響を減らす（通常重力は約9.8）
-            const gravityCompensatedZ = Math.abs(z) > 9 ? z - Math.sign(z) * 9.8 : z;
-            
-            totalAcceleration = Math.sqrt(x * x + y * y + gravityCompensatedZ * gravityCompensatedZ);
-        }
-        
-        const currentTime = Date.now();
-        this.accelerationData.push({
-            value: totalAcceleration,
-            timestamp: currentTime
-        });
-        
-        // Keep only recent data (last 1 second)
-        this.accelerationData = this.accelerationData.filter(
-            data => currentTime - data.timestamp <= 1000
-        );
-        
-        if (totalAcceleration > this.maxAcceleration) {
-            this.maxAcceleration = totalAcceleration;
-        }
-        
-        // パワーメーター表示の調整
-        const powerLevel = Math.min((totalAcceleration / 15) * 100, 100);
-        document.getElementById('powerFill').style.height = powerLevel + '%';
-        document.getElementById('speed').textContent = `${Math.round(totalAcceleration * 10)/10}`;
-        
-        // 投球検出の閾値調整
-        if (totalAcceleration > this.shakeThreshold && this.maxAcceleration > this.shakeThreshold) {
-            console.log('🎯 投球検出！最大加速度:', this.maxAcceleration);
-            this.startThrowWithShake();
-        }
-    }
-    
-    setupFallbackShakeDetection() {
-        console.log('🔧 フォールバック振り検出を設定');
-        let tapCount = 0;
-        let lastTapTime = 0;
-        
-        const handleTap = (e) => {
-            if (!this.isDetectingShake) return;
-            
-            console.log('👆 タップ検出');
-            const currentTime = Date.now();
-            if (currentTime - lastTapTime < 500) {
-                tapCount++;
-                console.log(`タップ回数: ${tapCount}`);
-                if (tapCount >= 3) {
-                    this.maxAcceleration = 25;
-                    console.log('🎯 フォールバック投球発動！');
-                    this.startThrowWithShake();
-                    tapCount = 0;
-                }
-            } else {
-                tapCount = 1;
-            }
-            lastTapTime = currentTime;
-        };
-        
-        document.addEventListener('touchstart', handleTap);
-        document.addEventListener('click', handleTap);
-        
-        // 画面を長押しした場合も投球発動
-        let longPressTimer = null;
-        document.addEventListener('touchstart', (e) => {
-            if (!this.isDetectingShake) return;
-            longPressTimer = setTimeout(() => {
-                this.maxAcceleration = 20;
-                console.log('⏱️ 長押し投球発動！');
-                this.startThrowWithShake();
-            }, 1500);
-        });
-        
-        document.addEventListener('touchend', () => {
-            if (longPressTimer) {
-                clearTimeout(longPressTimer);
-                longPressTimer = null;
-            }
-        });
-    }
-    
-    updateDisplay() {
-        document.getElementById('heading').textContent = Math.round(this.heading) + '°';
-        document.getElementById('compass').textContent = this.getCompassDirection(this.heading);
-        document.getElementById('tilt').textContent = Math.round(this.tilt) + '°';
-        
-        // Update compass needle
-        this.compassNeedle.style.transform = `rotate(${this.heading}deg)`;
-        
-        // スタート地点からの距離を計算して表示
-        if (!this.isBallMoving) {
-            this.totalDistance = this.calculateDistance(
-                this.startPosition.lat, this.startPosition.lng,
-                this.ballPosition.lat, this.ballPosition.lng
-            );
-            document.getElementById('distance').textContent = Math.round(this.totalDistance) + 'm';
-        }
-        
-        // Map rotation management
-        const DEAD_ZONE_START = 350;
-        const DEAD_ZONE_END = 10;
-        
-        const isHeadingInDeadZone = (this.heading >= DEAD_ZONE_START && this.heading < 360) || 
-                                    (this.heading >= 0 && this.heading < DEAD_ZONE_END);
-
-        if (!this.isActive && !this.isCountdownActive && !this.isBallMoving && this.isMapReady && !isHeadingInDeadZone) {
-            this.mapElement.style.transform = `rotate(${-this.heading}deg)`;
-        }
-        
-        this.updateCoordinatesDisplay();
-    }
-    
-    getCompassDirection(heading) {
-        const directions = ['北', '北東', '東', '南東', '南', '南西', '西', '北西'];
-        const index = Math.round(heading / 45) % 8;
-        return directions[index];
-    }
-    
-    updateCoordinatesDisplay() {
-        const lat = this.ballPosition.lat.toFixed(6);
-        const lng = this.ballPosition.lng.toFixed(6);
-        document.getElementById('coordinates').textContent = `${lat}, ${lng}`;
-    }
-    
-    setupComplete() {
-        this.updateStatus('🎯 投球準備完了！スタートボタンを押してください');
-        this.updateCoordinatesDisplay();
-        
-        // Initialize canvas
-        this.initCanvas();
-        
-        if (this.map) {
-            try {
-                this.map.setCenter(this.currentPosition);
-                setTimeout(() => {
-                    if (window.google && google.maps && google.maps.event) {
-                        google.maps.event.trigger(this.map, 'resize');
-                        this.map.setCenter(this.currentPosition);
-                    }
-                }, 100);
-            } catch (e) {
-                console.warn('⚠️ Map setup failed:', e);
-            }
-        }
-        
-        const startBtn = document.getElementById('startBtn');
-        startBtn.textContent = '🚀 スタート';
-        startBtn.disabled = false;
-        startBtn.classList.add('countdown-ready');
-        startBtn.onclick = () => this.startCountdown();
-    }
-    
-    // Canvas初期化（エラーハンドリング強化）
-    initCanvas() {
-        if (!this.gameCanvas) {
-            console.error('❌ Game canvas element not found');
-            return false;
-        }
-        
-        const container = this.gameCanvas.parentElement;
-        if (!container) {
-            console.error('❌ Canvas container not found');
-            return false;
-        }
-        
-        // 初期サイズは基本サイズで設定
-        this.canvasWidth = container.clientWidth;
-        this.canvasHeight = container.clientHeight;
-        
-        if (this.canvasWidth <= 0 || this.canvasHeight <= 0) {
-            console.error('❌ Invalid canvas dimensions:', this.canvasWidth, 'x', this.canvasHeight);
-            return false;
-        }
-        
-        //キャンバスサイズを画面サイズに設定
-        this.gameCanvas.width = this.canvasWidth;
-        this.gameCanvas.height = this.canvasHeight;
-        
-        try {
-            this.ctx = this.gameCanvas.getContext('2d');
-            if (!this.ctx) {
-                throw new Error('Canvas context is null');
-            }
-        } catch (error) {
-            console.error('❌ Failed to get canvas context:', error);
-            return false;
-        }
-        
-        this.ballCanvasX = this.canvasWidth / 2;
-        this.ballCanvasY = this.canvasHeight / 2;
-        
-        this.loadBallImage();
-        
-        console.log('✅ Canvas initialized successfully:', this.canvasWidth, 'x', this.canvasHeight);
-        return true;
-    }
-
-    // ボール画像読み込み（改善版）
-    loadBallImage() {
-        console.log('🏀 ボール画像読み込み開始');
-        this.ballImage = new Image();
-
-        this.ballImage.onload = () => {
-            console.log('✅ Ball image loaded successfully');
-            this.isBallImageReady = true;
-            this.updatePreparationStatus();
-        };
-        this.ballImage.onerror = () => {
-            console.warn('⚠️ Ball image failed to load, creating fallback');
-            this.createFallbackBallImage();
-            this.ballImage.src = 'ball.png';// フォールバック
-        
-        // ball.pngも失敗した場合のフォールバック
-            this.ballImage.onerror = () => {
-                console.warn('⚠️ ball.png also failed, creating fallback');
-                this.createFallbackBallImage();
-            };
-        };
-
-        // ball.gif を最初に試行
-        this.ballImage.src = 'ball.gif';
-    }
-    
-    // フォールバックボール画像生成
-    createFallbackBallImage() {
-        const canvas = document.createElement('canvas');
-        canvas.width = 120;
-        canvas.height = 120;
-        const ctx = canvas.getContext('2d');
-        
-        const centerX = 60;
-        const centerY = 60;
-        const radius = 55;
-        
-        // バスケットボール風のボール
-        const gradient = ctx.createRadialGradient(
-            centerX - 20, centerY - 20, 0,
-            centerX, centerY, radius
-        );
-        gradient.addColorStop(0, '#ff8a65');
-        gradient.addColorStop(0.7, '#ff5722');
-        gradient.addColorStop(1, '#d84315');
-        
-        ctx.fillStyle = gradient;
-        ctx.beginPath();
-        ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
-        ctx.fill();
-        
-        // バスケットボールのライン
-        ctx.strokeStyle = '#8d4004';
-        ctx.lineWidth = 3;
-        
-        ctx.beginPath();
-        ctx.moveTo(centerX, centerY - radius);
-        ctx.lineTo(centerX, centerY + radius);
-        ctx.stroke();
-        
-        ctx.beginPath();
-        ctx.arc(centerX, centerY, radius * 0.7, -Math.PI, 0);
-        ctx.stroke();
-        
-        ctx.beginPath();
-        ctx.arc(centerX, centerY, radius * 0.7, 0, Math.PI);
-        ctx.stroke();
-        
-        // ハイライト
-        ctx.fillStyle = '#ffccbc';
-        ctx.beginPath();
-        ctx.arc(centerX - 15, centerY - 15, 8, 0, 2 * Math.PI);
-        ctx.fill();
-        
-        this.ballImage = new Image();
-        this.ballImage.onload = () => {
-            console.log('✅ Fallback ball image created');
-            this.isBallImageReady = true;
-            this.updatePreparationStatus();
-        };
-        this.ballImage.src = canvas.toDataURL();
-    }
-    
-    fallbackSetup() {
-        setTimeout(() => {
-            this.isMapReady = true;
-            this.isMapFullyLoaded = true;
-            this.isPermissionGranted = true;
-            this.setupComplete();
-        }, 2000);
-    }
-    
-    async startCountdown() {
-        if (this.isCountdownActive || this.isActive) return;
-        
-        this.playSound('start');
-        
-        this.isCountdownActive = true;
-        const startBtn = document.getElementById('startBtn');
-        startBtn.disabled = true;
-        startBtn.classList.remove('countdown-ready');
-        
-        let count = 3;
-        this.showCountdown(count);
-        
-        this.countdownTimer = setInterval(() => {
-            count--;
-            if (count > 0) {
-                this.showCountdown(count);
-            } else {
-                this.showCountdown('投げて！');
-                setTimeout(() => {
-                    this.hideCountdown();
-                    this.enableThrowDetection();
-                }, 1000);
-                clearInterval(this.countdownTimer);
-            }
-        }, 1000);
-    }
-    
-    showCountdown(text) {
-        this.hideCountdown();
-        
-        this.countdownElement = document.createElement('div');
-        this.countdownElement.className = 'countdown';
-        this.countdownElement.textContent = text;
-        document.body.appendChild(this.countdownElement);
-    }
-    
-    hideCountdown() {
-        if (this.countdownElement && this.countdownElement.parentNode) {
-            this.countdownElement.parentNode.removeChild(this.countdownElement);
-            this.countdownElement = null;
-        }
-    }
-    
-    enableThrowDetection() {
-        this.isCountdownActive = false;
-        this.isDetectingShake = true;
-        this.accelerationData = [];
-        this.maxAcceleration = 0;
-        
-        document.getElementById('powerMeter').style.display = 'block';
-        
-        this.updateStatus('📱 スマホを振って投球してください！（3回タップまたは長押しでも可能）');
-        
-        // 15秒でタイムアウト
-        setTimeout(() => {
-            if (!this.isActive && this.isDetectingShake) {
-                this.isDetectingShake = false;
-                document.getElementById('powerMeter').style.display = 'none';
-                this.updateStatus('⏰ タイムアウトしました。再度お試しください。');
-                this.reset();
-            }
-        }, 15000);
-    }
-    
-    startThrowWithShake() {
-        if (this.isActive || !this.isDetectingShake) return;
-        
-        // 投球時のみ詳細デバッグ実行
-        this.showDebug(`🎯 ===== 投球開始 - 詳細ログ =====`);
-        this.showDebug(`⏰ 投球時刻: ${new Date().toLocaleTimeString()}`);
-        
-        // 現在のセンサー状態
-        this.showDebug(`📱 現在のheading: ${this.heading}°`);
-        this.showDebug(`📱 現在の方向: ${this.getCompassDirection(this.heading)}`);
-        this.showDebug(`📱 画面表示heading: ${document.getElementById('heading').textContent}`);
-        this.showDebug(`📱 画面表示方向: ${document.getElementById('compass').textContent}`);
-        
-        // heading値の妥当性チェック
-        if (this.heading === 0) {
-            this.showDebug(`⚠️ WARNING: heading=0°（センサー未更新の可能性）`);
-        } else {
-            this.showDebug(`✅ heading正常更新済み`);
-        }
-        
-        console.log('🎯 投球準備処理開始');
-        this.isDetectingShake = false;
-        document.getElementById('powerMeter').style.display = 'none';
-        
-        // パワー計算
-        let throwPower;
-        if (this.maxAcceleration <= 10) {
-            throwPower = 100 + (this.maxAcceleration - 8) * 100;
-        } else if (this.maxAcceleration <= 15) {
-            throwPower = 300 + (this.maxAcceleration - 10) * 60;
-        } else if (this.maxAcceleration <= 20) {
-            throwPower = 600 + (this.maxAcceleration - 15) * 80;
-        } else if (this.maxAcceleration <= 30) {
-            throwPower = 1000 + (this.maxAcceleration - 20) * 100;
-        } else {
-            throwPower = Math.min(2000, 1500 + (this.maxAcceleration - 25) * 100);
-        }
-        this.throwPower = Math.max(100, Math.round(throwPower));
-        
-        // 【重要】投球角度設定
-        this.throwAngle = this.heading;
-        
-        this.showDebug(`🎯 投球角度設定:`);
-        this.showDebug(`  - this.heading → this.throwAngle: ${this.heading}° → ${this.throwAngle}°`);
-        this.showDebug(`  - 方向: ${this.getCompassDirection(this.throwAngle)}`);
-        this.showDebug(`  - パワー: ${this.throwPower}m`);
-        
-        // 画像回転予測
-        const correctedAngle = -(this.throwAngle - 90);
-        this.showDebug(`🔄 画像回転予測:`);
-        this.showDebug(`  - -(${this.throwAngle} - 90) = ${correctedAngle}°`);
-        
-        this.showDebug(`✅ ===== 投球準備完了 =====`);
-        
-        console.log(`投球検出! 最大加速度: ${this.maxAcceleration.toFixed(2)}, パワー: ${this.throwPower}m, 方向: ${this.throwAngle}°`);
-        
-        this.ballElement.classList.add('throwing');
-        this.ballTrailPoints = [];
-        this.clearTrails();
-        this.ballPosition = { ...this.startPosition };
-        
-        this.showResourcePreparation();
-    }
+});
