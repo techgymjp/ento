@@ -603,25 +603,70 @@ troubleshootSensors() {
 }
   
     
-    handleOrientation(event) {
-    // 【最重要】イベント受信の確認を最初に行う
-    this.showDebug(`📡 handleOrientation呼び出し！`);
+  // 【ステップ4】既存のhandleOrientationメソッドを以下で完全置き換えしてください
+
+handleOrientation(event) {
+    // 【追加】デバッグ出力を制限（1秒に1回程度）でちらつき防止
+    const shouldDebug = !this.lastOrientationDebug || (Date.now() - this.lastOrientationDebug) > 1000;
     
-    // イベントデータの詳細を確認
-    this.showDebug(`📊 イベントデータ:`);
-    this.showDebug(`  - alpha: ${event.alpha}`);
-    this.showDebug(`  - beta: ${event.beta}`);
-    this.showDebug(`  - gamma: ${event.gamma}`);
-    this.showDebug(`  - webkitCompassHeading: ${event.webkitCompassHeading}`);
-    this.showDebug(`  - absolute: ${event.absolute}`);
+    if (shouldDebug) {
+        this.showDebug(`📡 handleOrientation呼び出し！`);
+        this.showDebug(`📊 イベントデータ: alpha=${event.alpha}, beta=${event.beta}`);
+        this.lastOrientationDebug = Date.now();
+    }
     
-    // 権限チェック前にログ
-    this.showDebug(`🔐 権限チェック: isPermissionGranted = ${this.isPermissionGranted}`);
+    // 権限チェック前にログ（デバッグ頻度制御あり）
+    if (shouldDebug) {
+        this.showDebug(`🔐 権限チェック: isPermissionGranted = ${this.isPermissionGranted}`);
+    }
     
     if (!this.isPermissionGranted) {
-        this.showDebug('❌ センサー権限なし - 処理停止');
+        if (shouldDebug) this.showDebug('❌ センサー権限なし - 処理停止');
         return;
     }
+    
+    let newHeading = 0;
+    
+    // iOS方式の確認
+    if (event.webkitCompassHeading !== undefined) {
+        newHeading = event.webkitCompassHeading;
+        if (shouldDebug) this.showDebug(`🍎 iOS方式採用: webkitCompassHeading = ${newHeading}°`);
+    }
+    // Android方式の確認
+    else if (event.alpha !== null) {
+        newHeading = 360 - event.alpha;
+        if (newHeading >= 360) newHeading -= 360;
+        if (newHeading < 0) newHeading += 360;
+        if (shouldDebug) this.showDebug(`🤖 Android方式採用: alpha = ${event.alpha}° → heading = ${newHeading}°`);
+    }
+    else {
+        if (shouldDebug) this.showDebug(`❌ 有効なセンサーデータなし`);
+    }
+    
+    const oldHeading = this.heading;
+    this.heading = newHeading;
+    
+    if (shouldDebug) {
+        this.showDebug(`📊 heading更新: ${oldHeading}° → ${this.heading}°`);
+    }
+    
+    const newTilt = event.beta || 0;
+    const currentTime = Date.now();
+    const deltaTime = Math.max((currentTime - this.lastTime) / 1000, 0.001);
+    const deltaTilt = newTilt - this.lastTilt;
+    this.tiltSpeed = Math.abs(deltaTilt) / deltaTime;
+    
+    this.tilt = newTilt;
+    this.lastTilt = newTilt;
+    this.lastTime = currentTime;
+    
+    if (shouldDebug) {
+        this.showDebug(`✅ updateDisplay呼び出し`);
+    }
+    this.updateDisplay();
+}
+    
+    
     
     let newHeading = 0;
     
