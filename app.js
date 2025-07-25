@@ -154,6 +154,38 @@ createDebugDisplay() {
 
     this.debugVisible = true;
     this.showDebug('🚀 スマホ対応デバッグシステム開始');
+
+    // センサー状態確認ボタン
+this.debugSensorCheck = document.createElement('button');
+this.debugSensorCheck.textContent = 'SENSOR';
+this.debugSensorCheck.style.cssText = `
+    position: fixed;
+    top: 10px;
+    right: 130px;
+    background: #44ff44;
+    color: black;
+    border: none;
+    padding: 8px 12px;
+    border-radius: 4px;
+    font-size: 12px;
+    z-index: 10001;
+    font-weight: bold;
+`;
+this.debugSensorCheck.onclick = () => this.checkSensorStatus();
+document.body.appendChild(this.debugSensorCheck);
+
+// センサー状態確認メソッド
+checkSensorStatus() {
+    this.showDebug(`🔍 ===== 手動センサー確認 =====`);
+    this.showDebug(`⏰ 確認時刻: ${new Date().toLocaleTimeString()}`);
+    this.showDebug(`📱 現在のheading: ${this.heading}°`);
+    this.showDebug(`📱 現在の方向: ${this.getCompassDirection(this.heading)}`);
+    this.showDebug(`📱 画面表示: ${document.getElementById('heading').textContent}`);
+    this.showDebug(`📱 コンパス表示: ${document.getElementById('compass').textContent}`);
+    this.showDebug(`📱 needle回転: ${this.compassNeedle.style.transform}`);
+    this.showDebug(`📱 センサー許可: ${this.isPermissionGranted}`);
+    this.showDebug(`✅ ===== 確認完了 =====`);
+}
 }
 
 
@@ -550,22 +582,7 @@ troubleshootSensors() {
   
     
     handleOrientation(event) {
-    // 【最重要】イベント受信の確認を最初に行う
-    this.showDebug(`📡 handleOrientation呼び出し！`);
-    
-    // イベントデータの詳細を確認
-    this.showDebug(`📊 イベントデータ:`);
-    this.showDebug(`  - alpha: ${event.alpha}`);
-    this.showDebug(`  - beta: ${event.beta}`);
-    this.showDebug(`  - gamma: ${event.gamma}`);
-    this.showDebug(`  - webkitCompassHeading: ${event.webkitCompassHeading}`);
-    this.showDebug(`  - absolute: ${event.absolute}`);
-    
-    // 権限チェック前にログ
-    this.showDebug(`🔐 権限チェック: isPermissionGranted = ${this.isPermissionGranted}`);
-    
     if (!this.isPermissionGranted) {
-        this.showDebug('❌ センサー権限なし - 処理停止');
         return;
     }
     
@@ -574,23 +591,15 @@ troubleshootSensors() {
     // iOS方式の確認
     if (event.webkitCompassHeading !== undefined) {
         newHeading = event.webkitCompassHeading;
-        this.showDebug(`🍎 iOS方式採用: webkitCompassHeading = ${newHeading}°`);
     }
     // Android方式の確認
     else if (event.alpha !== null) {
         newHeading = 360 - event.alpha;
         if (newHeading >= 360) newHeading -= 360;
         if (newHeading < 0) newHeading += 360;
-        this.showDebug(`🤖 Android方式採用: alpha = ${event.alpha}° → heading = ${newHeading}°`);
-    }
-    else {
-        this.showDebug(`❌ 有効なセンサーデータなし`);
     }
     
-    const oldHeading = this.heading;
     this.heading = newHeading;
-    
-    this.showDebug(`📊 heading更新: ${oldHeading}° → ${this.heading}°`);
     
     const newTilt = event.beta || 0;
     const currentTime = Date.now();
@@ -602,9 +611,9 @@ troubleshootSensors() {
     this.lastTilt = newTilt;
     this.lastTime = currentTime;
     
-    this.showDebug(`✅ updateDisplay呼び出し`);
     this.updateDisplay();
 }
+ 
 
     
     handleAbsoluteOrientation(event) {
@@ -718,35 +727,42 @@ troubleshootSensors() {
     }
     
     updateDisplay() {
-        document.getElementById('heading').textContent = Math.round(this.heading) + '°';
-        document.getElementById('compass').textContent = this.getCompassDirection(this.heading);
-        document.getElementById('tilt').textContent = Math.round(this.tilt) + '°';
-        
-        // Update compass needle
-        this.compassNeedle.style.transform = `rotate(${this.heading}deg)`;
-        
-        // スタート地点からの距離を計算して表示
-        if (!this.isBallMoving) {
-            this.totalDistance = this.calculateDistance(
-                this.startPosition.lat, this.startPosition.lng,
-                this.ballPosition.lat, this.ballPosition.lng
-            );
-            document.getElementById('distance').textContent = Math.round(this.totalDistance) + 'm';
-        }
-        
-        // Map rotation management
-        const DEAD_ZONE_START = 350;
-        const DEAD_ZONE_END = 10;
-        
-        const isHeadingInDeadZone = (this.heading >= DEAD_ZONE_START && this.heading < 360) || 
-                                    (this.heading >= 0 && this.heading < DEAD_ZONE_END);
-
-        if (!this.isActive && !this.isCountdownActive && !this.isBallMoving && this.isMapReady && !isHeadingInDeadZone) {
-            this.mapElement.style.transform = `rotate(${-this.heading}deg)`;
-        }
-        
-        this.updateCoordinatesDisplay();
+    document.getElementById('heading').textContent = Math.round(this.heading) + '°';
+    document.getElementById('compass').textContent = this.getCompassDirection(this.heading);
+    document.getElementById('tilt').textContent = Math.round(this.tilt) + '°';
+    
+    // Update compass needle
+    this.compassNeedle.style.transform = `rotate(${this.heading}deg)`;
+    
+    // 【削除】頻繁なデバッグ出力を停止
+    // この部分にあった this.showDebug() は削除
+    
+    // スタート地点からの距離を計算して表示
+    if (!this.isBallMoving) {
+        this.totalDistance = this.calculateDistance(
+            this.startPosition.lat, this.startPosition.lng,
+            this.ballPosition.lat, this.ballPosition.lng
+        );
+        document.getElementById('distance').textContent = Math.round(this.totalDistance) + 'm';
     }
+    
+    // Map rotation management
+    const DEAD_ZONE_START = 350;
+    const DEAD_ZONE_END = 10;
+    
+    const isHeadingInDeadZone = (this.heading >= DEAD_ZONE_START && this.heading < 360) || 
+                                (this.heading >= 0 && this.heading < DEAD_ZONE_END);
+
+    if (!this.isActive && !this.isCountdownActive && !this.isBallMoving && this.isMapReady && !isHeadingInDeadZone) {
+        this.mapElement.style.transform = `rotate(${-this.heading}deg)`;
+    }
+    
+    this.updateCoordinatesDisplay();
+}
+
+
+
+
     
     getCompassDirection(heading) {
         const directions = ['北', '北東', '東', '南東', '南', '南西', '西', '北西'];
@@ -994,21 +1010,28 @@ initCanvas() {
     startThrowWithShake() {
     if (this.isActive || !this.isDetectingShake) return;
     
-    this.showDebug(`🎯 ===== 投球角度設定確認 =====`);
-    this.showDebug(`⏰ 設定時刻: ${new Date().toLocaleTimeString()}`);
+    // ===== 投球時のみ詳細デバッグ実行 =====
+    this.showDebug(`🎯 ===== 投球開始 - 詳細ログ =====`);
+    this.showDebug(`⏰ 投球時刻: ${new Date().toLocaleTimeString()}`);
     
-    // 現在のコンパス状態を詳細に記録
-    this.showDebug(`📱 現在のコンパス状態:`);
-    this.showDebug(`  - 画面表示heading: ${document.getElementById('heading').textContent}`);
-    this.showDebug(`  - 画面表示compass: ${document.getElementById('compass').textContent}`);
-    this.showDebug(`  - this.heading値: ${this.heading}°`);
-    this.showDebug(`  - compassNeedle回転: ${this.compassNeedle.style.transform}`);
+    // 現在のセンサー状態
+    this.showDebug(`📱 現在のheading: ${this.heading}°`);
+    this.showDebug(`📱 現在の方向: ${this.getCompassDirection(this.heading)}`);
+    this.showDebug(`📱 画面表示heading: ${document.getElementById('heading').textContent}`);
+    this.showDebug(`📱 画面表示方向: ${document.getElementById('compass').textContent}`);
+    
+    // heading値の妥当性チェック
+    if (this.heading === 0) {
+        this.showDebug(`⚠️ WARNING: heading=0°（センサー未更新の可能性）`);
+    } else {
+        this.showDebug(`✅ heading正常更新済み`);
+    }
     
     console.log('🎯 投球準備処理開始');
     this.isDetectingShake = false;
     document.getElementById('powerMeter').style.display = 'none';
     
-    // より細かい段階分けで現実的な飛距離に
+    // パワー計算
     let throwPower;
     if (this.maxAcceleration <= 10) {
         throwPower = 100 + (this.maxAcceleration - 8) * 100;
@@ -1023,14 +1046,20 @@ initCanvas() {
     }
     this.throwPower = Math.max(100, Math.round(throwPower));
     
-    // 【重要】投球角度の設定
+    // ===== 【重要】投球角度設定 =====
     this.throwAngle = this.heading;
     
     this.showDebug(`🎯 投球角度設定:`);
     this.showDebug(`  - this.heading → this.throwAngle: ${this.heading}° → ${this.throwAngle}°`);
-    this.showDebug(`  - 方向名: ${this.getCompassDirection(this.throwAngle)}`);
-    this.showDebug(`  - 投球パワー: ${this.throwPower}m`);
-    this.showDebug(`✅ ===== 投球角度設定完了 =====`);
+    this.showDebug(`  - 方向: ${this.getCompassDirection(this.throwAngle)}`);
+    this.showDebug(`  - パワー: ${this.throwPower}m`);
+    
+    // 画像回転予測
+    const correctedAngle = -(this.throwAngle - 90);
+    this.showDebug(`🔄 画像回転予測:`);
+    this.showDebug(`  - -(${this.throwAngle} - 90) = ${correctedAngle}°`);
+    
+    this.showDebug(`✅ ===== 投球準備完了 =====`);
     
     console.log(`投球検出! 最大加速度: ${this.maxAcceleration.toFixed(2)}, パワー: ${this.throwPower}m, 方向: ${this.throwAngle}°`);
     
@@ -1041,6 +1070,8 @@ initCanvas() {
     
     this.showResourcePreparation();
 }
+
+
     
     showResourcePreparation() {
         this.preparationOverlay = document.createElement('div');
