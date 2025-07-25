@@ -694,11 +694,6 @@ initCanvas() {
 }
 
 // 【新規追加】投球パワーに応じてキャンバスサイズを調整
-resizeCanvasForPower() {
-    if (!this.gameCanvas || !this.throwPower) {
-        this.showDebug('❌ キャンバスまたは投球パワーが無効');
-        return false;
-    }
     
     const container = this.gameCanvas.parentElement;
     const baseWidth = container.clientWidth;
@@ -728,14 +723,13 @@ resizeCanvasForPower() {
     this.canvasWidth = Math.round(baseWidth * sizeMultiplier);
     this.canvasHeight = Math.round(baseHeight * sizeMultiplier);
     
-    // キャンバスサイズを実際に変更
+    // キャンバス要素のサイズも画面サイズに固定
     this.gameCanvas.width = this.canvasWidth;
     this.gameCanvas.height = this.canvasHeight;
-    
-    // キャンバスの表示サイズも調整（コンテナからはみ出ないよう）
-    const displayScale = Math.min(1.0, baseWidth / this.canvasWidth, baseHeight / this.canvasHeight);
-    this.gameCanvas.style.width = Math.round(this.canvasWidth * displayScale) + 'px';
-    this.gameCanvas.style.height = Math.round(this.canvasHeight * displayScale) + 'px';
+
+    // 表示サイズも同じ（CSSサイズ）
+    this.gameCanvas.style.width = this.canvasWidth + 'px';
+    this.gameCanvas.style.height = this.canvasHeight + 'px';
     
     // ボール位置を新しいキャンバスサイズに合わせて調整
     this.ballCanvasX = this.canvasWidth / 2;
@@ -1543,13 +1537,6 @@ async startBallMovement() {
     
     this.showDebug('🚀 ボール移動開始');
     
-    // 【追加】投球パワーに応じてキャンバスサイズを調整
-    if (!this.resizeCanvasForPower()) {
-        this.showDebug('❌ キャンバスサイズ調整失敗→着地処理');
-        this.landBall();
-        return;
-    }
-    
     this.debugCanvasState();
     this.debugAerialImageState();
     
@@ -2107,8 +2094,10 @@ drawBackground(currentDistance, progress) {
     if (this.gameCanvas) {
         const container = this.gameCanvas.parentElement;
         if (container) {
-            this.canvasWidth = container.clientWidth;
-            this.canvasHeight = container.clientHeight;
+
+            // キャンバスは常に画面サイズ
+            this.canvasWidth = screenWidth;
+            this.canvasHeight = screenHeight;
             
             this.gameCanvas.width = this.canvasWidth;
             this.gameCanvas.height = this.canvasHeight;
