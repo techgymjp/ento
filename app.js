@@ -1021,7 +1021,7 @@ initCanvas() {
             if (count > 0) {
                 this.showCountdown(count);
             } else {
-                this.showCountdown('投げろ！');
+                this.showCountdown('振れ');
                 setTimeout(() => {
                     this.hideCountdown();
                     this.enableThrowDetection();
