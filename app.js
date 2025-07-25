@@ -1311,13 +1311,6 @@ calculateOptimalImageParams() {
 }
 
 
-
-    
-
-// 航空写真準備エラー詳細調査版（prepareAerialImagesメソッドを置き換え）
-
-// 手順1: 既存のprepareAerialImagesメソッドを以下に完全置き換えしてください
-
 async prepareAerialImages() {
     this.showDebug('🛰️ 地理院地図航空写真準備開始');
     
@@ -1343,27 +1336,35 @@ async prepareAerialImages() {
         this.showDebug(`🔄 画像回転開始: ${this.throwAngle}度`);
         const rotatedImage = this.rotateImageForThrow(aerialImage, this.throwAngle);
         
-        // 回転完了を待つ
-        await new Promise((resolve) => {
-            if (rotatedImage.complete) {
-                this.showDebug('✅ 回転画像即座に完了');
+        // 回転完了を待つ（修正版）
+        await new Promise((resolve, reject) => {
+        if (rotatedImage.complete && rotatedImage.naturalWidth > 0 && rotatedImage.src.startsWith('data:')) {
+            this.showDebug('✅ 回転画像即座に完了');
+            this.showDebug(`📊 回転画像確認: ${rotatedImage.naturalWidth}x${rotatedImage.naturalHeight}`);
+            resolve();
+        } else {
+        this.showDebug('⏳ 回転画像読み込み待機中...');
+        rotatedImage.onload = () => {
+            // 追加：実際の画像データ確認
+            if (rotatedImage.naturalWidth > 0 && rotatedImage.src.startsWith('data:')) {
+                this.showDebug('✅ 回転画像読み込み完了');
+                this.showDebug(`📊 回転画像確認: ${rotatedImage.naturalWidth}x${rotatedImage.naturalHeight}`);
                 resolve();
             } else {
-                this.showDebug('⏳ 回転画像読み込み待機中...');
-                rotatedImage.onload = () => {
-                    this.showDebug('✅ 回転画像読み込み完了');
-                    resolve();
-                };
-                rotatedImage.onerror = (e) => {
-                    this.showDebug(`❌ 回転画像読み込み失敗: ${e}`);
-                    resolve();
-                };
-                setTimeout(() => {
-                    this.showDebug('⏰ 回転画像読み込みタイムアウト');
-                    resolve();
-                }, 3000);
+                this.showDebug(`❌ 回転画像データ異常: width=${rotatedImage.naturalWidth}, src=${rotatedImage.src.substring(0,30)}...`);
+                reject(new Error('回転画像データ異常'));
             }
-        });
+        };
+        rotatedImage.onerror = (e) => {
+            this.showDebug(`❌ 回転画像読み込み失敗: ${e}`);
+            reject(e);
+        };
+        setTimeout(() => {
+            this.showDebug('⏰ 回転画像読み込みタイムアウト');
+            reject(new Error('回転画像読み込みタイムアウト'));
+        }, 5000);
+    }
+});
         
         this.aerialImages = [{
             image: rotatedImage,
@@ -1399,9 +1400,6 @@ async prepareAerialImages() {
         this.updatePreparationStatus();
     }
 }
-
-
-// 手順2: prepareAerialImagesメソッドの直後に以下のメソッドを追加してください
 
 // 地理院地図航空写真作成メソッド
 async createGSIAerialImage(lat, lng, zoom, size) {
@@ -1534,9 +1532,6 @@ latToTileY(lat, zoom) {
     return (1 - Math.log(Math.tan(lat * Math.PI / 180) + 1 / Math.cos(lat * Math.PI / 180)) / Math.PI) / 2 * Math.pow(2, zoom);
 }
 
-
-// デバッグ強化版 rotateImageForThrow メソッド
-// センサーが正常動作している場合の問題分析
 
 // 【重要】画像回転が実際に実行されているかの確認
 
