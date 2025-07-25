@@ -1336,35 +1336,27 @@ async prepareAerialImages() {
         this.showDebug(`🔄 画像回転開始: ${this.throwAngle}度`);
         const rotatedImage = this.rotateImageForThrow(aerialImage, this.throwAngle);
         
-        // 回転完了を待つ（修正版）
-        await new Promise((resolve, reject) => {
-        if (rotatedImage.complete && rotatedImage.naturalWidth > 0 && rotatedImage.src.startsWith('data:')) {
-        this.showDebug('✅ 回転画像即座に完了');
-        this.showDebug(`📊 回転画像確認: ${rotatedImage.naturalWidth}x${rotatedImage.naturalHeight}`);
-        resolve();
-    } else {
-        this.showDebug('⏳ 回転画像読み込み待機中...');
-        rotatedImage.onload = () => {
-            // 追加：実際の画像データ確認
-            if (rotatedImage.naturalWidth > 0 && rotatedImage.src.startsWith('data:')) {
-                this.showDebug('✅ 回転画像読み込み完了');
-                this.showDebug(`📊 回転画像確認: ${rotatedImage.naturalWidth}x${rotatedImage.naturalHeight}`);
+        // 回転完了を待つ
+        await new Promise((resolve) => {
+            if (rotatedImage.complete) {
+                this.showDebug('✅ 回転画像即座に完了');
                 resolve();
             } else {
-                this.showDebug(`❌ 回転画像データ異常: width=${rotatedImage.naturalWidth}, src=${rotatedImage.src.substring(0,30)}...`);
-                reject(new Error('回転画像データ異常'));
+                this.showDebug('⏳ 回転画像読み込み待機中...');
+                rotatedImage.onload = () => {
+                    this.showDebug('✅ 回転画像読み込み完了');
+                    resolve();
+                };
+                rotatedImage.onerror = (e) => {
+                    this.showDebug(`❌ 回転画像読み込み失敗: ${e}`);
+                    resolve();
+                };
+                setTimeout(() => {
+                    this.showDebug('⏰ 回転画像読み込みタイムアウト');
+                    resolve();
+                }, 3000);
             }
-        };
-        rotatedImage.onerror = (e) => {
-            this.showDebug(`❌ 回転画像読み込み失敗: ${e}`);
-            reject(e);
-        };
-        setTimeout(() => {
-            this.showDebug('⏰ 回転画像読み込みタイムアウト');
-            reject(new Error('回転画像読み込みタイムアウト'));
-        }, 5000);
-    }
-});
+        });
         
         this.aerialImages = [{
             image: rotatedImage,
