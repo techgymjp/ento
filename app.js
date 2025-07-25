@@ -670,7 +670,7 @@ initCanvas() {
         return false;
     }
     
-    // 【修正】初期サイズで設定（後でresizeCanvasForPowerで変更）
+    //キャンバスサイズを画面サイズに設定
     this.gameCanvas.width = this.canvasWidth;
     this.gameCanvas.height = this.canvasHeight;
     
@@ -692,66 +692,6 @@ initCanvas() {
     console.log('✅ Canvas initialized successfully:', this.canvasWidth, 'x', this.canvasHeight);
     return true;
 }
-
-// 【新規追加】投球パワーに応じてキャンバスサイズを調整
-    
-    const container = this.gameCanvas.parentElement;
-    const baseWidth = container.clientWidth;
-    const baseHeight = container.clientHeight;
-    
-    // 【新機能】投球パワーに応じてキャンバスサイズを動的計算
-    let sizeMultiplier = 1.0;
-    
-    if (this.throwPower <= 200) {
-        sizeMultiplier = 0.8;  // 近距離：小さめキャンバス
-        this.showDebug('📏 近距離投球 - キャンバス80%サイズ');
-    } else if (this.throwPower <= 500) {
-        sizeMultiplier = 1.0;  // 中距離：標準サイズ
-        this.showDebug('📏 中距離投球 - キャンバス標準サイズ');
-    } else if (this.throwPower <= 1000) {
-        sizeMultiplier = 1.3;  // 長距離：大きめキャンバス
-        this.showDebug('📏 長距離投球 - キャンバス130%サイズ');
-    } else if (this.throwPower <= 2000) {
-        sizeMultiplier = 1.6;  // 超長距離：かなり大きめ
-        this.showDebug('📏 超長距離投球 - キャンバス160%サイズ');
-    } else {
-        sizeMultiplier = 2.0;  // 極長距離：最大サイズ
-        this.showDebug('📏 極長距離投球 - キャンバス200%サイズ');
-    }
-    
-    // 新しいキャンバスサイズを計算
-    this.canvasWidth = Math.round(baseWidth * sizeMultiplier);
-    this.canvasHeight = Math.round(baseHeight * sizeMultiplier);
-    
-    // キャンバス要素のサイズも画面サイズに固定
-    this.gameCanvas.width = this.canvasWidth;
-    this.gameCanvas.height = this.canvasHeight;
-
-    // 表示サイズも同じ（CSSサイズ）
-    this.gameCanvas.style.width = this.canvasWidth + 'px';
-    this.gameCanvas.style.height = this.canvasHeight + 'px';
-    
-    // ボール位置を新しいキャンバスサイズに合わせて調整
-    this.ballCanvasX = this.canvasWidth / 2;
-    this.ballCanvasY = this.canvasHeight / 2;
-    
-    this.showDebug(`📏 キャンバスサイズ調整完了:`);
-    this.showDebug(`  - 論理サイズ: ${this.canvasWidth}x${this.canvasHeight}px`);
-    this.showDebug(`  - 表示サイズ: ${Math.round(this.canvasWidth * displayScale)}x${Math.round(this.canvasHeight * displayScale)}px`);
-    this.showDebug(`  - サイズ倍率: ${sizeMultiplier}x`);
-    this.showDebug(`  - 表示倍率: ${displayScale.toFixed(2)}x`);
-    
-    // コンテキストを再取得（サイズ変更後）
-    try {
-        this.ctx = this.gameCanvas.getContext('2d');
-        return true;
-    } catch (error) {
-        this.showDetailedError('キャンバスコンテキスト再取得', error);
-        return false;
-    }
-}
-
-
 
 
     // ボール画像読み込み（改善版）
@@ -2096,8 +2036,8 @@ drawBackground(currentDistance, progress) {
         if (container) {
 
             // キャンバスは常に画面サイズ
-            this.canvasWidth = screenWidth;
-            this.canvasHeight = screenHeight;
+            this.canvasWidth = container.clientWidth;
+            this.canvasHeight = container.clientHeight;
             
             this.gameCanvas.width = this.canvasWidth;
             this.gameCanvas.height = this.canvasHeight;
