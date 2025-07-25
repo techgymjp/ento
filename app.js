@@ -771,36 +771,52 @@ troubleshootSensors() {
         });
     }
     
-    updateDisplay() {
-        document.getElementById('heading').textContent = Math.round(this.heading) + '°';
-        document.getElementById('compass').textContent = this.getCompassDirection(this.heading);
-        document.getElementById('tilt').textContent = Math.round(this.tilt) + '°';
-        
-        // Update compass needle
-        this.compassNeedle.style.transform = `rotate(${this.heading}deg)`;
-        
-        // スタート地点からの距離を計算して表示
-        if (!this.isBallMoving) {
-            this.totalDistance = this.calculateDistance(
-                this.startPosition.lat, this.startPosition.lng,
-                this.ballPosition.lat, this.ballPosition.lng
-            );
-            document.getElementById('distance').textContent = Math.round(this.totalDistance) + 'm';
-        }
-        
-        // Map rotation management
-        const DEAD_ZONE_START = 350;
-        const DEAD_ZONE_END = 10;
-        
-        const isHeadingInDeadZone = (this.heading >= DEAD_ZONE_START && this.heading < 360) || 
-                                    (this.heading >= 0 && this.heading < DEAD_ZONE_END);
+    // 【ステップ3】既存のupdateDisplayメソッドを以下で完全置き換えしてください
 
-        if (!this.isActive && !this.isCountdownActive && !this.isBallMoving && this.isMapReady && !isHeadingInDeadZone) {
-            this.mapElement.style.transform = `rotate(${-this.heading}deg)`;
-        }
-        
-        this.updateCoordinatesDisplay();
+updateDisplay() {
+    // 【追加】表示更新頻度制御（ちらつき防止）
+    if (!this.lastDisplayUpdate) {
+        this.lastDisplayUpdate = 0;
     }
+    
+    const now = Date.now();
+    if (now - this.lastDisplayUpdate < 50) { // 50ms間隔に制限
+        return;
+    }
+    this.lastDisplayUpdate = now;
+    
+    document.getElementById('heading').textContent = Math.round(this.heading) + '°';
+    document.getElementById('compass').textContent = this.getCompassDirection(this.heading);
+    document.getElementById('tilt').textContent = Math.round(this.tilt) + '°';
+    
+    // Update compass needle
+    this.compassNeedle.style.transform = `rotate(${this.heading}deg)`;
+    
+    // スタート地点からの距離を計算して表示
+    if (!this.isBallMoving) {
+        this.totalDistance = this.calculateDistance(
+            this.startPosition.lat, this.startPosition.lng,
+            this.ballPosition.lat, this.ballPosition.lng
+        );
+        document.getElementById('distance').textContent = Math.round(this.totalDistance) + 'm';
+    }
+    
+    // Map rotation management
+    const DEAD_ZONE_START = 350;
+    const DEAD_ZONE_END = 10;
+    
+    const isHeadingInDeadZone = (this.heading >= DEAD_ZONE_START && this.heading < 360) || 
+                                (this.heading >= 0 && this.heading < DEAD_ZONE_END);
+
+    if (!this.isActive && !this.isCountdownActive && !this.isBallMoving && this.isMapReady && !isHeadingInDeadZone) {
+        this.mapElement.style.transform = `rotate(${-this.heading}deg)`;
+    }
+    
+    this.updateCoordinatesDisplay();
+}
+    
+        
+
     
     getCompassDirection(heading) {
         const directions = ['北', '北東', '東', '南東', '南', '南西', '西', '北西'];
