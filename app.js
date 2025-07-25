@@ -610,7 +610,7 @@ handleOrientation(event) {
     const shouldDebug = !this.lastOrientationDebug || (Date.now() - this.lastOrientationDebug) > 1000;
     
     if (shouldDebug) {
-        this.showDebug(`📡 handleOrientation呼び出し！`);
+        //this.showDebug(`📡 handleOrientation呼び出し！`);
         //this.showDebug(`📊 イベントデータ: alpha=${event.alpha}, beta=${event.beta}`);
         this.lastOrientationDebug = Date.now();
     }
@@ -637,7 +637,7 @@ handleOrientation(event) {
         newHeading = 360 - event.alpha;
         if (newHeading >= 360) newHeading -= 360;
         if (newHeading < 0) newHeading += 360;
-        if (shouldDebug) this.showDebug(`🤖 Android方式採用: alpha = ${event.alpha}° → heading = ${newHeading}°`);
+        //if (shouldDebug) this.showDebug(`🤖 Android方式採用: alpha = ${event.alpha}° → heading = ${newHeading}°`);
     }
     else {
         if (shouldDebug) this.showDebug(`❌ 有効なセンサーデータなし`);
@@ -647,7 +647,7 @@ handleOrientation(event) {
     this.heading = newHeading;
     
     if (shouldDebug) {
-        this.showDebug(`📊 heading更新: ${oldHeading}° → ${this.heading}°`);
+        //this.showDebug(`📊 heading更新: ${oldHeading}° → ${this.heading}°`);
     }
     
     const newTilt = event.beta || 0;
