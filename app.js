@@ -2060,6 +2060,7 @@ drawBackground(currentDistance, progress) {
             40
         );
 
+        /*
         // 画像情報とスクロール位置表示
         this.ctx.font = 'bold 14px Arial';
         this.ctx.fillText(
@@ -2067,7 +2068,7 @@ drawBackground(currentDistance, progress) {
             this.canvasWidth / 2, 
             70
         );
-
+        */
         // スクロール可能範囲の警告表示
         if (maxScroll === 0) {
             this.ctx.fillStyle = 'rgba(255, 255, 0, 0.9)';
