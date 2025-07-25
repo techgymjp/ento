@@ -1324,7 +1324,14 @@ async prepareAerialImages() {
     
     try {
         this.showDebug(`📍 位置: ${this.startPosition.lat.toFixed(6)}, ${this.startPosition.lng.toFixed(6)}`);
+        this.showDebug(`🧭 使用予定のthrowAngle: ${this.throwAngle}°`);
         this.showDebug(`🧭 投球角度: ${this.throwAngle}度`);
+
+        if (this.throwAngle !== this.heading) {
+        this.showDebug(`⚠️ throwAngleとheadingに差異あり！`);
+        this.showDebug(`  - throwAngle: ${this.throwAngle}°`);
+        this.showDebug(`  - heading: ${this.heading}°`);
+    }
         
         // 【重要】投球パワーに応じて最適なパラメータを計算
         const { zoom, imageSize } = this.calculateOptimalImageParams();
@@ -1343,7 +1350,7 @@ async prepareAerialImages() {
         // 投球方向に回転
         this.showDebug(`🔄 画像回転開始: ${this.throwAngle}度`);
         const rotatedImage = this.rotateImageForThrow(aerialImage, this.throwAngle);
-        
+
         // 回転完了を待つ（修正版）
         await new Promise((resolve, reject) => {
         if (rotatedImage.complete && rotatedImage.naturalWidth > 0 && rotatedImage.src.startsWith('data:')) {
