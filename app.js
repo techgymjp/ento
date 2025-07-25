@@ -1061,6 +1061,22 @@ initCanvas() {
     
     startThrowWithShake() {
     if (this.isActive || !this.isDetectingShake) return;
+
+    // 【追加】値の変化を詳細追跡
+    this.showDebug(`🔍 ===== heading値追跡開始 =====`);
+    this.showDebug(`📊 投球検出時点のheading: ${this.heading}°`);
+    this.showDebug(`📱 DOM表示値: ${document.getElementById('heading').textContent}`);
+    
+    // 【重要】この時点でthrowAngleを固定
+    const capturedHeading = this.heading;
+    this.showDebug(`💾 heading値をキャプチャ: ${capturedHeading}°`);
+    
+    console.log('🎯 投球準備処理開始');
+    this.isDetectingShake = false;
+
+
+
+
     
     this.showDebug(`🎯 ===== 投球角度設定確認 =====`);
     this.showDebug(`⏰ 設定時刻: ${new Date().toLocaleTimeString()}`);
@@ -1092,9 +1108,10 @@ initCanvas() {
     this.throwPower = Math.max(100, Math.round(throwPower));
     
     // 【重要】投球角度の設定
-    this.throwAngle = this.heading;
+    // 【修正】キャプチャした値を使用
+    this.throwAngle = capturedHeading;
     
-    this.showDebug(`🎯 投球角度設定:`);
+    this.showDebug(`🎯 投球角度設定:${this.throwAngle}° (キャプチャ値使用) `);
     this.showDebug(`  - this.heading → this.throwAngle: ${this.heading}° → ${this.throwAngle}°`);
     this.showDebug(`  - 方向名: ${this.getCompassDirection(this.throwAngle)}`);
     this.showDebug(`  - 投球パワー: ${this.throwPower}m`);
