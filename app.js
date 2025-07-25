@@ -1311,8 +1311,6 @@ calculateOptimalImageParams() {
 }
 
 
-// ステップ1: prepareAerialImages() メソッドの回転処理部分を以下で置き換えてください
-
 async prepareAerialImages() {
     this.showDebug('🛰️ 地理院地図航空写真準備開始');
     
@@ -1357,6 +1355,7 @@ async prepareAerialImages() {
             zoom: zoom,
             imageSize: imageSize,
             appliedRotation: this.throwAngle  // ← デバッグ用回転角度記録
+            isRotated: true // ← 回転済みフラグを追加
         }];
 
         this.showDebug('✅ 地理院地図航空写真準備完了！');
@@ -1569,6 +1568,8 @@ lonToTileX(lon, zoom) {
 latToTileY(lat, zoom) {
     return (1 - Math.log(Math.tan(lat * Math.PI / 180) + 1 / Math.cos(lat * Math.PI / 180)) / Math.PI) / 2 * Math.pow(2, zoom);
 }
+
+
 
 
 // 【重要】画像回転が実際に実行されているかの確認
