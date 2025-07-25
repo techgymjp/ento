@@ -1659,9 +1659,9 @@ drawBackground(currentDistance, progress) {
             return;  
         }
 
-        // 【修正】画像を元のサイズのまま使用（縮小なし）
-        const imageWidth = aerialImage.naturalWidth;
-        const imageHeight = aerialImage.naturalHeight;
+        // 【修正】画像サイズを2倍に拡大
+        const originalWidth = aerialImage.naturalWidth;
+        const originalHeight = aerialImage.naturalHeight;
         const imageWidth = originalWidth * 2;  // ← 2倍に拡大
         const imageHeight = originalHeight * 2; // ← 2倍に拡大
 
