@@ -577,7 +577,7 @@ troubleshootSensors() {
         absolute: true
     };
     
-    this.showDebug(`📤 テストイベント送信:`);
+    //this.showDebug(`📤 テストイベント送信:`);
     this.showDebug(`  - alpha: ${testEvent.alpha}`);
     this.showDebug(`  - webkitCompassHeading: ${testEvent.webkitCompassHeading}`);
     
