@@ -1314,60 +1314,122 @@ latToTileY(lat, zoom) {
 
 // デバッグ強化版 rotateImageForThrow メソッド
 rotateImageForThrow(originalImg, throwAngle) {
-    console.log(`🔄 画像を${throwAngle}度回転中...`);
-    this.showDebug(`🔄 画像回転開始 - 元画像:${originalImg.width}x${originalImg.height}, 角度:${throwAngle}度`);
+    // 【追加】詳細なデバッグ情報の開始
+    this.showDebug(`🔄 ===== 画像回転処理開始 =====`);
+    this.showDebug(`📊 入力パラメータ:`);
+    this.showDebug(`  - throwAngle: ${throwAngle}°`);
+    this.showDebug(`  - this.heading: ${this.heading}°`);
+    this.showDebug(`  - 方向名: ${this.getCompassDirection(throwAngle)}`);
+    this.showDebug(`  - 元画像サイズ: ${originalImg.width}x${originalImg.height}`);
+    this.showDebug(`  - 元画像complete: ${originalImg.complete}`);
+    this.showDebug(`  - 元画像src: ${originalImg.src.substring(0, 50)}...`);
     
+    // 回転角度の計算
+    const correctedAngle = -(throwAngle - 90);
+    const radians = (correctedAngle * Math.PI) / 180;
+    
+    this.showDebug(`🧮 回転角度計算:`);
+    this.showDebug(`  - 計算式: -(${throwAngle} - 90) = ${correctedAngle}°`);
+    this.showDebug(`  - ラジアン: ${radians.toFixed(4)}`);
+    this.showDebug(`  - 期待される結果:`);
+    this.showDebug(`    北(0°) → -90° → 北が上向き`);
+    this.showDebug(`    東(90°) → 0° → 東が上向き`);
+    this.showDebug(`    南(180°) → 90° → 南が上向き`);
+    this.showDebug(`    西(270°) → 180° → 西が上向き`);
+    
+    // キャンバス作成
     const canvas = document.createElement('canvas');
     const diagonal = Math.sqrt(originalImg.width * originalImg.width + originalImg.height * originalImg.height);
     canvas.width = Math.ceil(diagonal);
     canvas.height = Math.ceil(diagonal);
     
-    this.showDebug(`回転用キャンバス作成 - ${canvas.width}x${canvas.height}`);
+    this.showDebug(`🖼️ 回転用キャンバス作成:`);
+    this.showDebug(`  - 対角線長: ${diagonal.toFixed(2)}px`);
+    this.showDebug(`  - キャンバスサイズ: ${canvas.width}x${canvas.height}`);
     
     const ctx = canvas.getContext('2d');
     if (!ctx) {
         this.showDebug('❌ 回転用キャンバスのコンテキスト取得失敗');
-        return originalImg; // フォールバック
+        return originalImg;
     }
     
     const centerX = canvas.width / 2;
     const centerY = canvas.height / 2;
     
+    this.showDebug(`📐 描画パラメータ:`);
+    this.showDebug(`  - キャンバス中心: (${centerX}, ${centerY})`);
+    this.showDebug(`  - 画像描画位置: (${-originalImg.width / 2}, ${-originalImg.height / 2})`);
+    
     try {
-        // 背景を白で塗りつぶし（デバッグ用）
-        ctx.fillStyle = '#ffffff';
+        // 背景を識別可能な色で塗りつぶし（デバッグ用）
+        ctx.fillStyle = '#ffcccc'; // 薄いピンク色でデバッグ
         ctx.fillRect(0, 0, canvas.width, canvas.height);
+        this.showDebug(`🎨 背景色設定: 薄いピンク (#ffcccc)`);
         
+        // 回転変換の実行
+        this.showDebug(`🔄 変換実行中...`);
         ctx.translate(centerX, centerY);
+        this.showDebug(`  ✓ 中心点移動: translate(${centerX}, ${centerY})`);
         
+        ctx.rotate(radians);
+        this.showDebug(`  ✓ 回転実行: rotate(${radians.toFixed(4)} rad = ${correctedAngle}°)`);
         
-        const correctedAngle = -(throwAngle - 90);
-        ctx.rotate((correctedAngle * Math.PI) / 180);
-
-
-        ctx.drawImage(originalImg, -originalImg.width / 2, -originalImg.height / 2, originalImg.width, originalImg.height);
+        // 画像描画
+        ctx.drawImage(
+            originalImg, 
+            -originalImg.width / 2, 
+            -originalImg.height / 2, 
+            originalImg.width, 
+            originalImg.height
+        );
+        this.showDebug(`  ✓ 画像描画完了`);
+        
         ctx.resetTransform();
+        this.showDebug(`  ✓ 変換リセット完了`);
         
-        this.showDebug('✅ キャンバス回転描画完了');
-        
+        // 結果画像の生成
         const rotatedImg = new Image();
         rotatedImg.onload = () => {
-            this.showDebug(`✅ 回転画像Imageオブジェクト作成完了 - ${rotatedImg.naturalWidth}x${rotatedImg.naturalHeight}`);
+            this.showDebug(`✅ 回転画像Imageオブジェクト作成完了:`);
+            this.showDebug(`  - 最終サイズ: ${rotatedImg.naturalWidth}x${rotatedImg.naturalHeight}`);
+            this.showDebug(`  - データURL長: ${rotatedImg.src.length}文字`);
         };
         rotatedImg.onerror = (e) => {
-            this.showDebug(`❌ 回転画像Imageオブジェクト作成失敗: ${e}`);
+            this.showDebug(`❌ 回転画像Imageオブジェクト作成失敗:`);
+            this.showDebug(`  - エラー: ${e}`);
         };
         
-        rotatedImg.src = canvas.toDataURL('image/png', 0.9);
+        // データURL生成
+        const dataURL = canvas.toDataURL('image/png', 0.9);
+        this.showDebug(`📦 データURL生成:`);
+        this.showDebug(`  - 形式: PNG, 品質: 0.9`);
+        this.showDebug(`  - データサイズ: ${dataURL.length}文字`);
+        this.showDebug(`  - データURL先頭: ${dataURL.substring(0, 50)}...`);
         
-        console.log('✅ 画像回転完了');
+        rotatedImg.src = dataURL;
+        
+        this.showDebug(`✅ ===== 画像回転処理完了 =====`);
+        console.log('✅ 画像回転完了 - 詳細はDEBUGログを確認');
+        
         return rotatedImg;
         
     } catch (error) {
-        this.showDebug(`❌ 画像回転エラー: ${error.message}`);
+        this.showDebug(`❌ ===== 画像回転エラー =====`);
+        this.showDebug(`  - エラーメッセージ: ${error.message}`);
+        this.showDebug(`  - エラータイプ: ${error.name}`);
+        if (error.stack) {
+            const stackLines = error.stack.split('\n').slice(0, 3);
+            stackLines.forEach((line, index) => {
+                this.showDebug(`  - スタック${index + 1}: ${line.trim()}`);
+            });
+        }
+        this.showDebug(`  → 元画像をそのまま返します`);
+        
+        console.error(`画像回転エラー:`, error);
         return originalImg; // エラー時は元画像を返す
     }
-}
+}  
+
 
 createDirectionalAerialImage(throwAngle) {
     console.log(`🎨 方向性フォールバック画像生成（${throwAngle}度）`);
