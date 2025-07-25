@@ -521,7 +521,7 @@ showDetailedError(context, error) {
         
         // 絶対方向イベントも登録
         window.addEventListener('deviceorientationabsolute', (event) => {
-            this.showDebug(`🧭 AbsoluteOrientationイベント受信`);
+            //this.showDebug(`🧭 AbsoluteOrientationイベント受信`);
             this.handleAbsoluteOrientation(event);
         }, { passive: true });
         
