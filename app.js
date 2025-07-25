@@ -1067,19 +1067,19 @@ calculateOptimalImageParams() {
     // パワーに応じて適切なズームレベルを設定
     if (powerMeters <= 200) {
         zoom = 18;  // 近距離用：建物詳細レベル
-        imageSize = 1536;
+        imageSize = 150;
     } else if (powerMeters <= 500) {
         zoom = 17;  // 中距離用：街区レベル
-        imageSize = 2048;
+        imageSize = 300;
     } else if (powerMeters <= 1000) {
         zoom = 16;  // 長距離用：地区レベル
-        imageSize = 2560;
+        imageSize = 600;
     } else if (powerMeters <= 2000) {
         zoom = 15;  // 超長距離用：市区レベル
-        imageSize = 3072;
+        imageSize = 1200;
     } else {
         zoom = 14;  // 極長距離用：広域レベル
-        imageSize = 4096;
+        imageSize = 1200;
     }
     
     this.showDebug(`📐 選択パラメータ: zoom=${zoom}, imageSize=${imageSize}px`);
