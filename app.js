@@ -527,7 +527,16 @@ showDetailedError(context, error) {
         
         this.showDebug(`✅ DeviceOrientationAbsoluteイベント登録完了`);
         
-        
+        // 【追加】イベント発生確認用のタイマー
+        setTimeout(() => {
+            this.showDebug(`⏰ 5秒経過 - センサーイベント受信状況確認`);
+            if (this.heading === 0) {
+                this.showDebug(`⚠️ headingが初期値のまま - イベント未受信の可能性`);
+                this.troubleshootSensors();
+            } else {
+                this.showDebug(`✅ センサーイベント正常受信中`);
+            }
+        }, 5000);
         
     } else {
         this.showDebug(`❌ DeviceOrientationEvent未対応`);
@@ -1061,22 +1070,6 @@ initCanvas() {
     
     startThrowWithShake() {
     if (this.isActive || !this.isDetectingShake) return;
-
-    // 【追加】値の変化を詳細追跡
-    this.showDebug(`🔍 ===== heading値追跡開始 =====`);
-    this.showDebug(`📊 投球検出時点のheading: ${this.heading}°`);
-    this.showDebug(`📱 DOM表示値: ${document.getElementById('heading').textContent}`);
-    
-    // 【重要】この時点でthrowAngleを固定
-    const capturedHeading = this.heading;
-    this.showDebug(`💾 heading値をキャプチャ: ${capturedHeading}°`);
-    
-    console.log('🎯 投球準備処理開始');
-    this.isDetectingShake = false;
-
-
-
-
     
     this.showDebug(`🎯 ===== 投球角度設定確認 =====`);
     this.showDebug(`⏰ 設定時刻: ${new Date().toLocaleTimeString()}`);
@@ -1108,10 +1101,9 @@ initCanvas() {
     this.throwPower = Math.max(100, Math.round(throwPower));
     
     // 【重要】投球角度の設定
-    // 【修正】キャプチャした値を使用
-    this.throwAngle = capturedHeading;
+    this.throwAngle = this.heading;
     
-    this.showDebug(`🎯 投球角度設定:${this.throwAngle}° (キャプチャ値使用) `);
+    this.showDebug(`🎯 投球角度設定:`);
     this.showDebug(`  - this.heading → this.throwAngle: ${this.heading}° → ${this.throwAngle}°`);
     this.showDebug(`  - 方向名: ${this.getCompassDirection(this.throwAngle)}`);
     this.showDebug(`  - 投球パワー: ${this.throwPower}m`);
@@ -1324,14 +1316,7 @@ async prepareAerialImages() {
     
     try {
         this.showDebug(`📍 位置: ${this.startPosition.lat.toFixed(6)}, ${this.startPosition.lng.toFixed(6)}`);
-        this.showDebug(`🧭 使用予定のthrowAngle: ${this.throwAngle}°`);
         this.showDebug(`🧭 投球角度: ${this.throwAngle}度`);
-
-        if (this.throwAngle !== this.heading) {
-        this.showDebug(`⚠️ throwAngleとheadingに差異あり！`);
-        this.showDebug(`  - throwAngle: ${this.throwAngle}°`);
-        this.showDebug(`  - heading: ${this.heading}°`);
-    }
         
         // 【重要】投球パワーに応じて最適なパラメータを計算
         const { zoom, imageSize } = this.calculateOptimalImageParams();
@@ -1350,7 +1335,7 @@ async prepareAerialImages() {
         // 投球方向に回転
         this.showDebug(`🔄 画像回転開始: ${this.throwAngle}度`);
         const rotatedImage = this.rotateImageForThrow(aerialImage, this.throwAngle);
-
+        
         // 回転完了を待つ（修正版）
         await new Promise((resolve, reject) => {
         if (rotatedImage.complete && rotatedImage.naturalWidth > 0 && rotatedImage.src.startsWith('data:')) {
