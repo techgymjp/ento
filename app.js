@@ -512,8 +512,8 @@ showDetailedError(context, error) {
         
         // テスト用のイベントリスナー
         const testListener = (event) => {
-            this.showDebug(`🎯 テストイベント受信: alpha=${event.alpha}, beta=${event.beta}`);
-            this.handleOrientation(event);
+           // this.showDebug(`🎯 テストイベント受信: alpha=${event.alpha}, beta=${event.beta}`);
+           //  this.handleOrientation(event);
         };
         
         window.addEventListener('deviceorientation', testListener, { passive: true });
