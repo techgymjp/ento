@@ -86,7 +86,7 @@ class BallThrowJourneyApp {
         this.updateStatus('位置情報とデバイスセンサーの許可が必要です');
 
         // 【追加】デバッグ表示要素を作成
-        this.createDebugDisplay();
+        //this.createDebugDisplay();
         console.log('✅ BallThrowJourneyApp initialized');
     }
 
