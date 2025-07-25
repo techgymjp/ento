@@ -527,16 +527,7 @@ showDetailedError(context, error) {
         
         this.showDebug(`✅ DeviceOrientationAbsoluteイベント登録完了`);
         
-        // 【追加】イベント発生確認用のタイマー
-        setTimeout(() => {
-            this.showDebug(`⏰ 5秒経過 - センサーイベント受信状況確認`);
-            if (this.heading === 0) {
-                this.showDebug(`⚠️ headingが初期値のまま - イベント未受信の可能性`);
-                this.troubleshootSensors();
-            } else {
-                this.showDebug(`✅ センサーイベント正常受信中`);
-            }
-        }, 5000);
+        
         
     } else {
         this.showDebug(`❌ DeviceOrientationEvent未対応`);
