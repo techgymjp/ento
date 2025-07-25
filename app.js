@@ -1126,6 +1126,9 @@ calculateOptimalImageParams() {
     this.showDebug(`🎯 投球パワー: ${powerMeters}m`);
     
     let zoom, imageSize;
+
+    // 【修正】キャンバスサイズに応じて画像サイズを調整
+    const canvasScale = Math.max(this.canvasWidth / 800, this.canvasHeight / 600);
     
     // パワーに応じて適切なズームレベルを設定
     if (powerMeters <= 200) {
