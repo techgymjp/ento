@@ -86,7 +86,7 @@ class BallThrowJourneyApp {
         this.updateStatus('位置情報とデバイスセンサーの許可が必要です');
 
         // 【追加】デバッグ表示要素を作成
-        //this.createDebugDisplay();
+        this.createDebugDisplay();
         console.log('✅ BallThrowJourneyApp initialized');
     }
 
@@ -512,7 +512,7 @@ showDetailedError(context, error) {
         
         // テスト用のイベントリスナー
         const testListener = (event) => {
-            //this.showDebug(`🎯 テストイベント受信: alpha=${event.alpha}, beta=${event.beta}`);
+            this.showDebug(`🎯 テストイベント受信: alpha=${event.alpha}, beta=${event.beta}`);
             this.handleOrientation(event);
         };
         
@@ -521,7 +521,7 @@ showDetailedError(context, error) {
         
         // 絶対方向イベントも登録
         window.addEventListener('deviceorientationabsolute', (event) => {
-            //this.showDebug(`🧭 AbsoluteOrientationイベント受信`);
+            this.showDebug(`🧭 AbsoluteOrientationイベント受信`);
             this.handleAbsoluteOrientation(event);
         }, { passive: true });
         
@@ -577,7 +577,7 @@ troubleshootSensors() {
         absolute: true
     };
     
-    //this.showDebug(`📤 テストイベント送信:`);
+    this.showDebug(`📤 テストイベント送信:`);
     this.showDebug(`  - alpha: ${testEvent.alpha}`);
     this.showDebug(`  - webkitCompassHeading: ${testEvent.webkitCompassHeading}`);
     
@@ -610,14 +610,14 @@ handleOrientation(event) {
     const shouldDebug = !this.lastOrientationDebug || (Date.now() - this.lastOrientationDebug) > 1000;
     
     if (shouldDebug) {
-        //this.showDebug(`📡 handleOrientation呼び出し！`);
-        //this.showDebug(`📊 イベントデータ: alpha=${event.alpha}, beta=${event.beta}`);
+        this.showDebug(`📡 handleOrientation呼び出し！`);
+        this.showDebug(`📊 イベントデータ: alpha=${event.alpha}, beta=${event.beta}`);
         this.lastOrientationDebug = Date.now();
     }
     
     // 権限チェック前にログ（デバッグ頻度制御あり）
     if (shouldDebug) {
-        //this.showDebug(`🔐 権限チェック: isPermissionGranted = ${this.isPermissionGranted}`);
+        this.showDebug(`🔐 権限チェック: isPermissionGranted = ${this.isPermissionGranted}`);
     }
     
     if (!this.isPermissionGranted) {
@@ -637,7 +637,7 @@ handleOrientation(event) {
         newHeading = 360 - event.alpha;
         if (newHeading >= 360) newHeading -= 360;
         if (newHeading < 0) newHeading += 360;
-        //if (shouldDebug) this.showDebug(`🤖 Android方式採用: alpha = ${event.alpha}° → heading = ${newHeading}°`);
+        if (shouldDebug) this.showDebug(`🤖 Android方式採用: alpha = ${event.alpha}° → heading = ${newHeading}°`);
     }
     else {
         if (shouldDebug) this.showDebug(`❌ 有効なセンサーデータなし`);
@@ -647,7 +647,7 @@ handleOrientation(event) {
     this.heading = newHeading;
     
     if (shouldDebug) {
-        //this.showDebug(`📊 heading更新: ${oldHeading}° → ${this.heading}°`);
+        this.showDebug(`📊 heading更新: ${oldHeading}° → ${this.heading}°`);
     }
     
     const newTilt = event.beta || 0;
@@ -661,7 +661,7 @@ handleOrientation(event) {
     this.lastTime = currentTime;
     
     if (shouldDebug) {
-        //this.showDebug(`✅ updateDisplay呼び出し`);
+        this.showDebug(`✅ updateDisplay呼び出し`);
     }
     this.updateDisplay();
 }
@@ -838,7 +838,7 @@ updateDisplay() {
     }
     
     setupComplete() {
-        this.updateStatus('🎯 投球準備完了！');
+        this.updateStatus('🎯 投球準備完了！スタートボタンを押してください');
         this.updateCoordinatesDisplay();
         
         // Initialize canvas
@@ -1021,7 +1021,7 @@ initCanvas() {
             if (count > 0) {
                 this.showCountdown(count);
             } else {
-                this.showCountdown('投げろ！');
+                this.showCountdown('投げて！');
                 setTimeout(() => {
                     this.hideCountdown();
                     this.enableThrowDetection();
@@ -1071,7 +1071,7 @@ initCanvas() {
     startThrowWithShake() {
     if (this.isActive || !this.isDetectingShake) return;
     
-    console.log('🎯 投球時heading:', this.heading, '度');
+    this.showDebug(`🎯 ===== 投球角度設定確認 =====`);
     this.showDebug(`⏰ 設定時刻: ${new Date().toLocaleTimeString()}`);
     
     // 現在のコンパス状態を詳細に記録
@@ -1318,44 +1318,53 @@ async prepareAerialImages() {
         this.showDebug(`📍 位置: ${this.startPosition.lat.toFixed(6)}, ${this.startPosition.lng.toFixed(6)}`);
         this.showDebug(`🧭 投球角度: ${this.throwAngle}度`);
         
-        // 投球パワーに応じて最適なパラメータを計算
+        // 【重要】投球パワーに応じて最適なパラメータを計算
         const { zoom, imageSize } = this.calculateOptimalImageParams();
 
         // 地理院地図の航空写真を使用
         const aerialImage = await this.createGSIAerialImage(
             this.startPosition.lat, 
             this.startPosition.lng, 
-            zoom,
-            imageSize
+            zoom,     // ← 動的な値
+            imageSize // ← 動的な値
+            
         );
         
         this.showDebug(`✅ 地理院地図航空写真取得成功: ${aerialImage.naturalWidth}x${aerialImage.naturalHeight}`);
         
-        // 【重要修正】回転処理を確実に同期待機
+        // 投球方向に回転
         this.showDebug(`🔄 画像回転開始: ${this.throwAngle}度`);
-        
-        // 回転処理実行
         const rotatedImage = this.rotateImageForThrow(aerialImage, this.throwAngle);
         
-        // 【新規追加】回転完了を確実に待機する Promise
-        const finalRotatedImage = await this.waitForImageRotationComplete(rotatedImage);
+        // 回転完了を待つ
+        await new Promise((resolve) => {
+            if (rotatedImage.complete) {
+                this.showDebug('✅ 回転画像即座に完了');
+                resolve();
+            } else {
+                this.showDebug('⏳ 回転画像読み込み待機中...');
+                rotatedImage.onload = () => {
+                    this.showDebug('✅ 回転画像読み込み完了');
+                    resolve();
+                };
+                rotatedImage.onerror = (e) => {
+                    this.showDebug(`❌ 回転画像読み込み失敗: ${e}`);
+                    resolve();
+                };
+                setTimeout(() => {
+                    this.showDebug('⏰ 回転画像読み込みタイムアウト');
+                    resolve();
+                }, 3000);
+            }
+        });
         
-        this.showDebug(`✅ 回転処理完全完了`);
-        this.showDebug(`📦 最終画像状態:`);
-        this.showDebug(`  - サイズ: ${finalRotatedImage.naturalWidth}x${finalRotatedImage.naturalHeight}`);
-        this.showDebug(`  - complete: ${finalRotatedImage.complete}`);
-        this.showDebug(`  - 回転角度: ${this.throwAngle}度`);
-        
-        // 配列に格納（回転済み画像を確実に使用）
         this.aerialImages = [{
-            image: finalRotatedImage,  // ← 確実に回転完了した画像
+            image: rotatedImage,
             position: this.startPosition,
             distance: 0,
             index: 0,
             zoom: zoom,
-            imageSize: imageSize,
-            appliedRotation: this.throwAngle,  // ← デバッグ用回転角度記録
-            isRotated: true // ← 回転済みフラグを追加
+            imageSize: imageSize
         }];
 
         this.showDebug('✅ 地理院地図航空写真準備完了！');
@@ -1383,60 +1392,6 @@ async prepareAerialImages() {
         this.updatePreparationStatus();
     }
 }
-
-// 【新規追加】回転画像の完了を確実に待機するメソッド
-async waitForImageRotationComplete(rotatedImage) {
-    this.showDebug('⏳ 回転画像完了待機開始...');
-    
-    return new Promise((resolve, reject) => {
-        // すでに完了している場合
-        if (rotatedImage.complete && rotatedImage.naturalWidth > 0) {
-            this.showDebug('✅ 回転画像は既に完了済み');
-            resolve(rotatedImage);
-            return;
-        }
-        
-        // 完了を待つ
-        const onLoad = () => {
-            this.showDebug(`✅ 回転画像読み込み完了: ${rotatedImage.naturalWidth}x${rotatedImage.naturalHeight}`);
-            cleanup();
-            resolve(rotatedImage);
-        };
-        
-        const onError = (e) => {
-            this.showDebug(`❌ 回転画像読み込みエラー: ${e}`);
-            cleanup();
-            reject(new Error('回転画像読み込み失敗'));
-        };
-        
-        const onTimeout = () => {
-            this.showDebug('⏰ 回転画像読み込みタイムアウト');
-            cleanup();
-            // タイムアウトでも画像を返す（部分的に使用可能な可能性）
-            resolve(rotatedImage);
-        };
-        
-        const cleanup = () => {
-            rotatedImage.removeEventListener('load', onLoad);
-            rotatedImage.removeEventListener('error', onError);
-            clearTimeout(timeoutId);
-        };
-        
-        // イベントリスナー設定
-        rotatedImage.addEventListener('load', onLoad, { once: true });
-        rotatedImage.addEventListener('error', onError, { once: true });
-        
-        // 5秒タイムアウト
-        const timeoutId = setTimeout(onTimeout, 5000);
-        
-        this.showDebug('📥 回転画像イベントリスナー設定完了');
-    });
-}
-
-
-
-
-
 
 // 地理院地図航空写真作成メソッド
 async createGSIAerialImage(lat, lng, zoom, size) {
@@ -1570,8 +1525,6 @@ latToTileY(lat, zoom) {
 }
 
 
-
-
 // 【重要】画像回転が実際に実行されているかの確認
 
 rotateImageForThrow(originalImg, throwAngle) {
@@ -1583,7 +1536,7 @@ rotateImageForThrow(originalImg, throwAngle) {
     this.showDebug(`  - 画像src: ${originalImg.src ? originalImg.src.substring(0, 30) + '...' : 'データURL'}`);
     
     // 回転角度の詳細計算
-    const correctedAngle = throwAngle;
+    const correctedAngle = -(throwAngle - 90);
     this.showDebug(`🧮 回転角度計算:`);
     this.showDebug(`  - 入力角度: ${throwAngle}°`);
     this.showDebug(`  - 計算式: -(${throwAngle} - 90) = ${correctedAngle}°`);
@@ -1704,6 +1657,59 @@ rotateImageForThrow(originalImg, throwAngle) {
         return originalImg;
     }
 }
+
+// 【追加】投球角度設定時の詳細確認
+startThrowWithShake() {
+    if (this.isActive || !this.isDetectingShake) return;
+    
+    this.showDebug(`🎯 ===== 投球角度設定確認 =====`);
+    this.showDebug(`⏰ 設定時刻: ${new Date().toLocaleTimeString()}`);
+    
+    // 現在のコンパス状態を詳細に記録
+    this.showDebug(`📱 現在のコンパス状態:`);
+    this.showDebug(`  - 画面表示heading: ${document.getElementById('heading').textContent}`);
+    this.showDebug(`  - 画面表示compass: ${document.getElementById('compass').textContent}`);
+    this.showDebug(`  - this.heading値: ${this.heading}°`);
+    this.showDebug(`  - compassNeedle回転: ${this.compassNeedle.style.transform}`);
+    
+    console.log('🎯 投球準備処理開始');
+    this.isDetectingShake = false;
+    document.getElementById('powerMeter').style.display = 'none';
+    
+    // より細かい段階分けで現実的な飛距離に
+    let throwPower;
+    if (this.maxAcceleration <= 10) {
+        throwPower = 100 + (this.maxAcceleration - 8) * 100;
+    } else if (this.maxAcceleration <= 15) {
+        throwPower = 300 + (this.maxAcceleration - 10) * 60;
+    } else if (this.maxAcceleration <= 20) {
+        throwPower = 600 + (this.maxAcceleration - 15) * 80;
+    } else if (this.maxAcceleration <= 30) {
+        throwPower = 1000 + (this.maxAcceleration - 20) * 100;
+    } else {
+        throwPower = Math.min(2000, 1500 + (this.maxAcceleration - 25) * 100);
+    }
+    this.throwPower = Math.max(100, Math.round(throwPower));
+    
+    // 【重要】投球角度の設定
+    this.throwAngle = this.heading;
+    
+    this.showDebug(`🎯 投球角度設定:`);
+    this.showDebug(`  - this.heading → this.throwAngle: ${this.heading}° → ${this.throwAngle}°`);
+    this.showDebug(`  - 方向名: ${this.getCompassDirection(this.throwAngle)}`);
+    this.showDebug(`  - 投球パワー: ${this.throwPower}m`);
+    this.showDebug(`✅ ===== 投球角度設定完了 =====`);
+    
+    console.log(`投球検出! 最大加速度: ${this.maxAcceleration.toFixed(2)}, パワー: ${this.throwPower}m, 方向: ${this.throwAngle}°`);
+    
+    this.ballElement.classList.add('throwing');
+    this.ballTrailPoints = [];
+    this.clearTrails();
+    this.ballPosition = { ...this.startPosition };
+    
+    this.showResourcePreparation();
+}
+
 
 
 createDirectionalAerialImage(throwAngle) {
@@ -2060,7 +2066,6 @@ drawBackground(currentDistance, progress) {
             40
         );
 
-        /*
         // 画像情報とスクロール位置表示
         this.ctx.font = 'bold 14px Arial';
         this.ctx.fillText(
@@ -2068,7 +2073,7 @@ drawBackground(currentDistance, progress) {
             this.canvasWidth / 2, 
             70
         );
-        */
+
         // スクロール可能範囲の警告表示
         if (maxScroll === 0) {
             this.ctx.fillStyle = 'rgba(255, 255, 0, 0.9)';
